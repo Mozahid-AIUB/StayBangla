@@ -1,3 +1,8 @@
+# Explicit project name so all containers/volumes/network are namespaced under
+# "staybangla" (staybangla-postgres-1, staybangla_pgdata, ...) — never colliding
+# with any other project on this machine.
+name: staybangla
+
 services:
   postgres:
     image: postgres:16-alpine
