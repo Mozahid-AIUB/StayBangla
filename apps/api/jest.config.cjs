@@ -14,6 +14,7 @@ module.exports = {
     "!health/health.controller.ts",
     "!prisma/prisma.service.ts",
     "!common/redis/redis.service.ts",
+    "!**/*.port.ts",
   ],
   coverageThreshold: {
     global: { branches: 80, functions: 80, lines: 80, statements: 80 },
