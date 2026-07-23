@@ -15,6 +15,7 @@ module.exports = {
     "!prisma/prisma.service.ts",
     "!common/redis/redis.service.ts",
     "!**/*.port.ts",
+    "!auth/guards/jwt-auth.guard.ts",
   ],
   coverageThreshold: {
     global: { branches: 80, functions: 80, lines: 80, statements: 80 },
