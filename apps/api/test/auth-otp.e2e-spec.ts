@@ -4,6 +4,7 @@ import request from "supertest";
 import { AppModule } from "src/app.module";
 import { configureApp } from "src/bootstrap/configure-app";
 import { cleanDatabase } from "./helpers/test-db";
+import { cleanOtpKeys, disconnectTestRedis } from "./helpers/test-redis";
 
 describe("Auth OTP (e2e)", () => {
   let app: INestApplication;
@@ -19,11 +20,17 @@ describe("Auth OTP (e2e)", () => {
 
   afterAll(async () => {
     await cleanDatabase();
+    await cleanOtpKeys();
+    await disconnectTestRedis();
     await app.close();
   });
 
   beforeEach(async () => {
     await cleanDatabase();
+    // Rate-limit/cooldown counters live in Redis, not Postgres — cleanDatabase()
+    // alone leaves them behind across separate test-suite invocations, causing
+    // flaky 429s on identifiers reused between runs.
+    await cleanOtpKeys();
   });
 
   it("rejects a second request within the cooldown window", async () => {
