@@ -2,9 +2,8 @@
   "name": "@staybangla/config",
   "version": "0.0.0",
   "private": true,
-  "files": ["tsconfig.base.json", "eslint-preset.cjs"],
+  "files": ["tsconfig.base.json"],
   "peerDependencies": {
-    "eslint": "^9.0.0",
     "typescript": "^5.6.0"
   }
 }
