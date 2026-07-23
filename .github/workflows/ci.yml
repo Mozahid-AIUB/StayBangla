@@ -9,7 +9,12 @@ jobs:
     services:
       postgres:
         image: postgres:16-alpine
-        env: { POSTGRES_USER: staybangla, POSTGRES_PASSWORD: staybangla, POSTGRES_DB: staybangla }
+        env:
+          {
+            POSTGRES_USER: staybangla,
+            POSTGRES_PASSWORD: staybangla,
+            POSTGRES_DB: staybangla,
+          }
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U staybangla" --health-interval 5s --health-timeout 5s --health-retries 5
@@ -29,6 +34,28 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @staybangla/api exec prisma generate
       - run: pnpm --filter @staybangla/api exec prisma migrate deploy
+      - name: Create dedicated e2e test database
+        run: PGPASSWORD=staybangla psql -h localhost -U staybangla -d staybangla -c "CREATE DATABASE staybangla_test;"
+      - name: Generate ephemeral apps/api/.env.test for e2e tests
+        run: |
+          cat > apps/api/.env.test <<'EOF'
+          DATABASE_URL=postgresql://staybangla:staybangla@localhost:5432/staybangla_test?schema=public
+          REDIS_URL=redis://localhost:6379
+          API_PORT=3001
+          JWT_ACCESS_SECRET=ci-only-access-secret-32-characters-min
+          JWT_ACCESS_EXPIRES_IN=15m
+          JWT_REFRESH_SECRET=ci-only-refresh-secret-32-characters-min
+          JWT_REFRESH_EXPIRES_IN=30d
+          OTP_TTL_SECONDS=300
+          OTP_MAX_ATTEMPTS=5
+          OTP_RESEND_COOLDOWN_SECONDS=60
+          OTP_RATE_LIMIT_PER_IDENTIFIER_PER_HOUR=5
+          OTP_RATE_LIMIT_PER_IP_PER_HOUR=10
+          OTP_PEPPER=ci-only-otp-pepper
+          ARGON2_MEMORY_COST_KIB=8192
+          ARGON2_TIME_COST=1
+          EOF
+      - run: pnpm --filter @staybangla/api exec dotenv -e .env.test -- prisma migrate deploy
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
