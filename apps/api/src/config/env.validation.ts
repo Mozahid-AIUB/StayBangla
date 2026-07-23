@@ -1,10 +1,37 @@
 import { z } from "zod";
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  NODE_ENV: z
+    .enum(["development", "test", "production"])
+    .default("development"),
   API_PORT: z.coerce.number().int().positive().default(3001),
   DATABASE_URL: z.string().url(),
   CORS_ORIGINS: z.string().default("http://localhost:3000"),
+
+  REDIS_URL: z.string().url(),
+
+  JWT_ACCESS_SECRET: z.string().min(32),
+  JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
+  JWT_REFRESH_SECRET: z.string().min(32),
+  JWT_REFRESH_EXPIRES_IN: z.string().default("30d"),
+
+  OTP_TTL_SECONDS: z.coerce.number().int().positive().default(300),
+  OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  OTP_RESEND_COOLDOWN_SECONDS: z.coerce.number().int().positive().default(60),
+  OTP_RATE_LIMIT_PER_IDENTIFIER_PER_HOUR: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5),
+  OTP_RATE_LIMIT_PER_IP_PER_HOUR: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10),
+  OTP_PEPPER: z.string().min(16),
+
+  ARGON2_MEMORY_COST_KIB: z.coerce.number().int().positive().default(19456),
+  ARGON2_TIME_COST: z.coerce.number().int().positive().default(2),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
@@ -12,7 +39,9 @@ export type EnvConfig = z.infer<typeof envSchema>;
 export function validateEnv(config: Record<string, unknown>): EnvConfig {
   const result = envSchema.safeParse(config);
   if (!result.success) {
-    const issues = result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ");
+    const issues = result.error.issues
+      .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+      .join("; ");
     throw new Error(`Invalid environment configuration: ${issues}`);
   }
   return result.data;
