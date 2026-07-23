@@ -53,7 +53,7 @@ jobs:
           OTP_RATE_LIMIT_PER_IP_PER_HOUR=10
           OTP_PEPPER=ci-only-otp-pepper
           ARGON2_MEMORY_COST_KIB=8192
-          ARGON2_TIME_COST=1
+          ARGON2_TIME_COST=2
           EOF
       - run: pnpm --filter @staybangla/api exec dotenv -e .env.test -- prisma migrate deploy
       - run: pnpm lint

@@ -2,8 +2,15 @@ import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 
 export function extractCookie(res: request.Response): string {
-  const raw = (res.headers["set-cookie"] as unknown as string[])[0];
-  return raw.split(";")[0];
+  const raw = (
+    res.headers["set-cookie"] as unknown as string[] | undefined
+  )?.[0];
+  if (!raw) {
+    throw new Error(
+      "Expected a Set-Cookie header on the response, but none was present",
+    );
+  }
+  return raw.split(";")[0]!;
 }
 
 export async function registerAndLogin(
