@@ -81,4 +81,31 @@ describe("AllExceptionsFilter", () => {
     const body = json.mock.calls[0][0];
     expect(new Date(body.timestamp).toISOString()).toBe(body.timestamp);
   });
+
+  it("falls back to the exception's own name/message when the response object omits them", () => {
+    const { host, status, json } = createMockHost();
+
+    filter.catch(new HttpException({}, HttpStatus.FORBIDDEN), host);
+
+    expect(status).toHaveBeenCalledWith(403);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 403,
+        error: "HttpException",
+        message: "Http Exception",
+      }),
+    );
+  });
+
+  it("does not crash and still returns 500 when a non-Error value is thrown", () => {
+    const { host, status, json } = createMockHost();
+
+    // e.g. `throw "raw string"` — no .stack property to read, must not blow up.
+    filter.catch("raw string thrown, not an Error instance", host);
+
+    expect(status).toHaveBeenCalledWith(500);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({ statusCode: 500, message: "An unexpected error occurred" }),
+    );
+  });
 });

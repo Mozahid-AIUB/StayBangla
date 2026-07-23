@@ -3,14 +3,18 @@ module.exports = {
   testEnvironment: "node",
   rootDir: "src",
   testMatch: ["**/*.spec.ts"],
+  // Excludes are thin wiring/adapters with no branching logic of their own —
+  // fully exercised by e2e tests (test/*.e2e-spec.ts), not unit tests.
   collectCoverageFrom: [
     "**/*.ts",
     "!**/*.spec.ts",
     "!main.ts",
     "!**/*.module.ts",
     "!bootstrap/configure-app.ts",
+    "!health/health.controller.ts",
+    "!prisma/prisma.service.ts",
   ],
   coverageThreshold: {
-    global: { branches: 70, functions: 70, lines: 70, statements: 70 },
+    global: { branches: 80, functions: 80, lines: 80, statements: 80 },
   },
 };

@@ -8,7 +8,7 @@
     "start": "node dist/main.js",
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
-    "test:unit": "jest --config jest.config.cjs",
+    "test:unit": "jest --config jest.config.cjs --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test": "pnpm run test:unit && pnpm run test:e2e",
     "postinstall": "prisma generate",
