@@ -1,0 +1,17 @@
+import { INestApplication, ValidationPipe } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import helmet from "helmet";
+import { AllExceptionsFilter } from "../common/filters/all-exceptions.filter";
+import { parseCorsOrigins } from "./parse-cors-origins";
+
+// Shared by main.ts (real bootstrap) and e2e tests, so tests exercise the exact
+// same hardening wiring that runs in production — no risk of the two drifting apart.
+export function configureApp(app: INestApplication): void {
+  const configService = app.get(ConfigService);
+  const corsOrigins = parseCorsOrigins(configService.get<string>("CORS_ORIGINS", "http://localhost:3000"));
+
+  app.use(helmet());
+  app.enableCors({ origin: corsOrigins, credentials: true });
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+  app.useGlobalFilters(new AllExceptionsFilter());
+}
