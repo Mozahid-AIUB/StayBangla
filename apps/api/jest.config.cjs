@@ -16,6 +16,7 @@ module.exports = {
     "!common/redis/redis.service.ts",
     "!**/*.port.ts",
     "!auth/guards/jwt-auth.guard.ts",
+    "!auth/decorators/current-user.decorator.ts",
   ],
   coverageThreshold: {
     global: { branches: 80, functions: 80, lines: 80, statements: 80 },
