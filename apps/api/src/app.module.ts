@@ -4,6 +4,9 @@ import { LoggerModule } from "nestjs-pino";
 import { validateEnv } from "./config/env.validation";
 import { PrismaModule } from "./prisma/prisma.module";
 import { RedisModule } from "./common/redis/redis.module";
+import { CaslModule } from "./casl/casl.module";
+import { UsersModule } from "./users/users.module";
+import { AuthModule } from "./auth/auth.module";
 import { HealthModule } from "./health/health.module";
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -25,6 +28,9 @@ const isProduction = process.env.NODE_ENV === "production";
     }),
     PrismaModule,
     RedisModule,
+    CaslModule,
+    UsersModule,
+    AuthModule,
     HealthModule,
   ],
 })
