@@ -55,10 +55,7 @@ export class CredentialsService {
       throw new UnauthorizedException("Invalid credentials");
     }
 
-    const roles =
-      (user as User & { roles?: { role: string }[] }).roles?.map(
-        (r) => r.role,
-      ) ?? [];
+    const roles = user.roles.map((r) => r.role);
     return this.tokenService.issueTokenPair({ id: user.id, roles });
   }
 }

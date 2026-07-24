@@ -16,7 +16,20 @@ interface UserSubject {
   id: string;
 }
 
-export type AppSubjects = InferSubjects<UserSubject> | "all";
+interface HotelSubject {
+  __caslSubjectType__: "Hotel";
+  id: string;
+  ownerId: string;
+}
+
+interface VehicleSubject {
+  __caslSubjectType__: "Vehicle";
+  id: string;
+  ownerId: string;
+}
+
+export type AppSubjects =
+  InferSubjects<UserSubject | HotelSubject | VehicleSubject> | "all";
 export type AppAbility = MongoAbility<[string, AppSubjects]>;
 
 @Injectable()
@@ -27,9 +40,17 @@ export class CaslAbilityFactory {
     if (user.roles.includes("ADMIN") || user.roles.includes("SUPER_ADMIN")) {
       can("read", "User");
       can("update", "User");
+      can("read", "Hotel");
+      can("update", "Hotel");
+      can("read", "Vehicle");
+      can("update", "Vehicle");
     } else {
       can("read", "User", { id: user.id });
       can("update", "User", { id: user.id });
+      can("read", "Hotel", { ownerId: user.id });
+      can("update", "Hotel", { ownerId: user.id });
+      can("read", "Vehicle", { ownerId: user.id });
+      can("update", "Vehicle", { ownerId: user.id });
     }
 
     return build({

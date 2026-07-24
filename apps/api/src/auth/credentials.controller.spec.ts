@@ -92,6 +92,28 @@ describe("CredentialsController", () => {
     );
   });
 
+  it("refresh() resolves roles to an empty array when the user record is missing", async () => {
+    usersService.findById.mockResolvedValue(null);
+    let resolvedUser: unknown;
+    tokenService.rotateRefreshToken.mockImplementation(
+      async (
+        _token: string,
+        resolveUser: (userId: string) => Promise<unknown>,
+      ) => {
+        resolvedUser = await resolveUser("u1");
+        return { accessToken: "at3", refreshToken: "rt3" };
+      },
+    );
+
+    const result = await controller.refresh(
+      { cookies: { refreshToken: "rt" } } as never,
+      res as never,
+    );
+
+    expect(resolvedUser).toEqual({ id: "u1", roles: [] });
+    expect(result).toEqual({ accessToken: "at3" });
+  });
+
   it("logout() revokes the token family and clears the cookie", async () => {
     await controller.logout(
       { cookies: { refreshToken: "rt" } } as never,

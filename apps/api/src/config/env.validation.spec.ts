@@ -70,4 +70,9 @@ describe("validateEnv", () => {
     expect(result.ARGON2_MEMORY_COST_KIB).toBe(19456);
     expect(result.ARGON2_TIME_COST).toBe(2);
   });
+
+  it("applies the booking hold-timer default when not provided", () => {
+    const result = validateEnv({ ...REQUIRED_BASE });
+    expect(result.BOOKING_HOLD_MINUTES).toBe(15);
+  });
 });

@@ -8,9 +8,19 @@ describe("shared enums", () => {
     expect(BookingStatus.AUTO_CANCELLED).toBe("AUTO_CANCELLED");
   });
 
+  it("BookingStatus includes BLOCKED for vendor-created maintenance entries", () => {
+    expect(BookingStatus.BLOCKED).toBe("BLOCKED");
+  });
+
   it("UserRole includes all platform roles", () => {
     expect(Object.values(UserRole)).toEqual(
-      expect.arrayContaining(["TRAVELER", "VENDOR", "GUIDE", "ADMIN", "SUPER_ADMIN"])
+      expect.arrayContaining([
+        "TRAVELER",
+        "VENDOR",
+        "GUIDE",
+        "ADMIN",
+        "SUPER_ADMIN",
+      ]),
     );
   });
 });

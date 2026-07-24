@@ -4,6 +4,8 @@ import { UsersService } from "./users.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { PoliciesGuard } from "../casl/policies.guard";
+import { CHECK_POLICIES_KEY } from "../casl/decorators/check-policies.decorator";
+import { CaslAbilityFactory } from "../casl/casl-ability.factory";
 
 describe("UsersController", () => {
   let controller: UsersController;
@@ -52,5 +54,35 @@ describe("UsersController", () => {
       fullName: "B",
     });
     expect(result).not.toHaveProperty("passwordHash");
+  });
+
+  describe("updateMe() @CheckPolicies handler", () => {
+    // The policy handler is an inline closure passed to the decorator, so it's
+    // only invoked by a real PoliciesGuard evaluation — mocking the guard (as
+    // above) never calls it. Pull it out via reflection and exercise it
+    // directly against a real CaslAbilityFactory, matching this project's
+    // convention of unit-testing policy handlers in isolation
+    // (see casl/policies.guard.spec.ts).
+    const [handler] = Reflect.getMetadata(
+      CHECK_POLICIES_KEY,
+      UsersController.prototype.updateMe,
+    ) as [(ability: unknown, request: { user: { id: string } }) => boolean];
+    const abilityFactory = new CaslAbilityFactory();
+
+    it("allows a user to update their own profile", () => {
+      const ability = abilityFactory.createForUser({
+        id: "u1",
+        roles: ["TRAVELER"],
+      });
+      expect(handler(ability, { user: { id: "u1" } })).toBe(true);
+    });
+
+    it("denies a user updating someone else's profile", () => {
+      const ability = abilityFactory.createForUser({
+        id: "u1",
+        roles: ["TRAVELER"],
+      });
+      expect(handler(ability, { user: { id: "u2" } })).toBe(false);
+    });
   });
 });
