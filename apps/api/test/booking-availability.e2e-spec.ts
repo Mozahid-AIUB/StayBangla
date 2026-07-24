@@ -39,7 +39,7 @@ describe("Booking availability search (e2e)", () => {
 
     const res = await request(app.getHttpServer())
       .get("/rooms/available")
-      .query({ checkIn: "2027-03-01", checkOut: "2027-03-03", city: "Dhaka" });
+      .query({ checkIn: "2027-03-01", checkOut: "2027-03-03", city: "DHAKA" });
 
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
