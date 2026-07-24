@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
-import { User, VendorVerificationLog } from "@prisma/client";
+import { VendorVerificationLog } from "@prisma/client";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -7,6 +7,7 @@ import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { RequestUser } from "../auth/strategies/jwt-access.strategy";
 import { VendorVerificationService } from "./vendor-verification.service";
 import { RejectVendorDto } from "./dto/reject-vendor.dto";
+import { toPublicUser, PublicUser } from "../users/to-public-user";
 
 @Controller("admin/vendors")
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -17,16 +18,18 @@ export class VendorVerificationController {
   ) {}
 
   @Get("pending")
-  async listPending(): Promise<User[]> {
-    return this.vendorVerificationService.listPending();
+  async listPending(): Promise<PublicUser[]> {
+    const vendors = await this.vendorVerificationService.listPending();
+    return vendors.map(toPublicUser);
   }
 
   @Post(":id/approve")
   async approve(
     @CurrentUser() admin: RequestUser,
     @Param("id") id: string,
-  ): Promise<User> {
-    return this.vendorVerificationService.approve(admin.id, id);
+  ): Promise<PublicUser> {
+    const vendor = await this.vendorVerificationService.approve(admin.id, id);
+    return toPublicUser(vendor);
   }
 
   @Post(":id/reject")
@@ -34,8 +37,13 @@ export class VendorVerificationController {
     @CurrentUser() admin: RequestUser,
     @Param("id") id: string,
     @Body() dto: RejectVendorDto,
-  ): Promise<User> {
-    return this.vendorVerificationService.reject(admin.id, id, dto.reason);
+  ): Promise<PublicUser> {
+    const vendor = await this.vendorVerificationService.reject(
+      admin.id,
+      id,
+      dto.reason,
+    );
+    return toPublicUser(vendor);
   }
 
   @Get(":id/history")
