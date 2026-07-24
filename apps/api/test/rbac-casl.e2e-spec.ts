@@ -5,6 +5,7 @@ import { AppModule } from "src/app.module";
 import { configureApp } from "src/bootstrap/configure-app";
 import { cleanDatabase } from "./helpers/test-db";
 import { registerAndLogin } from "./helpers/test-users";
+import { createVerifiedVendor } from "./helpers/test-fixtures";
 
 describe("RBAC + CASL (e2e)", () => {
   let app: INestApplication;
@@ -71,5 +72,31 @@ describe("RBAC + CASL (e2e)", () => {
       .get("/users/me")
       .set("Authorization", "Bearer not-a-real-jwt");
     expect(res.status).toBe(401);
+  });
+
+  it('a real vendor login carries the VENDOR role through to a @Roles("VENDOR")-gated route', async () => {
+    // Regression test: CredentialsService.login previously issued JWTs with
+    // roles: [] for every user (UsersService.findByIdentifier never included
+    // the roles relation), so RolesGuard rejected every @Roles(...)-gated
+    // route for every real vendor, before the request ever reached the
+    // service layer. Unit tests never caught this because they mock
+    // UsersService directly. This test exercises the real login->JWT->guard
+    // path end-to-end against the real database. A VERIFIED vendor is used
+    // so a 201/200 response isolates the RolesGuard/JWT fix from the
+    // separate (and correct) verifiedStatus business check in HotelsService.
+    const { accessToken } = await createVerifiedVendor(
+      app,
+      "rbac-vendor@example.com",
+    );
+    const res = await request(app.getHttpServer())
+      .post("/hotels")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        name: "Regression Test Hotel",
+        city: "Dhaka",
+        address: "1 Test Rd",
+      });
+
+    expect(res.status).toBe(201);
   });
 });
