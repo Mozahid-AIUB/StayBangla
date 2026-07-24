@@ -37,6 +37,9 @@ export interface RoomAvailability {
   capacity: number;
 }
 
+// Mirrors @staybangla/shared-types' HotelWithDetails (packages/shared-types/src/hotel.ts).
+// Not compiler-enforced (this package has no dependency on shared-types) — keep the two
+// shapes in sync by hand if either changes.
 export interface HotelDetailResult extends Hotel {
   rooms: Room[];
   photos: HotelPhoto[];
