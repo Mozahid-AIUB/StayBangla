@@ -85,4 +85,28 @@ describe("HotelsService", () => {
       );
     });
   });
+
+  describe("searchAvailableRooms", () => {
+    it("delegates to a raw query with the given date range and optional city", async () => {
+      (prisma as unknown as { $queryRaw: jest.Mock }).$queryRaw = jest
+        .fn()
+        .mockResolvedValue([
+          {
+            id: "r1",
+            hotelId: "h1",
+            roomType: "DOUBLE",
+            pricePerNightMinor: 500000,
+            currency: "BDT",
+            capacity: 2,
+          },
+        ]);
+      const results = await service.searchAvailableRooms(
+        "2026-09-01",
+        "2026-09-03",
+        "Dhaka",
+      );
+      expect(results).toHaveLength(1);
+      expect(results[0]!.roomType).toBe("DOUBLE");
+    });
+  });
 });
