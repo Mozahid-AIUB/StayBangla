@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   Param,
   Post,
   UseGuards,
@@ -20,6 +21,11 @@ import { ConfirmPhotoDto } from "./dto/confirm-photo.dto";
 @Controller("hotels")
 export class HotelsController {
   constructor(private readonly hotelsService: HotelsService) {}
+
+  @Get(":id")
+  async findOne(@Param("id") id: string): Promise<Hotel> {
+    return this.hotelsService.findPublicDetailOrThrow(id);
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
