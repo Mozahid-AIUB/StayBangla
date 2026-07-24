@@ -2,6 +2,7 @@ import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { registerAndLogin } from "./test-users";
 import { testPrisma } from "./test-db";
+import { TokenService } from "../../src/auth/token.service";
 
 export async function createVerifiedVendor(
   app: INestApplication,
@@ -42,4 +43,32 @@ export async function createHotelWithRoom(
     });
 
   return { hotelId: hotel.body.id as string, roomId: room.body.id as string };
+}
+
+export async function createTraveler(
+  app: INestApplication,
+  email: string,
+): Promise<{ travelerId: string; accessToken: string }> {
+  const user = await testPrisma.user.create({
+    data: {
+      email,
+      fullName: "Test Traveler",
+      verifiedStatus: "VERIFIED",
+      roles: { create: [{ role: "TRAVELER" }] },
+    },
+  });
+
+  // Test-only shortcut: real TRAVELER users are only ever created via the OTP
+  // verify flow (no e2e-capturable OTP delivery exists yet), so this bypasses
+  // HTTP entirely for user creation — same pattern as createVerifiedVendor's
+  // direct Prisma flip of verifiedStatus above. The DI-wired TokenService
+  // instance is pulled from the compiled test module so token issuance
+  // (JWT secret/expiry, refresh-token persistence) exactly matches production.
+  const tokenService = app.get(TokenService);
+  const { accessToken } = await tokenService.issueTokenPair({
+    id: user.id,
+    roles: ["TRAVELER"],
+  });
+
+  return { travelerId: user.id, accessToken };
 }
