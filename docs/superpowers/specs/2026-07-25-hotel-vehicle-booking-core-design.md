@@ -1,6 +1,6 @@
 # Hotel/Vehicle Booking Core — Design
 
-**Status:** Approved for planning
+**Status:** Implemented — merged to `main` via [PR #9](https://github.com/Mozahid-AIUB/StayBangla/pull/9) (2026-07-24)
 **Scope:** Backend + database only (`apps/api`). No frontend/UI in this change.
 **Depends on:** `add-auth-otp-rbac` (Phase 1, merged) — reuses User/Role/CASL foundation.
 
