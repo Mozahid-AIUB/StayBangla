@@ -6,6 +6,8 @@ const REQUIRED_BASE = {
   JWT_ACCESS_SECRET: "a".repeat(32),
   JWT_REFRESH_SECRET: "b".repeat(32),
   OTP_PEPPER: "c".repeat(16),
+  MINIO_ACCESS_KEY: "test-access-key",
+  MINIO_SECRET_KEY: "test-secret-key",
 };
 
 describe("validateEnv", () => {
@@ -74,5 +76,27 @@ describe("validateEnv", () => {
   it("applies the booking hold-timer default when not provided", () => {
     const result = validateEnv({ ...REQUIRED_BASE });
     expect(result.BOOKING_HOLD_MINUTES).toBe(15);
+  });
+
+  it("applies MinIO and presigned-URL defaults when not provided", () => {
+    const result = validateEnv({
+      ...REQUIRED_BASE,
+      MINIO_ACCESS_KEY: "staybangla",
+      MINIO_SECRET_KEY: "staybangla-secret",
+    });
+    expect(result.MINIO_ENDPOINT).toBe("127.0.0.1");
+    expect(result.MINIO_PORT).toBe(9000);
+    expect(result.MINIO_USE_SSL).toBe(false);
+    expect(result.MINIO_BUCKET).toBe("staybangla-photos");
+    expect(result.PRESIGNED_URL_EXPIRY_SECONDS).toBe(300);
+  });
+
+  it("throws when MINIO_ACCESS_KEY is missing", () => {
+    const { MINIO_ACCESS_KEY: _omit, ...withoutKey } = {
+      ...REQUIRED_BASE,
+      MINIO_ACCESS_KEY: "x",
+      MINIO_SECRET_KEY: "y",
+    };
+    expect(() => validateEnv(withoutKey)).toThrow(/MINIO_ACCESS_KEY/);
   });
 });
