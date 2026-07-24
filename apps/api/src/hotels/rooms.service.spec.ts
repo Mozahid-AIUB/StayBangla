@@ -1,4 +1,4 @@
-import { ForbiddenException } from "@nestjs/common";
+import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { HotelsService } from "./hotels.service";
 import { RoomsService } from "./rooms.service";
@@ -86,6 +86,13 @@ describe("RoomsService", () => {
       await expect(
         service.update("v1", "r1", { isActive: false }),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("throws NotFoundException when the room doesn't exist", async () => {
+      prisma.room.findUnique.mockResolvedValue(null);
+      await expect(
+        service.update("v1", "missing", { isActive: false }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

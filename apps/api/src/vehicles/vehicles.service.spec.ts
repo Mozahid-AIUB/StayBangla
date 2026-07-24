@@ -103,5 +103,12 @@ describe("VehiclesService", () => {
       );
       expect(results).toHaveLength(1);
     });
+
+    it("delegates to a raw query without a city filter when city is omitted", async () => {
+      prisma.$queryRaw.mockResolvedValue([]);
+      const results = await service.searchAvailable("2026-09-01", "2026-09-02");
+      expect(results).toEqual([]);
+      expect(prisma.$queryRaw).toHaveBeenCalled();
+    });
   });
 });

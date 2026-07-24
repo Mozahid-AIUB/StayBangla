@@ -59,4 +59,17 @@ describe("VehiclesController", () => {
     });
     expect(result).toEqual({ id: "veh1" });
   });
+
+  it("update() delegates with the caller's id and vehicle id", async () => {
+    vehiclesService.update.mockResolvedValue({ id: "veh1", isActive: false });
+    const result = await controller.update(
+      { id: "v1", roles: ["VENDOR"] },
+      "veh1",
+      { isActive: false },
+    );
+    expect(vehiclesService.update).toHaveBeenCalledWith("v1", "veh1", {
+      isActive: false,
+    });
+    expect(result).toEqual({ id: "veh1", isActive: false });
+  });
 });

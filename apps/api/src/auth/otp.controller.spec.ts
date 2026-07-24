@@ -81,6 +81,32 @@ describe("OtpController", () => {
     expect(result.user).not.toHaveProperty("passwordHash");
   });
 
+  it("verify() creates a new TRAVELER user keyed by email when identifier contains '@'", async () => {
+    otpService.verifyOtp.mockResolvedValue(true);
+    usersService.findByIdentifier.mockResolvedValue(null);
+    usersService.create.mockResolvedValue({
+      id: "u2",
+      email: "traveler@example.com",
+      passwordHash: null,
+    });
+    tokenService.issueTokenPair.mockResolvedValue({
+      accessToken: "at",
+      refreshToken: "rt",
+    });
+
+    await controller.verify(
+      { identifier: "traveler@example.com", otp: "123456" },
+      res as never,
+    );
+
+    expect(usersService.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "traveler@example.com",
+        role: "TRAVELER",
+      }),
+    );
+  });
+
   it("verify() reuses an existing user instead of creating a duplicate", async () => {
     otpService.verifyOtp.mockResolvedValue(true);
     usersService.findByIdentifier.mockResolvedValue({

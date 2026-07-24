@@ -108,5 +108,19 @@ describe("HotelsService", () => {
       expect(results).toHaveLength(1);
       expect(results[0]!.roomType).toBe("DOUBLE");
     });
+
+    it("delegates to a raw query without a city filter when city is omitted", async () => {
+      (prisma as unknown as { $queryRaw: jest.Mock }).$queryRaw = jest
+        .fn()
+        .mockResolvedValue([]);
+      const results = await service.searchAvailableRooms(
+        "2026-09-01",
+        "2026-09-03",
+      );
+      expect(results).toEqual([]);
+      expect(
+        (prisma as unknown as { $queryRaw: jest.Mock }).$queryRaw,
+      ).toHaveBeenCalled();
+    });
   });
 });

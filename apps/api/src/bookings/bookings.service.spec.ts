@@ -177,6 +177,154 @@ describe("BookingsService.createBooking", () => {
       }),
     ).rejects.toThrow(ConflictException);
   });
+
+  it("rethrows a non-exclusion-violation error from the insert unchanged", async () => {
+    prisma.room.findUnique.mockResolvedValue({
+      id: "r1",
+      isActive: true,
+      capacity: 2,
+      pricePerNightMinor: 500000,
+      currency: "BDT",
+      hotel: { ownerId: "v1", owner: { verifiedStatus: "VERIFIED" } },
+    });
+    prisma.$queryRaw.mockRejectedValue(new Error("connection reset"));
+
+    await expect(
+      service.createBooking("u1", {
+        bookableType: "ROOM",
+        bookableId: "r1",
+        checkIn: "2026-09-01",
+        checkOut: "2026-09-03",
+      }),
+    ).rejects.toThrow("connection reset");
+  });
+
+  it("throws when the insert unexpectedly returns no rows", async () => {
+    prisma.room.findUnique.mockResolvedValue({
+      id: "r1",
+      isActive: true,
+      capacity: 2,
+      pricePerNightMinor: 500000,
+      currency: "BDT",
+      hotel: { ownerId: "v1", owner: { verifiedStatus: "VERIFIED" } },
+    });
+    prisma.$queryRaw.mockResolvedValue([]);
+
+    await expect(
+      service.createBooking("u1", {
+        bookableType: "ROOM",
+        bookableId: "r1",
+        checkIn: "2026-09-01",
+        checkOut: "2026-09-03",
+      }),
+    ).rejects.toThrow("Booking insert returned no rows");
+  });
+
+  describe("VEHICLE bookableType", () => {
+    it("throws NotFoundException when the vehicle doesn't exist", async () => {
+      prisma.vehicle.findUnique.mockResolvedValue(null);
+      await expect(
+        service.createBooking("u1", {
+          bookableType: "VEHICLE",
+          bookableId: "missing",
+          checkIn: "2026-09-01",
+          checkOut: "2026-09-03",
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("throws NotFoundException when the vehicle is inactive", async () => {
+      prisma.vehicle.findUnique.mockResolvedValue({
+        id: "veh1",
+        isActive: false,
+        capacity: 4,
+        pricePerDayMinor: 300000,
+        currency: "BDT",
+        ownerId: "v1",
+        owner: { verifiedStatus: "VERIFIED" },
+      });
+      await expect(
+        service.createBooking("u1", {
+          bookableType: "VEHICLE",
+          bookableId: "veh1",
+          checkIn: "2026-09-01",
+          checkOut: "2026-09-03",
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("throws BadRequestException when guestCount exceeds vehicle capacity", async () => {
+      prisma.vehicle.findUnique.mockResolvedValue({
+        id: "veh1",
+        isActive: true,
+        capacity: 3,
+        pricePerDayMinor: 300000,
+        currency: "BDT",
+        ownerId: "v1",
+        owner: { verifiedStatus: "VERIFIED" },
+      });
+      await expect(
+        service.createBooking("u1", {
+          bookableType: "VEHICLE",
+          bookableId: "veh1",
+          checkIn: "2026-09-01",
+          checkOut: "2026-09-03",
+          guestCount: 5,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("throws ForbiddenException when the vehicle owner isn't verified", async () => {
+      prisma.vehicle.findUnique.mockResolvedValue({
+        id: "veh1",
+        isActive: true,
+        capacity: 4,
+        pricePerDayMinor: 300000,
+        currency: "BDT",
+        ownerId: "v1",
+        owner: { verifiedStatus: "PENDING" },
+      });
+      await expect(
+        service.createBooking("u1", {
+          bookableType: "VEHICLE",
+          bookableId: "veh1",
+          checkIn: "2026-09-01",
+          checkOut: "2026-09-03",
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("creates a HELD booking for a verified vehicle owner", async () => {
+      prisma.vehicle.findUnique.mockResolvedValue({
+        id: "veh1",
+        isActive: true,
+        capacity: 4,
+        pricePerDayMinor: 300000,
+        currency: "BDT",
+        ownerId: "v1",
+        owner: { verifiedStatus: "VERIFIED" },
+      });
+      prisma.$queryRaw.mockResolvedValue([
+        makeRawRow({
+          bookableType: "VEHICLE",
+          roomId: null,
+          vehicleId: "veh1",
+          totalAmountMinor: 600000,
+        }),
+      ]);
+
+      const result = await service.createBooking("u1", {
+        bookableType: "VEHICLE",
+        bookableId: "veh1",
+        checkIn: "2026-09-01",
+        checkOut: "2026-09-03",
+        guestCount: 2,
+      });
+
+      expect(result.totalAmountMinor).toBe(600000); // 2 days * 300000
+      expect(result.status).toBe("HELD");
+    });
+  });
 });
 
 describe("BookingsService.confirmPayment", () => {
@@ -484,5 +632,105 @@ describe("BookingsService.createBlock", () => {
         endDate: "2026-09-03",
       }),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it("rethrows a non-exclusion-violation error from the block insert unchanged", async () => {
+    prisma.room.findUnique.mockResolvedValue({
+      id: "r1",
+      isActive: true,
+      hotel: { ownerId: "v1" },
+    });
+    prisma.$queryRaw.mockRejectedValue(new Error("connection reset"));
+    await expect(
+      service.createBlock("v1", {
+        bookableType: "ROOM",
+        bookableId: "r1",
+        startDate: "2026-09-01",
+        endDate: "2026-09-03",
+      }),
+    ).rejects.toThrow("connection reset");
+  });
+
+  it("throws when the block insert unexpectedly returns no rows", async () => {
+    prisma.room.findUnique.mockResolvedValue({
+      id: "r1",
+      isActive: true,
+      hotel: { ownerId: "v1" },
+    });
+    prisma.$queryRaw.mockResolvedValue([]);
+    await expect(
+      service.createBlock("v1", {
+        bookableType: "ROOM",
+        bookableId: "r1",
+        startDate: "2026-09-01",
+        endDate: "2026-09-03",
+      }),
+    ).rejects.toThrow("Block insert returned no rows");
+  });
+
+  describe("VEHICLE bookableType", () => {
+    it("throws NotFoundException when the vehicle doesn't exist", async () => {
+      prisma.vehicle.findUnique.mockResolvedValue(null);
+      await expect(
+        service.createBlock("v1", {
+          bookableType: "VEHICLE",
+          bookableId: "missing",
+          startDate: "2026-09-01",
+          endDate: "2026-09-03",
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("throws NotFoundException when the vehicle is inactive", async () => {
+      prisma.vehicle.findUnique.mockResolvedValue({
+        id: "veh1",
+        isActive: false,
+        ownerId: "v1",
+      });
+      await expect(
+        service.createBlock("v1", {
+          bookableType: "VEHICLE",
+          bookableId: "veh1",
+          startDate: "2026-09-01",
+          endDate: "2026-09-03",
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("rejects a block on a vehicle the caller does not own", async () => {
+      prisma.vehicle.findUnique.mockResolvedValue({
+        id: "veh1",
+        isActive: true,
+        ownerId: "someone-else",
+      });
+      await expect(
+        service.createBlock("v1", {
+          bookableType: "VEHICLE",
+          bookableId: "veh1",
+          startDate: "2026-09-01",
+          endDate: "2026-09-03",
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("creates a BLOCKED row via raw insert for the caller's own vehicle", async () => {
+      prisma.vehicle.findUnique.mockResolvedValue({
+        id: "veh1",
+        isActive: true,
+        ownerId: "v1",
+      });
+      prisma.$queryRaw.mockResolvedValue([
+        { id: "block-1", status: "BLOCKED" },
+      ]);
+
+      await service.createBlock("v1", {
+        bookableType: "VEHICLE",
+        bookableId: "veh1",
+        startDate: "2026-09-01",
+        endDate: "2026-09-03",
+      });
+
+      expect(prisma.$queryRaw).toHaveBeenCalled();
+    });
   });
 });
