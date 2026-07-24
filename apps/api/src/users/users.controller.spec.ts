@@ -1,6 +1,7 @@
 import { Test } from "@nestjs/testing";
 import { UsersController } from "./users.controller";
 import { UsersService } from "./users.service";
+import { VendorVerificationService } from "../admin/vendor-verification.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { PoliciesGuard } from "../casl/policies.guard";
@@ -10,14 +11,22 @@ import { CaslAbilityFactory } from "../casl/casl-ability.factory";
 describe("UsersController", () => {
   let controller: UsersController;
   let usersService: { findById: jest.Mock; updateProfile: jest.Mock };
+  let vendorVerificationService: { resubmit: jest.Mock };
 
   beforeEach(async () => {
     usersService = { findById: jest.fn(), updateProfile: jest.fn() };
+    vendorVerificationService = { resubmit: jest.fn() };
     // Guards (JwtAuthGuard/RolesGuard/PoliciesGuard) are unit-tested in isolation
     // elsewhere — override them here so this test only exercises controller logic.
     const moduleRef = await Test.createTestingModule({
       controllers: [UsersController],
-      providers: [{ provide: UsersService, useValue: usersService }],
+      providers: [
+        { provide: UsersService, useValue: usersService },
+        {
+          provide: VendorVerificationService,
+          useValue: vendorVerificationService,
+        },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
@@ -53,6 +62,17 @@ describe("UsersController", () => {
     expect(usersService.updateProfile).toHaveBeenCalledWith("u1", {
       fullName: "B",
     });
+    expect(result).not.toHaveProperty("passwordHash");
+  });
+
+  it("resubmit() delegates to VendorVerificationService with the caller's id", async () => {
+    vendorVerificationService.resubmit.mockResolvedValue({
+      id: "v1",
+      verifiedStatus: "PENDING",
+      passwordHash: "x",
+    });
+    const result = await controller.resubmit({ id: "v1", roles: ["VENDOR"] });
+    expect(vendorVerificationService.resubmit).toHaveBeenCalledWith("v1");
     expect(result).not.toHaveProperty("passwordHash");
   });
 
