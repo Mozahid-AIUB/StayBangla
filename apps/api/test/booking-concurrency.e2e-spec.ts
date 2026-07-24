@@ -31,43 +31,50 @@ describe("Booking concurrency (e2e)", () => {
     await cleanDatabase();
   });
 
-  it("allows exactly one of 5 concurrent bookings for the same room and overlapping dates to succeed", async () => {
-    const { accessToken: vendorToken } = await createVerifiedVendor(
-      app,
-      "concurrency-vendor@example.com",
-    );
-    const { roomId } = await createHotelWithRoom(app, vendorToken);
+  // Timeout raised from Jest's 5000ms default: provisioning 5 real
+  // HTTP-authenticated travelers (each a Prisma insert + JWT + refresh-token
+  // persist) plus 5 concurrent booking requests takes longer than that in
+  // this environment; the race-condition assertion itself is not slow, the
+  // setup fan-out is.
+  const CONCURRENT_SETUP_TIMEOUT_MS = 15000;
 
-    const travelers = await Promise.all(
-      Array.from({ length: 5 }, (_, i) =>
-        createTraveler(app, `concurrency-traveler-${i}@example.com`),
-      ),
-    );
+  it(
+    "allows exactly one of 5 concurrent bookings for the same room and overlapping dates to succeed",
+    async () => {
+      const { accessToken: vendorToken } = await createVerifiedVendor(
+        app,
+        "concurrency-vendor@example.com",
+      );
+      const { roomId } = await createHotelWithRoom(app, vendorToken);
 
-    const results = await Promise.all(
-      travelers.map(({ accessToken }) =>
-        request(app.getHttpServer())
-          .post("/bookings")
-          .set("Authorization", `Bearer ${accessToken}`)
-          .send({
-            bookableType: "ROOM",
-            bookableId: roomId,
-            checkIn: "2026-10-01",
-            checkOut: "2026-10-03",
-          }),
-      ),
-    );
+      const travelers = await Promise.all(
+        Array.from({ length: 5 }, (_, i) =>
+          createTraveler(app, `concurrency-traveler-${i}@example.com`),
+        ),
+      );
 
-    const succeeded = results.filter((r) => r.status === 201);
-    const conflicted = results.filter((r) => r.status === 409);
+      const results = await Promise.all(
+        travelers.map(({ accessToken }) =>
+          request(app.getHttpServer())
+            .post("/bookings")
+            .set("Authorization", `Bearer ${accessToken}`)
+            .send({
+              bookableType: "ROOM",
+              bookableId: roomId,
+              checkIn: "2026-10-01",
+              checkOut: "2026-10-03",
+            }),
+        ),
+      );
 
-    expect(succeeded).toHaveLength(1);
-    expect(conflicted).toHaveLength(4);
-  }, // Provisioning 5 real HTTP-authenticated travelers (each a Prisma insert +
-  // JWT + refresh-token persist) plus 5 concurrent booking requests exceeds
-  // Jest's 5000ms default in this environment; the race-condition assertion
-  // itself is not slow, the setup fan-out is.
-  15000);
+      const succeeded = results.filter((r) => r.status === 201);
+      const conflicted = results.filter((r) => r.status === 409);
+
+      expect(succeeded).toHaveLength(1);
+      expect(conflicted).toHaveLength(4);
+    },
+    CONCURRENT_SETUP_TIMEOUT_MS,
+  );
 
   it("allows back-to-back bookings on the same room (checkout day = next checkin day)", async () => {
     const { accessToken: vendorToken } = await createVerifiedVendor(
