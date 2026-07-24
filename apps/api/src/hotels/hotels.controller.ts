@@ -13,7 +13,7 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { RequestUser } from "../auth/strategies/jwt-access.strategy";
-import { HotelsService } from "./hotels.service";
+import { HotelsService, HotelDetailResult } from "./hotels.service";
 import { CreateHotelDto } from "./dto/create-hotel.dto";
 import { PresignPhotoDto } from "./dto/presign-photo.dto";
 import { ConfirmPhotoDto } from "./dto/confirm-photo.dto";
@@ -23,7 +23,7 @@ export class HotelsController {
   constructor(private readonly hotelsService: HotelsService) {}
 
   @Get(":id")
-  async findOne(@Param("id") id: string): Promise<Hotel> {
+  async findOne(@Param("id") id: string): Promise<HotelDetailResult> {
     return this.hotelsService.findPublicDetailOrThrow(id);
   }
 
