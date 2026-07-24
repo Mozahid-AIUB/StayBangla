@@ -34,6 +34,7 @@ describe("UsersService", () => {
     expect(result).toEqual({ id: "u1", email: "a@b.com" });
     expect(prisma.user.findFirst).toHaveBeenCalledWith({
       where: { OR: [{ email: "a@b.com" }, { phone: "a@b.com" }] },
+      include: { roles: true },
     });
   });
 

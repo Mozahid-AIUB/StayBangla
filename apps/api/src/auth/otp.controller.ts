@@ -36,14 +36,13 @@ export class OtpController {
   ): Promise<{ accessToken: string; user: PublicUser }> {
     await this.otpService.verifyOtp(dto.identifier, dto.otp);
 
-    let user = await this.usersService.findByIdentifier(dto.identifier);
-    if (!user) {
-      const isEmail = dto.identifier.includes("@");
-      user = await this.usersService.create({
-        [isEmail ? "email" : "phone"]: dto.identifier,
+    const existing = await this.usersService.findByIdentifier(dto.identifier);
+    const user =
+      existing ??
+      (await this.usersService.create({
+        [dto.identifier.includes("@") ? "email" : "phone"]: dto.identifier,
         role: Role.TRAVELER,
-      });
-    }
+      }));
 
     const { accessToken, refreshToken } =
       await this.tokenService.issueTokenPair({

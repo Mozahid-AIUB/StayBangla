@@ -15,9 +15,12 @@ interface CreateUserInput {
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findByIdentifier(identifier: string): Promise<User | null> {
+  async findByIdentifier(
+    identifier: string,
+  ): Promise<(User & { roles: { role: Role }[] }) | null> {
     return this.prisma.user.findFirst({
       where: { OR: [{ email: identifier }, { phone: identifier }] },
+      include: { roles: true },
     });
   }
 
