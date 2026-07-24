@@ -3,13 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma, Vehicle } from "@prisma/client";
+import { Prisma, Vehicle, District } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { UsersService } from "../users/users.service";
 
 export interface CreateVehicleInput {
   category: "CNG" | "JEEP" | "BOAT";
-  city: string;
+  city: District;
   model?: string;
   capacity: number;
   pricePerDayMinor: number;
@@ -23,7 +23,7 @@ export interface UpdateVehicleInput {
 export interface VehicleAvailability {
   id: string;
   category: string;
-  city: string;
+  city: District;
   model: string | null;
   capacity: number;
   pricePerDayMinor: number;
@@ -66,9 +66,11 @@ export class VehiclesService {
   async searchAvailable(
     startDate: string,
     endDate: string,
-    city?: string,
+    city?: District,
   ): Promise<VehicleAvailability[]> {
-    const cityFilter = city ? Prisma.sql`AND v.city = ${city}` : Prisma.empty;
+    const cityFilter = city
+      ? Prisma.sql`AND v.city = ${city}::"District"`
+      : Prisma.empty;
     return this.prisma.$queryRaw<VehicleAvailability[]>(Prisma.sql`
       SELECT v.id, v.category, v.city, v.model, v.capacity,
              v.price_per_day_minor AS "pricePerDayMinor", v.currency

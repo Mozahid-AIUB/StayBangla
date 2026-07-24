@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -7,15 +8,15 @@ import {
   Max,
   Min,
 } from "class-validator";
+import { District, FacilityCatalog } from "@prisma/client";
 
 export class CreateHotelDto {
   @IsString()
   @IsNotEmpty()
   name!: string;
 
-  @IsString()
-  @IsNotEmpty()
-  city!: string;
+  @IsEnum(District)
+  city!: District;
 
   @IsString()
   @IsNotEmpty()
@@ -27,12 +28,20 @@ export class CreateHotelDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  amenities?: string[];
+  @IsEnum(FacilityCatalog, { each: true })
+  amenities?: FacilityCatalog[];
 
   @IsOptional()
   @IsInt()
   @Min(1)
   @Max(5)
   starRating?: number;
+
+  @IsString()
+  @IsNotEmpty()
+  checkInTime!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  checkOutTime!: string;
 }

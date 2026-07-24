@@ -1,11 +1,19 @@
-import { IsIn, IsInt, IsOptional, IsString, Min } from "class-validator";
+import {
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+} from "class-validator";
+import { District } from "@prisma/client";
 
 export class CreateVehicleDto {
   @IsIn(["CNG", "JEEP", "BOAT"])
   category!: "CNG" | "JEEP" | "BOAT";
 
-  @IsString()
-  city!: string;
+  @IsEnum(District)
+  city!: District;
 
   @IsOptional()
   @IsString()

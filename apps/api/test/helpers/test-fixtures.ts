@@ -31,7 +31,13 @@ export async function createHotelWithRoom(
   const hotel = await request(app.getHttpServer())
     .post("/hotels")
     .set("Authorization", `Bearer ${vendorToken}`)
-    .send({ name: "Test Hotel", city: "Dhaka", address: "123 Test Road" });
+    .send({
+      name: "Test Hotel",
+      city: "DHAKA",
+      address: "123 Test Road",
+      checkInTime: "14:00",
+      checkOutTime: "11:00",
+    });
 
   const room = await request(app.getHttpServer())
     .post(`/hotels/${hotel.body.id}/rooms`)
@@ -40,6 +46,8 @@ export async function createHotelWithRoom(
       roomType: "DOUBLE",
       pricePerNightMinor: overrides.pricePerNightMinor ?? 500000,
       capacity: overrides.capacity ?? 2,
+      hasAC: true,
+      bedType: "DOUBLE",
     });
 
   return { hotelId: hotel.body.id as string, roomId: room.body.id as string };
@@ -71,4 +79,29 @@ export async function createTraveler(
   });
 
   return { travelerId: user.id, accessToken };
+}
+
+export async function createAdmin(
+  app: INestApplication,
+  email: string,
+): Promise<{ adminId: string; accessToken: string }> {
+  const user = await testPrisma.user.create({
+    data: {
+      email,
+      fullName: "Test Admin",
+      verifiedStatus: "VERIFIED",
+      roles: { create: [{ role: "ADMIN" }] },
+    },
+  });
+
+  // Test-only shortcut: real ADMIN users have no HTTP-facing creation path
+  // (created via privileged/internal means in production), so this bypasses
+  // HTTP entirely for user creation — same pattern as createTraveler above.
+  const tokenService = app.get(TokenService);
+  const { accessToken } = await tokenService.issueTokenPair({
+    id: user.id,
+    roles: ["ADMIN"],
+  });
+
+  return { adminId: user.id, accessToken };
 }

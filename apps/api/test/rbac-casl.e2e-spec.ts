@@ -93,8 +93,10 @@ describe("RBAC + CASL (e2e)", () => {
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
         name: "Regression Test Hotel",
-        city: "Dhaka",
+        city: "DHAKA",
         address: "1 Test Rd",
+        checkInTime: "14:00",
+        checkOutTime: "11:00",
       });
 
     expect(res.status).toBe(201);

@@ -143,7 +143,13 @@ describe("Booking ownership (e2e)", () => {
     const res = await request(app.getHttpServer())
       .post("/hotels")
       .set("Authorization", `Bearer ${accessToken}`)
-      .send({ name: "Sneaky Hotel", city: "Dhaka", address: "1 Rd" });
+      .send({
+        name: "Sneaky Hotel",
+        city: "DHAKA",
+        address: "1 Rd",
+        checkInTime: "14:00",
+        checkOutTime: "11:00",
+      });
     expect(res.status).toBe(403);
   });
 });

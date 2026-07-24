@@ -12,6 +12,7 @@ import { HealthModule } from "./health/health.module";
 import { HotelsModule } from "./hotels/hotels.module";
 import { VehiclesModule } from "./vehicles/vehicles.module";
 import { BookingsModule } from "./bookings/bookings.module";
+import { AdminModule } from "./admin/admin.module";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -45,6 +46,7 @@ const isProduction = process.env.NODE_ENV === "production";
     HotelsModule,
     VehiclesModule,
     BookingsModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

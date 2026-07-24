@@ -34,6 +34,20 @@ const envSchema = z.object({
   ARGON2_TIME_COST: z.coerce.number().int().positive().default(2),
 
   BOOKING_HOLD_MINUTES: z.coerce.number().int().positive().default(15),
+
+  MINIO_ENDPOINT: z.string().default("127.0.0.1"),
+  MINIO_PORT: z.coerce.number().int().positive().default(9000),
+  // z.coerce.boolean() coerces ANY non-empty string (including the literal
+  // "false") to `true` via Boolean(str) — unsafe for env vars, which are
+  // always strings. Parse the literal "true"/"false" text instead.
+  MINIO_USE_SSL: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((val) => val === "true"),
+  MINIO_ACCESS_KEY: z.string().min(1),
+  MINIO_SECRET_KEY: z.string().min(1),
+  MINIO_BUCKET: z.string().default("staybangla-photos"),
+  PRESIGNED_URL_EXPIRY_SECONDS: z.coerce.number().int().positive().default(300),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

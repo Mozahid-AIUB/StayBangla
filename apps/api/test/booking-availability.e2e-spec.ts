@@ -39,7 +39,7 @@ describe("Booking availability search (e2e)", () => {
 
     const res = await request(app.getHttpServer())
       .get("/rooms/available")
-      .query({ checkIn: "2027-03-01", checkOut: "2027-03-03", city: "Dhaka" });
+      .query({ checkIn: "2027-03-01", checkOut: "2027-03-03", city: "DHAKA" });
 
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
@@ -75,5 +75,39 @@ describe("Booking availability search (e2e)", () => {
       .query({ startDate: "2027-03-01", endDate: "not-a-date" });
 
     expect(res.status).toBe(400);
+  });
+
+  it("GET /vehicles/available with a city filter returns a vehicle in that district", async () => {
+    const { accessToken: vendorToken } = await createVerifiedVendor(
+      app,
+      "vehicle-vendor@example.com",
+    );
+
+    const createRes = await request(app.getHttpServer())
+      .post("/vehicles")
+      .set("Authorization", `Bearer ${vendorToken}`)
+      .send({
+        category: "CNG",
+        city: "COXS_BAZAR",
+        capacity: 3,
+        pricePerDayMinor: 150000,
+      });
+    expect(createRes.status).toBe(201);
+
+    const res = await request(app.getHttpServer())
+      .get("/vehicles/available")
+      .query({
+        startDate: "2027-03-01",
+        endDate: "2027-03-03",
+        city: "COXS_BAZAR",
+      });
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(
+      res.body.some(
+        (vehicle: { id: string }) => vehicle.id === createRes.body.id,
+      ),
+    ).toBe(true);
   });
 });
