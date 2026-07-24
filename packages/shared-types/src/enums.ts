@@ -7,6 +7,7 @@ export enum BookingStatus {
   AUTO_CANCELLED = "AUTO_CANCELLED",
   CANCELLED = "CANCELLED",
   REFUNDED = "REFUNDED",
+  BLOCKED = "BLOCKED",
 }
 
 export enum UserRole {
