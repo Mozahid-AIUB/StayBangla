@@ -6,10 +6,20 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 
 describe("HotelsController", () => {
   let controller: HotelsController;
-  let hotelsService: { create: jest.Mock };
+  let hotelsService: {
+    create: jest.Mock;
+    presignPhotoUpload: jest.Mock;
+    confirmPhoto: jest.Mock;
+    deletePhoto: jest.Mock;
+  };
 
   beforeEach(async () => {
-    hotelsService = { create: jest.fn() };
+    hotelsService = {
+      create: jest.fn(),
+      presignPhotoUpload: jest.fn(),
+      confirmPhoto: jest.fn(),
+      deletePhoto: jest.fn(),
+    };
     const moduleRef = await Test.createTestingModule({
       controllers: [HotelsController],
       providers: [{ provide: HotelsService, useValue: hotelsService }],
@@ -42,5 +52,47 @@ describe("HotelsController", () => {
       checkOutTime: "12:00",
     });
     expect(result).toEqual({ id: "h1" });
+  });
+
+  describe("photo endpoints", () => {
+    it("presignPhoto() delegates with the caller's id", async () => {
+      hotelsService.presignPhotoUpload.mockResolvedValue({
+        uploadUrl: "https://x",
+        objectKey: "hotels/h1/y.jpg",
+      });
+      const result = await controller.presignPhoto(
+        { id: "v1", roles: ["VENDOR"] },
+        "h1",
+        { contentType: "image/jpeg" },
+      );
+      expect(hotelsService.presignPhotoUpload).toHaveBeenCalledWith(
+        "v1",
+        "h1",
+        "image/jpeg",
+      );
+      expect(result.objectKey).toBe("hotels/h1/y.jpg");
+    });
+
+    it("confirmPhoto() delegates with the caller's id", async () => {
+      hotelsService.confirmPhoto.mockResolvedValue({
+        id: "p1",
+        isPrimary: true,
+      });
+      await controller.confirmPhoto({ id: "v1", roles: ["VENDOR"] }, "h1", {
+        objectKey: "hotels/h1/y.jpg",
+        isPrimary: true,
+      });
+      expect(hotelsService.confirmPhoto).toHaveBeenCalledWith(
+        "v1",
+        "h1",
+        "hotels/h1/y.jpg",
+        true,
+      );
+    });
+
+    it("deletePhoto() delegates with the caller's id", async () => {
+      await controller.deletePhoto({ id: "v1", roles: ["VENDOR"] }, "h1", "p1");
+      expect(hotelsService.deletePhoto).toHaveBeenCalledWith("v1", "h1", "p1");
+    });
   });
 });

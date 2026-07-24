@@ -3,8 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import {
   Hotel,
+  HotelPhoto,
   Prisma,
   District,
   FacilityCatalog,
@@ -12,6 +14,7 @@ import {
 } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { UsersService } from "../users/users.service";
+import { StoragePort } from "../common/storage/storage.port";
 
 export interface CreateHotelInput {
   name: string;
@@ -38,6 +41,7 @@ export class HotelsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
+    private readonly storagePort: StoragePort,
   ) {}
 
   private async assertVerifiedVendor(ownerId: string): Promise<void> {
@@ -79,5 +83,70 @@ export class HotelsService {
             AND b.date_range && daterange(${checkIn}::date, ${checkOut}::date, '[)')
         )
     `);
+  }
+
+  private extensionFromContentType(contentType: string): string {
+    const map: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+    };
+    return map[contentType] ?? "jpg";
+  }
+
+  async presignPhotoUpload(
+    callerId: string,
+    hotelId: string,
+    contentType: string,
+  ): Promise<{ uploadUrl: string; objectKey: string }> {
+    const hotel = await this.findByIdOrThrow(hotelId);
+    if (hotel.ownerId !== callerId) {
+      throw new ForbiddenException("You do not own this hotel");
+    }
+    const ext = this.extensionFromContentType(contentType);
+    const objectKey = `hotels/${hotelId}/${randomUUID()}.${ext}`;
+    const uploadUrl = await this.storagePort.getPresignedUploadUrl(
+      objectKey,
+      contentType,
+    );
+    return { uploadUrl, objectKey };
+  }
+
+  async confirmPhoto(
+    callerId: string,
+    hotelId: string,
+    objectKey: string,
+    isPrimary: boolean,
+  ): Promise<HotelPhoto> {
+    const hotel = await this.findByIdOrThrow(hotelId);
+    if (hotel.ownerId !== callerId) {
+      throw new ForbiddenException("You do not own this hotel");
+    }
+    if (isPrimary) {
+      await this.prisma.hotelPhoto.updateMany({
+        where: { hotelId, isPrimary: true },
+        data: { isPrimary: false },
+      });
+    }
+    return this.prisma.hotelPhoto.create({
+      data: { hotelId, objectKey, isPrimary },
+    });
+  }
+
+  async deletePhoto(
+    callerId: string,
+    hotelId: string,
+    photoId: string,
+  ): Promise<void> {
+    const hotel = await this.findByIdOrThrow(hotelId);
+    if (hotel.ownerId !== callerId) {
+      throw new ForbiddenException("You do not own this hotel");
+    }
+    const photo = await this.prisma.hotelPhoto.findUnique({
+      where: { id: photoId },
+    });
+    if (!photo) throw new NotFoundException("Photo not found");
+    await this.storagePort.deleteObject(photo.objectKey);
+    await this.prisma.hotelPhoto.delete({ where: { id: photoId } });
   }
 }
