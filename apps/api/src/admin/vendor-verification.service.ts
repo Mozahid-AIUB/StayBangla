@@ -63,10 +63,20 @@ export class VendorVerificationService {
       return vendor; // idempotent no-op: already PENDING or VERIFIED
     }
 
-    await this.prisma.user.updateMany({
+    const result = await this.prisma.user.updateMany({
       where: { id: vendorId, verifiedStatus: "REJECTED" },
       data: { verifiedStatus: "PENDING" },
     });
+    if (result.count === 1) {
+      await this.prisma.vendorVerificationLog.create({
+        data: {
+          vendorId,
+          adminId: vendorId, // self-service action; there is no admin actor for a resubmit
+          action: "PENDING",
+          reason: undefined,
+        },
+      });
+    }
     return this.prisma.user.findUniqueOrThrow({ where: { id: vendorId } });
   }
 }

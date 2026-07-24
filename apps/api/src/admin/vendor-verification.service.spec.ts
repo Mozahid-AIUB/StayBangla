@@ -170,5 +170,55 @@ describe("VendorVerificationService", () => {
         NotFoundException,
       );
     });
+
+    it("writes a VendorVerificationLog entry when a genuine REJECTED->PENDING resubmit occurs", async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: "v1",
+        verifiedStatus: "REJECTED",
+      });
+      prisma.user.updateMany.mockResolvedValue({ count: 1 });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        id: "v1",
+        verifiedStatus: "PENDING",
+      });
+
+      await service.resubmit("v1");
+
+      expect(prisma.vendorVerificationLog.create).toHaveBeenCalledWith({
+        data: {
+          vendorId: "v1",
+          adminId: "v1",
+          action: "PENDING",
+          reason: undefined,
+        },
+      });
+    });
+
+    it("does not write a log entry when resubmit is an idempotent no-op (already PENDING/VERIFIED)", async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: "v1",
+        verifiedStatus: "PENDING",
+      });
+
+      await service.resubmit("v1");
+
+      expect(prisma.vendorVerificationLog.create).not.toHaveBeenCalled();
+    });
+
+    it("does not write a log entry when the resubmit's guarded update loses a race (count 0)", async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: "v1",
+        verifiedStatus: "REJECTED",
+      });
+      prisma.user.updateMany.mockResolvedValue({ count: 0 });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        id: "v1",
+        verifiedStatus: "VERIFIED",
+      });
+
+      await service.resubmit("v1");
+
+      expect(prisma.vendorVerificationLog.create).not.toHaveBeenCalled();
+    });
   });
 });
