@@ -7,6 +7,8 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { PaymentProviderPort } from "../common/payments/payment-provider.port";
+import { BookingExpiryQueueService } from "./queue/booking-expiry-queue.service";
 import { BookingRecord } from "./bookings.types";
 
 export interface CreateBookingInput {
@@ -23,8 +25,8 @@ const EXCLUSION_VIOLATION_SQLSTATE = "23P01";
 export class BookingsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly bullQueueEnqueue: (bookingId: string) => Promise<void>,
-    private readonly paymentProvider: unknown,
+    private readonly expiryQueue: BookingExpiryQueueService,
+    private readonly paymentProvider: PaymentProviderPort,
   ) {}
 
   private validateDates(checkIn: string, checkOut: string): void {
@@ -126,7 +128,7 @@ export class BookingsService {
       if (!booking) {
         throw new Error("Booking insert returned no rows");
       }
-      await this.bullQueueEnqueue(booking.id);
+      await this.expiryQueue.scheduleExpiry(booking.id);
       return booking;
     } catch (error) {
       if (this.isExclusionViolation(error)) {
@@ -136,5 +138,63 @@ export class BookingsService {
       }
       throw error;
     }
+  }
+
+  async confirmPayment(bookingId: string): Promise<BookingRecord> {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+    if (!booking) throw new NotFoundException("Booking not found");
+
+    if (booking.status === "CONFIRMED") {
+      return this.toBookingRecord(booking);
+    }
+    if (booking.status !== "HELD") {
+      throw new ConflictException(
+        `Booking is ${booking.status}, cannot confirm payment`,
+      );
+    }
+
+    await this.paymentProvider.charge(
+      bookingId,
+      booking.totalAmountMinor,
+      booking.currency,
+    );
+
+    const result = await this.prisma.booking.updateMany({
+      where: { id: bookingId, status: "HELD" },
+      data: { status: "CONFIRMED" },
+    });
+    if (result.count === 0) {
+      // Lost the race to the auto-cancel timer between our read and this update.
+      throw new ConflictException(
+        "Booking hold expired before payment could be confirmed",
+      );
+    }
+
+    await this.expiryQueue.cancelExpiry(bookingId);
+    const updated = await this.prisma.booking.findUniqueOrThrow({
+      where: { id: bookingId },
+    });
+    return this.toBookingRecord(updated);
+  }
+
+  private toBookingRecord(booking: {
+    id: string;
+    userId: string | null;
+    bookableType: string;
+    roomId: string | null;
+    vehicleId: string | null;
+    resourceOwnerId: string;
+    guestCount: number | null;
+    totalAmountMinor: number;
+    currency: string;
+    status: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }): BookingRecord {
+    // dateRange (Unsupported type) isn't selectable via Prisma Client — callers that
+    // need checkIn/checkOut on a status-only path re-fetch via $queryRaw if required.
+    return { ...booking, checkIn: "", checkOut: "" } as BookingRecord;
   }
 }
