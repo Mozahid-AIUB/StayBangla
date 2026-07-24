@@ -56,9 +56,9 @@ describe("Booking ownership (e2e)", () => {
         checkIn: "2027-01-01",
         checkOut: "2027-01-03",
       });
-    await request(app.getHttpServer()).post(
-      `/bookings/${created.body.id}/confirm-payment`,
-    );
+    await request(app.getHttpServer())
+      .post(`/bookings/${created.body.id}/confirm-payment`)
+      .set("Authorization", `Bearer ${travelerToken}`);
 
     const res = await request(app.getHttpServer())
       .post(`/bookings/${created.body.id}/checkout`)
@@ -97,6 +97,42 @@ describe("Booking ownership (e2e)", () => {
       .set("Authorization", `Bearer ${travelerBToken}`);
 
     expect(res.status).toBe(409);
+  });
+
+  it("confirm-payment requires auth and rejects a caller who is not the booking's traveler", async () => {
+    const { accessToken: vendorToken } = await createVerifiedVendor(
+      app,
+      "confirm-owner-vendor@example.com",
+    );
+    const { roomId } = await createHotelWithRoom(app, vendorToken);
+    const { accessToken: travelerAToken } = await createTraveler(
+      app,
+      "confirm-owner-a@example.com",
+    );
+    const { accessToken: travelerBToken } = await createTraveler(
+      app,
+      "confirm-owner-b@example.com",
+    );
+
+    const created = await request(app.getHttpServer())
+      .post("/bookings")
+      .set("Authorization", `Bearer ${travelerAToken}`)
+      .send({
+        bookableType: "ROOM",
+        bookableId: roomId,
+        checkIn: "2027-02-01",
+        checkOut: "2027-02-03",
+      });
+
+    const noAuth = await request(app.getHttpServer()).post(
+      `/bookings/${created.body.id}/confirm-payment`,
+    );
+    expect(noAuth.status).toBe(401);
+
+    const wrongTraveler = await request(app.getHttpServer())
+      .post(`/bookings/${created.body.id}/confirm-payment`)
+      .set("Authorization", `Bearer ${travelerBToken}`);
+    expect(wrongTraveler.status).toBe(403);
   });
 
   it("an unverified vendor cannot create a hotel", async () => {

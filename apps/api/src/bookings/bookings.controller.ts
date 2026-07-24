@@ -24,8 +24,12 @@ export class BookingsController {
   }
 
   @Post("bookings/:id/confirm-payment")
-  async confirmPayment(@Param("id") id: string): Promise<BookingRecord> {
-    return this.bookingsService.confirmPayment(id);
+  @UseGuards(JwtAuthGuard)
+  async confirmPayment(
+    @CurrentUser() user: RequestUser,
+    @Param("id") id: string,
+  ): Promise<BookingRecord> {
+    return this.bookingsService.confirmPayment(user.id, id);
   }
 
   @Post("bookings/:id/checkout")

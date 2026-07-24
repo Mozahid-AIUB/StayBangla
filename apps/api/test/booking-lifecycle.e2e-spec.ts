@@ -56,9 +56,9 @@ describe("Booking lifecycle (e2e)", () => {
     expect(created.body.status).toBe("HELD");
     expect(created.body.totalAmountMinor).toBe(1000000);
 
-    const confirmed = await request(app.getHttpServer()).post(
-      `/bookings/${created.body.id}/confirm-payment`,
-    );
+    const confirmed = await request(app.getHttpServer())
+      .post(`/bookings/${created.body.id}/confirm-payment`)
+      .set("Authorization", `Bearer ${travelerToken}`);
     expect(confirmed.status).toBe(201);
     expect(confirmed.body.status).toBe("CONFIRMED");
 
@@ -90,12 +90,12 @@ describe("Booking lifecycle (e2e)", () => {
         checkOut: "2026-12-06",
       });
 
-    const first = await request(app.getHttpServer()).post(
-      `/bookings/${created.body.id}/confirm-payment`,
-    );
-    const second = await request(app.getHttpServer()).post(
-      `/bookings/${created.body.id}/confirm-payment`,
-    );
+    const first = await request(app.getHttpServer())
+      .post(`/bookings/${created.body.id}/confirm-payment`)
+      .set("Authorization", `Bearer ${travelerToken}`);
+    const second = await request(app.getHttpServer())
+      .post(`/bookings/${created.body.id}/confirm-payment`)
+      .set("Authorization", `Bearer ${travelerToken}`);
 
     expect(first.status).toBe(201);
     expect(second.status).toBe(201);

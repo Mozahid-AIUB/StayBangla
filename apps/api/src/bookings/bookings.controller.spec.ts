@@ -50,13 +50,16 @@ describe("BookingsController", () => {
     expect(result).toEqual({ id: "b1" });
   });
 
-  it("confirmPayment() delegates by booking id", async () => {
+  it("confirmPayment() passes the caller's id and booking id", async () => {
     bookingsService.confirmPayment.mockResolvedValue({
       id: "b1",
       status: "CONFIRMED",
     });
-    const result = await controller.confirmPayment("b1");
-    expect(bookingsService.confirmPayment).toHaveBeenCalledWith("b1");
+    const result = await controller.confirmPayment(
+      { id: "u1", roles: ["TRAVELER"] },
+      "b1",
+    );
+    expect(bookingsService.confirmPayment).toHaveBeenCalledWith("u1", "b1");
     expect(result.status).toBe("CONFIRMED");
   });
 

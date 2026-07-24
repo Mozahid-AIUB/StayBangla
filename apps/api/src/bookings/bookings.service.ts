@@ -147,11 +147,17 @@ export class BookingsService {
     }
   }
 
-  async confirmPayment(bookingId: string): Promise<BookingRecord> {
+  async confirmPayment(
+    callerId: string,
+    bookingId: string,
+  ): Promise<BookingRecord> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
     });
     if (!booking) throw new NotFoundException("Booking not found");
+    if (booking.userId !== callerId) {
+      throw new ForbiddenException("You do not own this booking");
+    }
 
     if (booking.status === "CONFIRMED") {
       return this.toBookingRecord(booking);
