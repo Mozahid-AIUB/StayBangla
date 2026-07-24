@@ -8,6 +8,8 @@ describe("CreateHotelDto", () => {
       name: "Sea Pearl",
       city: "COXS_BAZAR",
       address: "Kolatoli Beach Road",
+      checkInTime: "14:00",
+      checkOutTime: "11:00",
     });
     const errors = await validate(dto);
     expect(errors).toHaveLength(0);
@@ -28,6 +30,8 @@ describe("CreateHotelDto", () => {
       name: "Sea Pearl",
       city: "COXS_BAZAR",
       address: "Kolatoli Beach Road",
+      checkInTime: "14:00",
+      checkOutTime: "11:00",
       amenities: ["WIFI", "SWIMMING_POOL"],
     });
     const errors = await validate(dto);
