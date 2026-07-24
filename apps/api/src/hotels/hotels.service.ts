@@ -145,7 +145,9 @@ export class HotelsService {
     const photo = await this.prisma.hotelPhoto.findUnique({
       where: { id: photoId },
     });
-    if (!photo) throw new NotFoundException("Photo not found");
+    if (!photo || photo.hotelId !== hotelId) {
+      throw new NotFoundException("Photo not found");
+    }
     await this.storagePort.deleteObject(photo.objectKey);
     await this.prisma.hotelPhoto.delete({ where: { id: photoId } });
   }

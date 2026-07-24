@@ -282,5 +282,19 @@ describe("HotelsService photo methods", () => {
         ForbiddenException,
       );
     });
+
+    it("rejects deleting a photo that belongs to a different hotel (cross-hotel IDOR)", async () => {
+      prisma.hotel.findUnique.mockResolvedValue({ id: "h1", ownerId: "v1" });
+      prisma.hotelPhoto.findUnique.mockResolvedValue({
+        id: "p1",
+        hotelId: "h2-someone-elses-hotel",
+        objectKey: "hotels/h2-someone-elses-hotel/x.jpg",
+      });
+      await expect(service.deletePhoto("v1", "h1", "p1")).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(storagePort.deleteObject).not.toHaveBeenCalled();
+      expect(prisma.hotelPhoto.delete).not.toHaveBeenCalled();
+    });
   });
 });
