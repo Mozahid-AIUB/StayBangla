@@ -31,6 +31,26 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
+      - name: "Start MinIO (GHA services block can't override the container command, so run it directly)"
+        run: |
+          docker run -d --name minio \
+            -p 9000:9000 -p 9001:9001 \
+            -e MINIO_ROOT_USER=staybangla \
+            -e MINIO_ROOT_PASSWORD=staybangla-secret \
+            minio/minio:latest server /data --console-address ":9001"
+      - name: Wait for MinIO to become healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9000/minio/health/ready; then
+              echo "MinIO is ready"
+              exit 0
+            fi
+            echo "Waiting for MinIO... ($i)"
+            sleep 2
+          done
+          echo "MinIO did not become ready in time" >&2
+          docker logs minio || true
+          exit 1
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @staybangla/api exec prisma generate
       - run: pnpm --filter @staybangla/api exec prisma migrate deploy
@@ -54,6 +74,12 @@ jobs:
           OTP_PEPPER=ci-only-otp-pepper
           ARGON2_MEMORY_COST_KIB=8192
           ARGON2_TIME_COST=2
+          MINIO_ENDPOINT=127.0.0.1
+          MINIO_PORT=9000
+          MINIO_USE_SSL=false
+          MINIO_ACCESS_KEY=staybangla
+          MINIO_SECRET_KEY=staybangla-secret
+          MINIO_BUCKET=staybangla-photos
           EOF
       - run: pnpm --filter @staybangla/api exec dotenv -e .env.test -- prisma migrate deploy
       - run: pnpm lint
