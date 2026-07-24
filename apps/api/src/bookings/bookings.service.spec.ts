@@ -277,6 +277,7 @@ describe("BookingsService.confirmPayment", () => {
     await expect(service.confirmPayment("b1")).rejects.toThrow(
       ConflictException,
     );
+    expect(paymentProvider.charge).not.toHaveBeenCalled();
   });
 
   it("throws NotFoundException for a missing booking", async () => {

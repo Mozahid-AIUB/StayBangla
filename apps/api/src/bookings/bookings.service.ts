@@ -155,23 +155,25 @@ export class BookingsService {
       );
     }
 
-    await this.paymentProvider.charge(
-      bookingId,
-      booking.totalAmountMinor,
-      booking.currency,
-    );
-
     const result = await this.prisma.booking.updateMany({
       where: { id: bookingId, status: "HELD" },
       data: { status: "CONFIRMED" },
     });
     if (result.count === 0) {
       // Lost the race to the auto-cancel timer between our read and this update.
+      // Charge the customer only AFTER this guard succeeds, never before —
+      // otherwise a losing race would charge money for a booking that ends up
+      // AUTO_CANCELLED with no compensating refund.
       throw new ConflictException(
         "Booking hold expired before payment could be confirmed",
       );
     }
 
+    await this.paymentProvider.charge(
+      bookingId,
+      booking.totalAmountMinor,
+      booking.currency,
+    );
     await this.expiryQueue.cancelExpiry(bookingId);
     const updated = await this.prisma.booking.findUniqueOrThrow({
       where: { id: bookingId },
