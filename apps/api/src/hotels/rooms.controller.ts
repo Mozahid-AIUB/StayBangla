@@ -18,6 +18,7 @@ import { RoomsService } from "./rooms.service";
 import { HotelsService, RoomAvailability } from "./hotels.service";
 import { CreateRoomDto } from "./dto/create-room.dto";
 import { UpdateRoomDto } from "./dto/update-room.dto";
+import { SearchAvailableRoomsDto } from "./dto/search-available-rooms.dto";
 
 @Controller()
 export class RoomsController {
@@ -28,11 +29,13 @@ export class RoomsController {
 
   @Get("rooms/available")
   async available(
-    @Query("checkIn") checkIn: string,
-    @Query("checkOut") checkOut: string,
-    @Query("city") city?: string,
+    @Query() query: SearchAvailableRoomsDto,
   ): Promise<RoomAvailability[]> {
-    return this.hotelsService.searchAvailableRooms(checkIn, checkOut, city);
+    return this.hotelsService.searchAvailableRooms(
+      query.checkIn,
+      query.checkOut,
+      query.city,
+    );
   }
 
   @Post("hotels/:hotelId/rooms")

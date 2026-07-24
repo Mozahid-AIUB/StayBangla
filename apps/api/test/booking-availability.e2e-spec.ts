@@ -1,0 +1,79 @@
+import { Test } from "@nestjs/testing";
+import { INestApplication } from "@nestjs/common";
+import request from "supertest";
+import { AppModule } from "src/app.module";
+import { configureApp } from "src/bootstrap/configure-app";
+import { cleanDatabase } from "./helpers/test-db";
+import {
+  createVerifiedVendor,
+  createHotelWithRoom,
+} from "./helpers/test-fixtures";
+
+describe("Booking availability search (e2e)", () => {
+  let app: INestApplication;
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+    app = moduleRef.createNestApplication();
+    configureApp(app);
+    await app.init();
+  });
+
+  afterAll(async () => {
+    await cleanDatabase();
+    await app.close();
+  });
+
+  beforeEach(async () => {
+    await cleanDatabase();
+  });
+
+  it("GET /rooms/available with valid dates returns available rooms without auth", async () => {
+    const { accessToken: vendorToken } = await createVerifiedVendor(
+      app,
+      "availability-vendor@example.com",
+    );
+    await createHotelWithRoom(app, vendorToken);
+
+    const res = await request(app.getHttpServer())
+      .get("/rooms/available")
+      .query({ checkIn: "2027-03-01", checkOut: "2027-03-03", city: "Dhaka" });
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it("GET /rooms/available rejects a missing checkIn with a clean 400, not a 500", async () => {
+    const res = await request(app.getHttpServer())
+      .get("/rooms/available")
+      .query({ checkOut: "2027-03-03" });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("GET /rooms/available rejects a malformed checkIn with a clean 400, not a 500", async () => {
+    const res = await request(app.getHttpServer())
+      .get("/rooms/available")
+      .query({ checkIn: "not-a-date", checkOut: "2027-03-03" });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("GET /vehicles/available rejects a missing startDate with a clean 400, not a 500", async () => {
+    const res = await request(app.getHttpServer())
+      .get("/vehicles/available")
+      .query({ endDate: "2027-03-03" });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("GET /vehicles/available rejects a malformed endDate with a clean 400, not a 500", async () => {
+    const res = await request(app.getHttpServer())
+      .get("/vehicles/available")
+      .query({ startDate: "2027-03-01", endDate: "not-a-date" });
+
+    expect(res.status).toBe(400);
+  });
+});

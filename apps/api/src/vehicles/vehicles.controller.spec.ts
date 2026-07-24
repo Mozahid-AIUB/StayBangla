@@ -32,11 +32,11 @@ describe("VehiclesController", () => {
 
   it("available() delegates to VehiclesService.searchAvailable", async () => {
     vehiclesService.searchAvailable.mockResolvedValue([{ id: "veh1" }]);
-    const result = await controller.available(
-      "2026-09-01",
-      "2026-09-02",
-      "Dhaka",
-    );
+    const result = await controller.available({
+      startDate: "2026-09-01",
+      endDate: "2026-09-02",
+      city: "Dhaka",
+    });
     expect(vehiclesService.searchAvailable).toHaveBeenCalledWith(
       "2026-09-01",
       "2026-09-02",

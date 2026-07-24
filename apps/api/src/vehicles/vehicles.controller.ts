@@ -17,6 +17,7 @@ import type { RequestUser } from "../auth/strategies/jwt-access.strategy";
 import { VehiclesService, VehicleAvailability } from "./vehicles.service";
 import { CreateVehicleDto } from "./dto/create-vehicle.dto";
 import { UpdateVehicleDto } from "./dto/update-vehicle.dto";
+import { SearchAvailableVehiclesDto } from "./dto/search-available-vehicles.dto";
 
 @Controller("vehicles")
 export class VehiclesController {
@@ -24,11 +25,13 @@ export class VehiclesController {
 
   @Get("available")
   async available(
-    @Query("startDate") startDate: string,
-    @Query("endDate") endDate: string,
-    @Query("city") city?: string,
+    @Query() query: SearchAvailableVehiclesDto,
   ): Promise<VehicleAvailability[]> {
-    return this.vehiclesService.searchAvailable(startDate, endDate, city);
+    return this.vehiclesService.searchAvailable(
+      query.startDate,
+      query.endDate,
+      query.city,
+    );
   }
 
   @Post()

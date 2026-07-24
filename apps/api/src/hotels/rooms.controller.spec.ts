@@ -30,11 +30,11 @@ describe("RoomsController", () => {
 
   it("available() delegates to HotelsService.searchAvailableRooms", async () => {
     hotelsService.searchAvailableRooms.mockResolvedValue([{ id: "r1" }]);
-    const result = await controller.available(
-      "2026-09-01",
-      "2026-09-03",
-      "Dhaka",
-    );
+    const result = await controller.available({
+      checkIn: "2026-09-01",
+      checkOut: "2026-09-03",
+      city: "Dhaka",
+    });
     expect(hotelsService.searchAvailableRooms).toHaveBeenCalledWith(
       "2026-09-01",
       "2026-09-03",
