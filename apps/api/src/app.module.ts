@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { BullModule } from "@nestjs/bullmq";
 import { LoggerModule } from "nestjs-pino";
 import { validateEnv } from "./config/env.validation";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -8,6 +9,9 @@ import { CaslModule } from "./casl/casl.module";
 import { UsersModule } from "./users/users.module";
 import { AuthModule } from "./auth/auth.module";
 import { HealthModule } from "./health/health.module";
+import { HotelsModule } from "./hotels/hotels.module";
+import { VehiclesModule } from "./vehicles/vehicles.module";
+import { BookingsModule } from "./bookings/bookings.module";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -28,10 +32,19 @@ const isProduction = process.env.NODE_ENV === "production";
     }),
     PrismaModule,
     RedisModule,
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: { url: config.get<string>("REDIS_URL") },
+      }),
+    }),
     CaslModule,
     UsersModule,
     AuthModule,
     HealthModule,
+    HotelsModule,
+    VehiclesModule,
+    BookingsModule,
   ],
 })
 export class AppModule {}
