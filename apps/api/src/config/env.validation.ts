@@ -37,7 +37,13 @@ const envSchema = z.object({
 
   MINIO_ENDPOINT: z.string().default("127.0.0.1"),
   MINIO_PORT: z.coerce.number().int().positive().default(9000),
-  MINIO_USE_SSL: z.coerce.boolean().default(false),
+  // z.coerce.boolean() coerces ANY non-empty string (including the literal
+  // "false") to `true` via Boolean(str) — unsafe for env vars, which are
+  // always strings. Parse the literal "true"/"false" text instead.
+  MINIO_USE_SSL: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((val) => val === "true"),
   MINIO_ACCESS_KEY: z.string().min(1),
   MINIO_SECRET_KEY: z.string().min(1),
   MINIO_BUCKET: z.string().default("staybangla-photos"),

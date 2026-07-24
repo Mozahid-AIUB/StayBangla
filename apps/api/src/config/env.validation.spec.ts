@@ -99,4 +99,27 @@ describe("validateEnv", () => {
     };
     expect(() => validateEnv(withoutKey)).toThrow(/MINIO_ACCESS_KEY/);
   });
+
+  it('parses the literal string "false" as boolean false for MINIO_USE_SSL', () => {
+    // Regression test: z.coerce.boolean() coerces ANY non-empty string
+    // (including the literal string "false") to `true`, since it does
+    // `Boolean("false")` under the hood. A real .env file always produces
+    // string values, so `MINIO_USE_SSL=false` in .env/.env.test was being
+    // silently parsed as `true` — causing MinioStorageService to attempt a
+    // TLS handshake against a plaintext MinIO port, surfacing as an opaque
+    // "write EPROTO ... wrong version number" error at NestJS module init.
+    const result = validateEnv({
+      ...REQUIRED_BASE,
+      MINIO_USE_SSL: "false",
+    });
+    expect(result.MINIO_USE_SSL).toBe(false);
+  });
+
+  it('parses the literal string "true" as boolean true for MINIO_USE_SSL', () => {
+    const result = validateEnv({
+      ...REQUIRED_BASE,
+      MINIO_USE_SSL: "true",
+    });
+    expect(result.MINIO_USE_SSL).toBe(true);
+  });
 });
