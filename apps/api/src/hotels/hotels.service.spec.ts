@@ -31,8 +31,10 @@ describe("HotelsService", () => {
 
       const result = await service.create("v1", {
         name: "Test Hotel",
-        city: "Dhaka",
+        city: "DHAKA",
         address: "123 Rd",
+        checkInTime: "14:00",
+        checkOutTime: "12:00",
       });
 
       expect(prisma.hotel.create).toHaveBeenCalledWith(
@@ -51,8 +53,10 @@ describe("HotelsService", () => {
       await expect(
         service.create("v1", {
           name: "Test Hotel",
-          city: "Dhaka",
+          city: "DHAKA",
           address: "123 Rd",
+          checkInTime: "14:00",
+          checkOutTime: "12:00",
         }),
       ).rejects.toThrow(ForbiddenException);
       expect(prisma.hotel.create).not.toHaveBeenCalled();
@@ -63,8 +67,10 @@ describe("HotelsService", () => {
       await expect(
         service.create("nope", {
           name: "Test Hotel",
-          city: "Dhaka",
+          city: "DHAKA",
           address: "123 Rd",
+          checkInTime: "14:00",
+          checkOutTime: "12:00",
         }),
       ).rejects.toThrow(ForbiddenException);
     });
@@ -103,7 +109,7 @@ describe("HotelsService", () => {
       const results = await service.searchAvailableRooms(
         "2026-09-01",
         "2026-09-03",
-        "Dhaka",
+        "DHAKA",
       );
       expect(results).toHaveLength(1);
       expect(results[0]!.roomType).toBe("DOUBLE");

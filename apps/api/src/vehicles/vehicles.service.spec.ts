@@ -33,7 +33,7 @@ describe("VehiclesService", () => {
 
       const result = await service.create("v1", {
         category: "CNG",
-        city: "Dhaka",
+        city: "DHAKA",
         capacity: 3,
         pricePerDayMinor: 200000,
       });
@@ -54,7 +54,7 @@ describe("VehiclesService", () => {
       await expect(
         service.create("v1", {
           category: "CNG",
-          city: "Dhaka",
+          city: "DHAKA",
           capacity: 3,
           pricePerDayMinor: 200000,
         }),
@@ -94,12 +94,12 @@ describe("VehiclesService", () => {
   describe("searchAvailable", () => {
     it("delegates to a raw query for the given date and city", async () => {
       prisma.$queryRaw.mockResolvedValue([
-        { id: "veh1", category: "CNG", city: "Dhaka" },
+        { id: "veh1", category: "CNG", city: "DHAKA" },
       ]);
       const results = await service.searchAvailable(
         "2026-09-01",
         "2026-09-02",
-        "Dhaka",
+        "DHAKA",
       );
       expect(results).toHaveLength(1);
     });

@@ -26,12 +26,20 @@ describe("HotelsController", () => {
     hotelsService.create.mockResolvedValue({ id: "h1" });
     const result = await controller.create(
       { id: "v1", roles: ["VENDOR"] },
-      { name: "Test Hotel", city: "Dhaka", address: "123 Rd" },
+      {
+        name: "Test Hotel",
+        city: "DHAKA",
+        address: "123 Rd",
+        checkInTime: "14:00",
+        checkOutTime: "12:00",
+      },
     );
     expect(hotelsService.create).toHaveBeenCalledWith("v1", {
       name: "Test Hotel",
-      city: "Dhaka",
+      city: "DHAKA",
       address: "123 Rd",
+      checkInTime: "14:00",
+      checkOutTime: "12:00",
     });
     expect(result).toEqual({ id: "h1" });
   });

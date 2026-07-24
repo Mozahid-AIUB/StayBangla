@@ -33,6 +33,8 @@ describe("RoomsService", () => {
         roomType: "DOUBLE",
         pricePerNightMinor: 500000,
         capacity: 2,
+        hasAC: true,
+        bedType: "DOUBLE",
       });
 
       expect(prisma.room.create).toHaveBeenCalledWith(
@@ -53,6 +55,8 @@ describe("RoomsService", () => {
           roomType: "DOUBLE",
           pricePerNightMinor: 500000,
           capacity: 2,
+          hasAC: true,
+          bedType: "DOUBLE",
         }),
       ).rejects.toThrow(ForbiddenException);
       expect(prisma.room.create).not.toHaveBeenCalled();

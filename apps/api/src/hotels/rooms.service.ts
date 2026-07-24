@@ -3,14 +3,17 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Room } from "@prisma/client";
+import { BedType, Room, RoomType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { HotelsService } from "./hotels.service";
 
 export interface CreateRoomInput {
-  roomType: string;
+  roomType: RoomType;
   pricePerNightMinor: number;
   capacity: number;
+  hasAC: boolean;
+  bedType: BedType;
+  amenities?: string[];
 }
 
 export interface UpdateRoomInput {

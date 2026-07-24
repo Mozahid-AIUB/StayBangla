@@ -1,4 +1,5 @@
-import { IsDateString, IsOptional, IsString } from "class-validator";
+import { IsDateString, IsEnum, IsOptional } from "class-validator";
+import { District } from "@prisma/client";
 
 export class SearchAvailableRoomsDto {
   @IsDateString()
@@ -8,6 +9,6 @@ export class SearchAvailableRoomsDto {
   checkOut!: string;
 
   @IsOptional()
-  @IsString()
-  city?: string;
+  @IsEnum(District)
+  city?: District;
 }

@@ -3,23 +3,31 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Hotel, Prisma } from "@prisma/client";
+import {
+  Hotel,
+  Prisma,
+  District,
+  FacilityCatalog,
+  RoomType,
+} from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { UsersService } from "../users/users.service";
 
 export interface CreateHotelInput {
   name: string;
-  city: string;
+  city: District;
   address: string;
   description?: string;
-  amenities?: string[];
+  amenities?: FacilityCatalog[];
   starRating?: number;
+  checkInTime: string;
+  checkOutTime: string;
 }
 
 export interface RoomAvailability {
   id: string;
   hotelId: string;
-  roomType: string;
+  roomType: RoomType;
   pricePerNightMinor: number;
   currency: string;
   capacity: number;
@@ -53,7 +61,7 @@ export class HotelsService {
   async searchAvailableRooms(
     checkIn: string,
     checkOut: string,
-    city?: string,
+    city?: District,
   ): Promise<RoomAvailability[]> {
     const cityFilter = city ? Prisma.sql`AND h.city = ${city}` : Prisma.empty;
     return this.prisma.$queryRaw<RoomAvailability[]>(Prisma.sql`

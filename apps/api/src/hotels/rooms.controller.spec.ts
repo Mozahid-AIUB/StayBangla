@@ -33,12 +33,12 @@ describe("RoomsController", () => {
     const result = await controller.available({
       checkIn: "2026-09-01",
       checkOut: "2026-09-03",
-      city: "Dhaka",
+      city: "DHAKA",
     });
     expect(hotelsService.searchAvailableRooms).toHaveBeenCalledWith(
       "2026-09-01",
       "2026-09-03",
-      "Dhaka",
+      "DHAKA",
     );
     expect(result).toEqual([{ id: "r1" }]);
   });
@@ -48,12 +48,20 @@ describe("RoomsController", () => {
     const result = await controller.create(
       { id: "v1", roles: ["VENDOR"] },
       "h1",
-      { roomType: "DOUBLE", pricePerNightMinor: 500000, capacity: 2 },
+      {
+        roomType: "DOUBLE",
+        pricePerNightMinor: 500000,
+        capacity: 2,
+        hasAC: true,
+        bedType: "DOUBLE",
+      },
     );
     expect(roomsService.create).toHaveBeenCalledWith("v1", "h1", {
       roomType: "DOUBLE",
       pricePerNightMinor: 500000,
       capacity: 2,
+      hasAC: true,
+      bedType: "DOUBLE",
     });
     expect(result).toEqual({ id: "r1" });
   });

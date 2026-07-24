@@ -35,12 +35,12 @@ describe("VehiclesController", () => {
     const result = await controller.available({
       startDate: "2026-09-01",
       endDate: "2026-09-02",
-      city: "Dhaka",
+      city: "DHAKA",
     });
     expect(vehiclesService.searchAvailable).toHaveBeenCalledWith(
       "2026-09-01",
       "2026-09-02",
-      "Dhaka",
+      "DHAKA",
     );
     expect(result).toEqual([{ id: "veh1" }]);
   });
@@ -49,11 +49,11 @@ describe("VehiclesController", () => {
     vehiclesService.create.mockResolvedValue({ id: "veh1" });
     const result = await controller.create(
       { id: "v1", roles: ["VENDOR"] },
-      { category: "CNG", city: "Dhaka", capacity: 3, pricePerDayMinor: 200000 },
+      { category: "CNG", city: "DHAKA", capacity: 3, pricePerDayMinor: 200000 },
     );
     expect(vehiclesService.create).toHaveBeenCalledWith("v1", {
       category: "CNG",
-      city: "Dhaka",
+      city: "DHAKA",
       capacity: 3,
       pricePerDayMinor: 200000,
     });
