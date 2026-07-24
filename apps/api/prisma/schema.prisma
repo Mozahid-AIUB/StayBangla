@@ -52,6 +52,9 @@ model User {
   ownedHotels   Hotel[]
   ownedVehicles Vehicle[]
 
+  verificationLogsAsVendor VendorVerificationLog[] @relation("VendorVerificationTarget")
+  verificationLogsAsAdmin  VendorVerificationLog[] @relation("VendorVerificationActor")
+
   @@map("users")
 }
 
@@ -104,21 +107,80 @@ enum BookingStatus {
   BLOCKED
 }
 
-model Hotel {
-  id          String   @id @default(uuid())
-  ownerId     String   @map("owner_id")
-  name        String
-  city        String
-  address     String
-  description String?
-  amenities   String[]
-  starRating  Int?     @map("star_rating")
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+enum District {
+  DHAKA
+  CHATTOGRAM
+  COXS_BAZAR
+  RANGAMATI
+  BANDARBAN
+  KHAGRACHARI
+  SYLHET
+  SREEMANGAL
+  SAINT_MARTIN
+  KHULNA
+  SUNDARBANS
+  RAJSHAHI
+  BARISHAL
+  RANGPUR
+  MYMENSINGH
+  JESSORE
+}
 
-  owner User   @relation(fields: [ownerId], references: [id])
-  rooms Room[]
+enum RoomType {
+  SINGLE
+  DOUBLE
+  TWIN
+  SUITE
+  FAMILY
+  DORMITORY
+}
+
+enum BedType {
+  SINGLE
+  TWIN
+  DOUBLE
+  QUEEN
+  KING
+  BUNK
+}
+
+enum FacilityCatalog {
+  TRAVEL_DESK
+  BATHTUB
+  LAUNDRY_SERVICE
+  WELCOME_DRINKS
+  THEMED_NIGHTS
+  ELEVATOR
+  SMOKE_FREE
+  SWIMMING_POOL
+  PARKING
+  GYM
+  RESTAURANT
+  ROOM_SERVICE
+  WIFI
+  AIR_CONDITIONING
+  GENERATOR_BACKUP
+  CCTV
+}
+
+model Hotel {
+  id           String            @id @default(uuid())
+  ownerId      String            @map("owner_id")
+  name         String
+  city         District
+  address      String
+  description  String?
+  amenities    FacilityCatalog[]
+  starRating   Int?              @map("star_rating")
+  checkInTime  String            @map("check_in_time")
+  checkOutTime String            @map("check_out_time")
+  isActive     Boolean           @default(true) @map("is_active")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  owner  User         @relation(fields: [ownerId], references: [id])
+  rooms  Room[]
+  photos HotelPhoto[]
 
   @@map("hotels")
 }
@@ -126,15 +188,19 @@ model Hotel {
 model Room {
   id                 String   @id @default(uuid())
   hotelId            String   @map("hotel_id")
-  roomType           String   @map("room_type")
+  roomType           RoomType @map("room_type")
   pricePerNightMinor Int      @map("price_per_night_minor")
   currency           String   @default("BDT")
   capacity           Int
+  hasAC              Boolean  @map("has_ac")
+  bedType            BedType  @map("bed_type")
+  amenities          String[]
   isActive           Boolean  @default(true) @map("is_active")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
-  hotel Hotel @relation(fields: [hotelId], references: [id])
+  hotel  Hotel       @relation(fields: [hotelId], references: [id])
+  photos RoomPhoto[]
 
   @@map("rooms")
 }
@@ -143,7 +209,7 @@ model Vehicle {
   id               String          @id @default(uuid())
   ownerId          String          @map("owner_id")
   category         VehicleCategory
-  city             String
+  city             District
   model            String?
   capacity         Int
   pricePerDayMinor Int             @map("price_per_day_minor")
@@ -155,6 +221,47 @@ model Vehicle {
   owner User @relation(fields: [ownerId], references: [id])
 
   @@map("vehicles")
+}
+
+model VendorVerificationLog {
+  id        String         @id @default(uuid())
+  vendorId  String         @map("vendor_id")
+  adminId   String         @map("admin_id")
+  action    VerifiedStatus
+  reason    String?
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  vendor User @relation("VendorVerificationTarget", fields: [vendorId], references: [id])
+  admin  User @relation("VendorVerificationActor", fields: [adminId], references: [id])
+
+  @@index([vendorId])
+  @@map("vendor_verification_logs")
+}
+
+model HotelPhoto {
+  id        String   @id @default(uuid())
+  hotelId   String   @map("hotel_id")
+  objectKey String   @map("object_key")
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@index([hotelId])
+  @@map("hotel_photos")
+}
+
+model RoomPhoto {
+  id        String   @id @default(uuid())
+  roomId    String   @map("room_id")
+  objectKey String   @map("object_key")
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@map("room_photos")
 }
 
 model Booking {
