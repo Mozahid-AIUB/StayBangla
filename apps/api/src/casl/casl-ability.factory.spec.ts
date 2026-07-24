@@ -33,4 +33,33 @@ describe("CaslAbilityFactory", () => {
     expect(ability.can("read", otherProfile)).toBe(true);
     expect(ability.can("update", otherProfile)).toBe(true);
   });
+
+  it("lets a vendor read/update their own Hotel but not another vendor's", () => {
+    const ability = factory.createForUser({ id: "v1", roles: ["VENDOR"] });
+    expect(
+      ability.can("update", {
+        __caslSubjectType__: "Hotel",
+        id: "h1",
+        ownerId: "v1",
+      }),
+    ).toBe(true);
+    expect(
+      ability.can("update", {
+        __caslSubjectType__: "Hotel",
+        id: "h2",
+        ownerId: "someone-else",
+      }),
+    ).toBe(false);
+  });
+
+  it("lets an ADMIN update any Hotel", () => {
+    const ability = factory.createForUser({ id: "admin1", roles: ["ADMIN"] });
+    expect(
+      ability.can("update", {
+        __caslSubjectType__: "Hotel",
+        id: "h2",
+        ownerId: "someone-else",
+      }),
+    ).toBe(true);
+  });
 });
