@@ -49,6 +49,8 @@ model User {
 
   roles         UserRole[]
   refreshTokens RefreshToken[]
+  ownedHotels   Hotel[]
+  ownedVehicles Vehicle[]
 
   @@map("users")
 }
@@ -78,4 +80,97 @@ model RefreshToken {
   @@index([userId])
   @@index([familyId])
   @@map("refresh_tokens")
+}
+
+enum BookableType {
+  ROOM
+  VEHICLE
+}
+
+enum VehicleCategory {
+  CNG
+  JEEP
+  BOAT
+}
+
+enum BookingStatus {
+  HELD
+  CONFIRMED
+  CHECKED_IN
+  COMPLETED
+  AUTO_CANCELLED
+  CANCELLED
+  REFUNDED
+  BLOCKED
+}
+
+model Hotel {
+  id          String   @id @default(uuid())
+  ownerId     String   @map("owner_id")
+  name        String
+  city        String
+  address     String
+  description String?
+  amenities   String[]
+  starRating  Int?     @map("star_rating")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  owner User   @relation(fields: [ownerId], references: [id])
+  rooms Room[]
+
+  @@map("hotels")
+}
+
+model Room {
+  id                 String   @id @default(uuid())
+  hotelId            String   @map("hotel_id")
+  roomType           String   @map("room_type")
+  pricePerNightMinor Int      @map("price_per_night_minor")
+  currency           String   @default("BDT")
+  capacity           Int
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  hotel Hotel @relation(fields: [hotelId], references: [id])
+
+  @@map("rooms")
+}
+
+model Vehicle {
+  id               String          @id @default(uuid())
+  ownerId          String          @map("owner_id")
+  category         VehicleCategory
+  city             String
+  model            String?
+  capacity         Int
+  pricePerDayMinor Int             @map("price_per_day_minor")
+  currency         String          @default("BDT")
+  isActive         Boolean         @default(true) @map("is_active")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  owner User @relation(fields: [ownerId], references: [id])
+
+  @@map("vehicles")
+}
+
+model Booking {
+  id               String        @id @default(uuid())
+  userId           String?       @map("user_id")
+  bookableType     BookableType  @map("bookable_type")
+  roomId           String?       @map("room_id")
+  vehicleId        String?       @map("vehicle_id")
+  resourceOwnerId  String        @map("resource_owner_id")
+  dateRange        Unsupported("daterange") @map("date_range")
+  guestCount       Int?          @map("guest_count")
+  totalAmountMinor Int           @map("total_amount_minor")
+  currency         String        @default("BDT")
+  status           BookingStatus @default(HELD)
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  @@map("bookings")
 }
