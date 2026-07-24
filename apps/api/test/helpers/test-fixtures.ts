@@ -80,3 +80,28 @@ export async function createTraveler(
 
   return { travelerId: user.id, accessToken };
 }
+
+export async function createAdmin(
+  app: INestApplication,
+  email: string,
+): Promise<{ adminId: string; accessToken: string }> {
+  const user = await testPrisma.user.create({
+    data: {
+      email,
+      fullName: "Test Admin",
+      verifiedStatus: "VERIFIED",
+      roles: { create: [{ role: "ADMIN" }] },
+    },
+  });
+
+  // Test-only shortcut: real ADMIN users have no HTTP-facing creation path
+  // (created via privileged/internal means in production), so this bypasses
+  // HTTP entirely for user creation — same pattern as createTraveler above.
+  const tokenService = app.get(TokenService);
+  const { accessToken } = await tokenService.issueTokenPair({
+    id: user.id,
+    roles: ["ADMIN"],
+  });
+
+  return { adminId: user.id, accessToken };
+}
