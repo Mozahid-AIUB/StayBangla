@@ -32,6 +32,8 @@ const envSchema = z.object({
 
   ARGON2_MEMORY_COST_KIB: z.coerce.number().int().positive().default(19456),
   ARGON2_TIME_COST: z.coerce.number().int().positive().default(2),
+
+  BOOKING_HOLD_MINUTES: z.coerce.number().int().positive().default(15),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
