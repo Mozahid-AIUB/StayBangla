@@ -11,6 +11,7 @@ import {
   District,
   FacilityCatalog,
   RoomType,
+  Room,
 } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { UsersService } from "../users/users.service";
@@ -34,6 +35,14 @@ export interface RoomAvailability {
   pricePerNightMinor: number;
   currency: string;
   capacity: number;
+}
+
+// Mirrors @staybangla/shared-types' HotelWithDetails (packages/shared-types/src/hotel.ts).
+// Not compiler-enforced (this package has no dependency on shared-types) — keep the two
+// shapes in sync by hand if either changes.
+export interface HotelDetailResult extends Hotel {
+  rooms: Room[];
+  photos: HotelPhoto[];
 }
 
 @Injectable()
@@ -60,6 +69,17 @@ export class HotelsService {
     const hotel = await this.prisma.hotel.findUnique({ where: { id } });
     if (!hotel) throw new NotFoundException("Hotel not found");
     return hotel;
+  }
+
+  async findPublicDetailOrThrow(id: string): Promise<HotelDetailResult> {
+    const hotel = await this.prisma.hotel.findUnique({
+      where: { id },
+      include: { rooms: { include: { photos: true } }, photos: true },
+    });
+    if (!hotel || !hotel.isActive) {
+      throw new NotFoundException("Hotel not found");
+    }
+    return hotel as HotelDetailResult;
   }
 
   async searchAvailableRooms(

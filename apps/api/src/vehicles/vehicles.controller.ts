@@ -34,6 +34,11 @@ export class VehiclesController {
     );
   }
 
+  @Get(":id")
+  async findOne(@Param("id") id: string): Promise<Vehicle> {
+    return this.vehiclesService.findByIdOrThrow(id);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("VENDOR")

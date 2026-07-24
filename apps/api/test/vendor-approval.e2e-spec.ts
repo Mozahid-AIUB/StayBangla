@@ -3,9 +3,9 @@ import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { AppModule } from "src/app.module";
 import { configureApp } from "src/bootstrap/configure-app";
-import { cleanDatabase } from "./helpers/test-db";
+import { cleanDatabase, testPrisma } from "./helpers/test-db";
 import { registerAndLogin } from "./helpers/test-users";
-import { createAdmin } from "./helpers/test-fixtures";
+import { createAdmin, createVerifiedVendor } from "./helpers/test-fixtures";
 
 describe("Vendor approval (e2e)", () => {
   let app: INestApplication;
@@ -167,5 +167,45 @@ describe("Vendor approval (e2e)", () => {
       .send({ reason: "changed my mind" });
 
     expect(secondReject.status).toBe(409);
+  });
+
+  it("never leaks passwordHash in listPending/approve/reject responses", async () => {
+    const { accessToken: adminToken } = await createAdmin(
+      app,
+      "leak-check-admin@example.com",
+    );
+    const { vendorId } = await createVerifiedVendor(
+      app,
+      "leak-check-vendor@example.com",
+    );
+    // Force back to PENDING so approve() has something to act on — reuse the
+    // existing resubmit-after-reject pattern already proven in this file, or
+    // directly flip via testPrisma if this file has that shortcut available.
+    await testPrisma.user.update({
+      where: { id: vendorId },
+      data: { verifiedStatus: "PENDING" },
+    });
+
+    const pending = await request(app.getHttpServer())
+      .get("/admin/vendors/pending")
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(JSON.stringify(pending.body)).not.toMatch(
+      /passwordHash|password_hash|\$argon2/,
+    );
+
+    const approve = await request(app.getHttpServer())
+      .post(`/admin/vendors/${vendorId}/approve`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(JSON.stringify(approve.body)).not.toMatch(
+      /passwordHash|password_hash|\$argon2/,
+    );
+
+    const reject = await request(app.getHttpServer())
+      .post(`/admin/vendors/${vendorId}/reject`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "re-checking for the leak test" });
+    expect(JSON.stringify(reject.body)).not.toMatch(
+      /passwordHash|password_hash|\$argon2/,
+    );
   });
 });

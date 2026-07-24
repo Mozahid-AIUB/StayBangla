@@ -11,6 +11,7 @@ describe("HotelsController", () => {
     presignPhotoUpload: jest.Mock;
     confirmPhoto: jest.Mock;
     deletePhoto: jest.Mock;
+    findPublicDetailOrThrow: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -19,6 +20,7 @@ describe("HotelsController", () => {
       presignPhotoUpload: jest.fn(),
       confirmPhoto: jest.fn(),
       deletePhoto: jest.fn(),
+      findPublicDetailOrThrow: jest.fn(),
     };
     const moduleRef = await Test.createTestingModule({
       controllers: [HotelsController],
@@ -52,6 +54,17 @@ describe("HotelsController", () => {
       checkOutTime: "12:00",
     });
     expect(result).toEqual({ id: "h1" });
+  });
+
+  it("findOne() delegates to HotelsService.findPublicDetailOrThrow", async () => {
+    hotelsService.findPublicDetailOrThrow.mockResolvedValue({
+      id: "h1",
+      rooms: [],
+      photos: [],
+    });
+    const result = await controller.findOne("h1");
+    expect(hotelsService.findPublicDetailOrThrow).toHaveBeenCalledWith("h1");
+    expect(result).toEqual({ id: "h1", rooms: [], photos: [] });
   });
 
   describe("photo endpoints", () => {

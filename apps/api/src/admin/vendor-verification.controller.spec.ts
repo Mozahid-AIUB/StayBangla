@@ -57,4 +57,26 @@ describe("VendorVerificationController", () => {
     await controller.getHistory("v1");
     expect(service.getHistory).toHaveBeenCalledWith("v1");
   });
+
+  it("listPending() strips passwordHash from each returned user", async () => {
+    service.listPending.mockResolvedValue([
+      { id: "v1", email: "a@b.com", passwordHash: "$argon2id$secret" },
+    ]);
+    const result = await controller.listPending();
+    expect(result[0]).not.toHaveProperty("passwordHash");
+    expect(result[0]!.email).toBe("a@b.com");
+  });
+
+  it("approve() strips passwordHash from the returned user", async () => {
+    service.approve.mockResolvedValue({
+      id: "v1",
+      verifiedStatus: "VERIFIED",
+      passwordHash: "$argon2id$secret",
+    });
+    const result = await controller.approve(
+      { id: "admin1", roles: ["ADMIN"] },
+      "v1",
+    );
+    expect(result).not.toHaveProperty("passwordHash");
+  });
 });

@@ -93,6 +93,40 @@ describe("HotelsService", () => {
     });
   });
 
+  describe("findPublicDetailOrThrow", () => {
+    it("returns the hotel with its rooms and photos included", async () => {
+      prisma.hotel.findUnique.mockResolvedValue({
+        id: "h1",
+        isActive: true,
+        rooms: [{ id: "r1", photos: [] }],
+        photos: [{ id: "p1", isPrimary: true }],
+      });
+
+      const result = await service.findPublicDetailOrThrow("h1");
+
+      expect(prisma.hotel.findUnique).toHaveBeenCalledWith({
+        where: { id: "h1" },
+        include: { rooms: { include: { photos: true } }, photos: true },
+      });
+      expect(result.rooms).toEqual([{ id: "r1", photos: [] }]);
+      expect(result.photos).toEqual([{ id: "p1", isPrimary: true }]);
+    });
+
+    it("throws NotFoundException when the hotel does not exist", async () => {
+      prisma.hotel.findUnique.mockResolvedValue(null);
+      await expect(service.findPublicDetailOrThrow("missing")).rejects.toThrow(
+        "Hotel not found",
+      );
+    });
+
+    it("throws NotFoundException when the hotel is soft-deleted (isActive: false)", async () => {
+      prisma.hotel.findUnique.mockResolvedValue({ id: "h1", isActive: false });
+      await expect(service.findPublicDetailOrThrow("h1")).rejects.toThrow(
+        "Hotel not found",
+      );
+    });
+  });
+
   describe("searchAvailableRooms", () => {
     it("delegates to a raw query with the given date range and optional city", async () => {
       (prisma as unknown as { $queryRaw: jest.Mock }).$queryRaw = jest
