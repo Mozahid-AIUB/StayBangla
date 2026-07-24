@@ -199,5 +199,13 @@ describe("Vendor approval (e2e)", () => {
     expect(JSON.stringify(approve.body)).not.toMatch(
       /passwordHash|password_hash|\$argon2/,
     );
+
+    const reject = await request(app.getHttpServer())
+      .post(`/admin/vendors/${vendorId}/reject`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "re-checking for the leak test" });
+    expect(JSON.stringify(reject.body)).not.toMatch(
+      /passwordHash|password_hash|\$argon2/,
+    );
   });
 });
