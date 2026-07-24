@@ -63,7 +63,9 @@ export class HotelsService {
     checkOut: string,
     city?: District,
   ): Promise<RoomAvailability[]> {
-    const cityFilter = city ? Prisma.sql`AND h.city = ${city}` : Prisma.empty;
+    const cityFilter = city
+      ? Prisma.sql`AND h.city = ${city}::"District"`
+      : Prisma.empty;
     return this.prisma.$queryRaw<RoomAvailability[]>(Prisma.sql`
       SELECT r.id, r.hotel_id AS "hotelId", r.room_type AS "roomType",
              r.price_per_night_minor AS "pricePerNightMinor", r.currency, r.capacity

@@ -68,7 +68,9 @@ export class VehiclesService {
     endDate: string,
     city?: District,
   ): Promise<VehicleAvailability[]> {
-    const cityFilter = city ? Prisma.sql`AND v.city = ${city}` : Prisma.empty;
+    const cityFilter = city
+      ? Prisma.sql`AND v.city = ${city}::"District"`
+      : Prisma.empty;
     return this.prisma.$queryRaw<VehicleAvailability[]>(Prisma.sql`
       SELECT v.id, v.category, v.city, v.model, v.capacity,
              v.price_per_day_minor AS "pricePerDayMinor", v.currency
