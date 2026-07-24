@@ -3,7 +3,7 @@ import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { AppModule } from "src/app.module";
 import { configureApp } from "src/bootstrap/configure-app";
-import { cleanDatabase } from "./helpers/test-db";
+import { cleanDatabase, testPrisma } from "./helpers/test-db";
 import {
   createVerifiedVendor,
   createHotelWithRoom,
@@ -90,6 +90,15 @@ describe("Room/hotel photo upload (e2e)", () => {
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({ objectKey: presign2.body.objectKey, isPrimary: true });
     expect(second.body.isPrimary).toBe(true);
+
+    // There is no GET endpoint for hotel photos, so read the DB directly
+    // (via the shared e2e testPrisma client) to prove the swap actually
+    // took effect against the real partial-unique-index, not just that
+    // the second confirm's own response claims isPrimary: true.
+    const firstAfterSwap = await testPrisma.hotelPhoto.findUniqueOrThrow({
+      where: { id: first.body.id },
+    });
+    expect(firstAfterSwap.isPrimary).toBe(false);
 
     const deleteFirst = await request(app.getHttpServer())
       .delete(`/hotels/${hotelId}/photos/${first.body.id}`)
