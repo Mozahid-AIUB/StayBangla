@@ -287,3 +287,202 @@ describe("BookingsService.confirmPayment", () => {
     );
   });
 });
+
+describe("BookingsService.checkout", () => {
+  let prisma: {
+    booking: {
+      findUnique: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
+      updateMany: jest.Mock;
+    };
+  };
+  let service: BookingsService;
+
+  beforeEach(() => {
+    prisma = {
+      booking: {
+        findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+        updateMany: jest.fn(),
+      },
+    };
+    service = new BookingsService(
+      prisma as unknown as PrismaService,
+      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
+      { charge: jest.fn() } as never,
+    );
+  });
+
+  it("completes a CONFIRMED booking owned by the caller", async () => {
+    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    prisma.booking.findUniqueOrThrow.mockResolvedValue({
+      id: "b1",
+      userId: "u1",
+      bookableType: "ROOM",
+      roomId: "r1",
+      vehicleId: null,
+      resourceOwnerId: "v1",
+      guestCount: 2,
+      totalAmountMinor: 1000000,
+      currency: "BDT",
+      status: "COMPLETED",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await service.checkout("v1", "b1");
+
+    expect(prisma.booking.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "b1",
+        resourceOwnerId: "v1",
+        status: { in: ["CONFIRMED", "CHECKED_IN"] },
+      },
+      data: { status: "COMPLETED" },
+    });
+    expect(result.status).toBe("COMPLETED");
+  });
+
+  it("throws ConflictException when the caller does not own the booking's resource (updateMany matches 0 rows)", async () => {
+    prisma.booking.updateMany.mockResolvedValue({ count: 0 });
+    await expect(service.checkout("someone-else", "b1")).rejects.toThrow(
+      ConflictException,
+    );
+  });
+});
+
+describe("BookingsService.cancel", () => {
+  let prisma: {
+    booking: {
+      findUnique: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
+      updateMany: jest.Mock;
+    };
+  };
+  let service: BookingsService;
+
+  beforeEach(() => {
+    prisma = {
+      booking: {
+        findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+        updateMany: jest.fn(),
+      },
+    };
+    service = new BookingsService(
+      prisma as unknown as PrismaService,
+      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
+      { charge: jest.fn() } as never,
+    );
+  });
+
+  it("cancels the caller's own HELD/CONFIRMED booking", async () => {
+    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    prisma.booking.findUniqueOrThrow.mockResolvedValue({
+      id: "b1",
+      userId: "u1",
+      bookableType: "ROOM",
+      roomId: "r1",
+      vehicleId: null,
+      resourceOwnerId: "v1",
+      guestCount: 2,
+      totalAmountMinor: 1000000,
+      currency: "BDT",
+      status: "CANCELLED",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await service.cancel("u1", "b1");
+
+    expect(prisma.booking.updateMany).toHaveBeenCalledWith({
+      where: { id: "b1", userId: "u1", status: { in: ["HELD", "CONFIRMED"] } },
+      data: { status: "CANCELLED" },
+    });
+    expect(result.status).toBe("CANCELLED");
+  });
+
+  it("throws ConflictException when the booking isn't the caller's or isn't cancellable", async () => {
+    prisma.booking.updateMany.mockResolvedValue({ count: 0 });
+    await expect(service.cancel("u2", "b1")).rejects.toThrow(ConflictException);
+  });
+});
+
+describe("BookingsService.createBlock", () => {
+  let prisma: {
+    room: { findUnique: jest.Mock };
+    vehicle: { findUnique: jest.Mock };
+    $queryRaw: jest.Mock;
+  };
+  let service: BookingsService;
+
+  beforeEach(() => {
+    prisma = {
+      room: { findUnique: jest.fn() },
+      vehicle: { findUnique: jest.fn() },
+      $queryRaw: jest.fn(),
+    };
+    service = new BookingsService(
+      prisma as unknown as PrismaService,
+      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
+      { charge: jest.fn() } as never,
+    );
+  });
+
+  it("rejects a block on a room the caller does not own", async () => {
+    prisma.room.findUnique.mockResolvedValue({
+      id: "r1",
+      isActive: true,
+      hotel: { ownerId: "someone-else" },
+    });
+    await expect(
+      service.createBlock("v1", {
+        bookableType: "ROOM",
+        bookableId: "r1",
+        startDate: "2026-09-01",
+        endDate: "2026-09-03",
+      }),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("creates a BLOCKED row via raw insert for the caller's own room", async () => {
+    prisma.room.findUnique.mockResolvedValue({
+      id: "r1",
+      isActive: true,
+      hotel: { ownerId: "v1" },
+    });
+    prisma.$queryRaw.mockResolvedValue([{ id: "block-1", status: "BLOCKED" }]);
+
+    await service.createBlock("v1", {
+      bookableType: "ROOM",
+      bookableId: "r1",
+      startDate: "2026-09-01",
+      endDate: "2026-09-03",
+    });
+
+    expect(prisma.$queryRaw).toHaveBeenCalled();
+  });
+
+  it("translates an overlap with an existing booking into ConflictException", async () => {
+    prisma.room.findUnique.mockResolvedValue({
+      id: "r1",
+      isActive: true,
+      hotel: { ownerId: "v1" },
+    });
+    prisma.$queryRaw.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("conflict", {
+        code: "P2010",
+        clientVersion: "test",
+        meta: { code: "23P01" },
+      }),
+    );
+    await expect(
+      service.createBlock("v1", {
+        bookableType: "ROOM",
+        bookableId: "r1",
+        startDate: "2026-09-01",
+        endDate: "2026-09-03",
+      }),
+    ).rejects.toThrow(ConflictException);
+  });
+});
