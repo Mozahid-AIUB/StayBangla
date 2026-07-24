@@ -45,6 +45,14 @@ export class VehiclesService {
     return this.prisma.vehicle.create({ data: { ownerId, ...input } });
   }
 
+  async findByIdOrThrow(id: string): Promise<Vehicle> {
+    const vehicle = await this.prisma.vehicle.findUnique({ where: { id } });
+    if (!vehicle || !vehicle.isActive) {
+      throw new NotFoundException("Vehicle not found");
+    }
+    return vehicle;
+  }
+
   async update(
     callerId: string,
     vehicleId: string,

@@ -91,6 +91,34 @@ describe("VehiclesService", () => {
     });
   });
 
+  describe("findByIdOrThrow", () => {
+    it("returns the vehicle when it exists and is active", async () => {
+      prisma.vehicle.findUnique.mockResolvedValue({
+        id: "veh1",
+        isActive: true,
+      });
+      const result = await service.findByIdOrThrow("veh1");
+      expect(result).toEqual({ id: "veh1", isActive: true });
+    });
+
+    it("throws NotFoundException when the vehicle does not exist", async () => {
+      prisma.vehicle.findUnique.mockResolvedValue(null);
+      await expect(service.findByIdOrThrow("missing")).rejects.toThrow(
+        "Vehicle not found",
+      );
+    });
+
+    it("throws NotFoundException when the vehicle is soft-deleted (isActive: false)", async () => {
+      prisma.vehicle.findUnique.mockResolvedValue({
+        id: "veh1",
+        isActive: false,
+      });
+      await expect(service.findByIdOrThrow("veh1")).rejects.toThrow(
+        "Vehicle not found",
+      );
+    });
+  });
+
   describe("searchAvailable", () => {
     it("delegates to a raw query for the given date and city", async () => {
       prisma.$queryRaw.mockResolvedValue([

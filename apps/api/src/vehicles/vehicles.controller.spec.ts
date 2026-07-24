@@ -10,6 +10,7 @@ describe("VehiclesController", () => {
     create: jest.Mock;
     update: jest.Mock;
     searchAvailable: jest.Mock;
+    findByIdOrThrow: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -17,6 +18,7 @@ describe("VehiclesController", () => {
       create: jest.fn(),
       update: jest.fn(),
       searchAvailable: jest.fn(),
+      findByIdOrThrow: jest.fn(),
     };
     const moduleRef = await Test.createTestingModule({
       controllers: [VehiclesController],
@@ -28,6 +30,13 @@ describe("VehiclesController", () => {
       .useValue({ canActivate: () => true })
       .compile();
     controller = moduleRef.get(VehiclesController);
+  });
+
+  it("findOne() delegates to VehiclesService.findByIdOrThrow", async () => {
+    vehiclesService.findByIdOrThrow.mockResolvedValue({ id: "veh1" });
+    const result = await controller.findOne("veh1");
+    expect(vehiclesService.findByIdOrThrow).toHaveBeenCalledWith("veh1");
+    expect(result).toEqual({ id: "veh1" });
   });
 
   it("available() delegates to VehiclesService.searchAvailable", async () => {
