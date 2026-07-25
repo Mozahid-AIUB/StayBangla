@@ -1,10 +1,13 @@
 import { Module } from "@nestjs/common";
 import { PaymentProviderPort } from "./payment-provider.port";
-import { StubPaymentProviderService } from "./stub-payment-provider.service";
+import { SslcommerzPaymentProviderService } from "./sslcommerz-payment-provider.service";
 
 @Module({
   providers: [
-    { provide: PaymentProviderPort, useClass: StubPaymentProviderService },
+    {
+      provide: PaymentProviderPort,
+      useClass: SslcommerzPaymentProviderService,
+    },
   ],
   exports: [PaymentProviderPort],
 })
