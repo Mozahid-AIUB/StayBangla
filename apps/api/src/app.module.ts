@@ -5,10 +5,10 @@ import { BullModule } from "@nestjs/bullmq";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { ThrottlerStorageRedisService } from "@nest-lab/throttler-storage-redis";
 import { LoggerModule } from "nestjs-pino";
-import Redis from "ioredis";
 import { validateEnv } from "./config/env.validation";
 import { PrismaModule } from "./prisma/prisma.module";
 import { RedisModule } from "./common/redis/redis.module";
+import { RedisService } from "./common/redis/redis.service";
 import { CaslModule } from "./casl/casl.module";
 import { UsersModule } from "./users/users.module";
 import { AuthModule } from "./auth/auth.module";
@@ -44,17 +44,19 @@ const isProduction = process.env.NODE_ENV === "production";
       }),
     }),
     ThrottlerModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
+      inject: [ConfigService, RedisService],
+      useFactory: (config: ConfigService, redis: RedisService) => ({
         throttlers: [
           {
             ttl: config.get<number>("THROTTLE_TTL_SECONDS", 60) * 1000,
             limit: config.get<number>("THROTTLE_LIMIT", 100),
           },
         ],
-        storage: new ThrottlerStorageRedisService(
-          new Redis(config.get<string>("REDIS_URL", "redis://127.0.0.1:6380")),
-        ),
+        // Reuses the app's single lifecycle-managed RedisService connection
+        // (RedisModule is @Global(), so it's injectable here without an
+        // explicit import) instead of opening a second, unmanaged ioredis
+        // client that would never be closed on shutdown.
+        storage: new ThrottlerStorageRedisService(redis),
       }),
     }),
     CaslModule,
