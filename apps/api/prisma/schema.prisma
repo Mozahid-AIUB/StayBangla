@@ -37,15 +37,16 @@ enum VerifiedStatus {
 }
 
 model User {
-  id             String         @id @default(uuid())
-  phone          String?        @unique
-  email          String?        @unique
-  passwordHash   String?        @map("password_hash")
-  fullName       String?        @map("full_name")
-  vendorType     VendorType?    @map("vendor_type")
-  verifiedStatus VerifiedStatus @default(PENDING) @map("verified_status")
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
+  id                    String         @id @default(uuid())
+  phone                 String?        @unique
+  email                 String?        @unique
+  passwordHash          String?        @map("password_hash")
+  fullName              String?        @map("full_name")
+  vendorType            VendorType?    @map("vendor_type")
+  verifiedStatus        VerifiedStatus @default(PENDING) @map("verified_status")
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+  commissionRatePercent Int            @default(10) @map("commission_rate_percent")
 
   roles         UserRole[]
   refreshTokens RefreshToken[]
@@ -105,6 +106,18 @@ enum BookingStatus {
   CANCELLED
   REFUNDED
   BLOCKED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum LedgerEntryType {
+  GROSS_PAYMENT
+  PLATFORM_FEE
+  VENDOR_OWED
 }
 
 enum District {
@@ -265,21 +278,41 @@ model RoomPhoto {
 }
 
 model Booking {
-  id               String        @id @default(uuid())
-  userId           String?       @map("user_id")
-  bookableType     BookableType  @map("bookable_type")
-  roomId           String?       @map("room_id")
-  vehicleId        String?       @map("vehicle_id")
-  resourceOwnerId  String        @map("resource_owner_id")
+  id               String                   @id @default(uuid())
+  userId           String?                  @map("user_id")
+  bookableType     BookableType             @map("bookable_type")
+  roomId           String?                  @map("room_id")
+  vehicleId        String?                  @map("vehicle_id")
+  resourceOwnerId  String                   @map("resource_owner_id")
   dateRange        Unsupported("daterange") @map("date_range")
-  guestCount       Int?          @map("guest_count")
-  totalAmountMinor Int           @map("total_amount_minor")
-  currency         String        @default("BDT")
-  status           BookingStatus @default(HELD)
-  createdAt        DateTime      @default(now()) @map("created_at")
-  updatedAt        DateTime      @updatedAt @map("updated_at")
+  guestCount       Int?                     @map("guest_count")
+  totalAmountMinor Int                      @map("total_amount_minor")
+  currency         String                   @default("BDT")
+  status           BookingStatus            @default(HELD)
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
+  paymentStatus    PaymentStatus            @default(PENDING) @map("payment_status")
+  gatewayTranId    String?                  @unique @map("gateway_tran_id")
+  gatewayValId     String?                  @map("gateway_val_id")
+  vendorOwedMinor  Int?                     @map("vendor_owed_minor")
+
+  ledgerEntries LedgerEntry[]
 
   @@index([userId])
   @@index([resourceOwnerId])
   @@map("bookings")
+}
+
+model LedgerEntry {
+  id                 String          @id @default(uuid())
+  bookingId          String          @map("booking_id")
+  type               LedgerEntryType
+  amountMinor        Int             @map("amount_minor")
+  ratePercentApplied Int             @map("rate_percent_applied")
+  createdAt          DateTime        @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+  @@map("ledger_entries")
 }
