@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@casl/ability": "^6.7.2",
+    "@nest-lab/throttler-storage-redis": "^1.2.0",
     "@nestjs/bullmq": "^11.0.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
@@ -28,6 +29,7 @@
     "@nestjs/passport": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/swagger": "^11.0.0",
+    "@nestjs/throttler": "^6.5.0",
     "@prisma/client": "^6.0.0",
     "argon2": "^0.41.1",
     "bullmq": "^5.0.0",

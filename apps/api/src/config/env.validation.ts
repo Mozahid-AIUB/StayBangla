@@ -48,6 +48,10 @@ const envSchema = z.object({
   MINIO_SECRET_KEY: z.string().min(1),
   MINIO_BUCKET: z.string().default("staybangla-photos"),
   PRESIGNED_URL_EXPIRY_SECONDS: z.coerce.number().int().positive().default(300),
+  THROTTLE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
+  THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
+  THROTTLE_OTP_LIMIT: z.coerce.number().int().positive().default(5),
+  THROTTLE_AUTH_LIMIT: z.coerce.number().int().positive().default(10),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

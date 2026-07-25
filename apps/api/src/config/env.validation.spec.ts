@@ -122,4 +122,18 @@ describe("validateEnv", () => {
     });
     expect(result.MINIO_USE_SSL).toBe(true);
   });
+
+  it("applies throttle defaults when not provided", () => {
+    const result = validateEnv({ ...REQUIRED_BASE });
+    expect(result.THROTTLE_TTL_SECONDS).toBe(60);
+    expect(result.THROTTLE_LIMIT).toBe(100);
+    expect(result.THROTTLE_OTP_LIMIT).toBe(5);
+    expect(result.THROTTLE_AUTH_LIMIT).toBe(10);
+  });
+
+  it("throws when THROTTLE_LIMIT is not a positive integer", () => {
+    expect(() =>
+      validateEnv({ ...REQUIRED_BASE, THROTTLE_LIMIT: "not-a-number" }),
+    ).toThrow(/THROTTLE_LIMIT/);
+  });
 });
