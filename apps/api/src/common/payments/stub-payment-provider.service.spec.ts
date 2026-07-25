@@ -1,15 +1,26 @@
-import { Logger } from "@nestjs/common";
 import { StubPaymentProviderService } from "./stub-payment-provider.service";
 
 describe("StubPaymentProviderService", () => {
-  it("always resolves success and logs instead of calling a real gateway", async () => {
-    const logSpy = jest.spyOn(Logger.prototype, "log").mockImplementation();
-    const service = new StubPaymentProviderService();
+  let service: StubPaymentProviderService;
 
-    const result = await service.charge("booking-1", 150000, "BDT");
+  beforeEach(() => {
+    service = new StubPaymentProviderService();
+  });
 
-    expect(result).toEqual({ success: true });
-    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("booking-1"));
-    logSpy.mockRestore();
+  it("createSession returns a fake gatewayUrl and a random tranId", async () => {
+    const result = await service.createSession("booking-1", 500000, "BDT");
+    expect(result.gatewayUrl).toEqual(expect.stringContaining("booking-1"));
+    expect(result.tranId).toEqual(expect.any(String));
+  });
+
+  it("createSession generates a different tranId on each call", async () => {
+    const first = await service.createSession("booking-1", 500000, "BDT");
+    const second = await service.createSession("booking-2", 500000, "BDT");
+    expect(first.tranId).not.toBe(second.tranId);
+  });
+
+  it("validateTransaction always returns a valid result", async () => {
+    const result = await service.validateTransaction("fake-val-id");
+    expect(result.valid).toBe(true);
   });
 });
