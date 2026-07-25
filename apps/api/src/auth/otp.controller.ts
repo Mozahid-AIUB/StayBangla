@@ -1,4 +1,5 @@
 import { Body, Controller, Ip, Post, Res } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { ConfigService } from "@nestjs/config";
 import type { Response } from "express";
 import { Role } from "@prisma/client";
@@ -21,6 +22,9 @@ export class OtpController {
   ) {}
 
   @Post("request")
+  @Throttle({
+    default: { limit: 5, ttl: 60000 },
+  })
   async request(
     @Body() dto: OtpRequestDto,
     @Ip() ip: string,

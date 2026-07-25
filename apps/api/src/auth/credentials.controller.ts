@@ -6,6 +6,7 @@ import {
   Res,
   UnauthorizedException,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 import { ConfigService } from "@nestjs/config";
 import { RegisterDto } from "./dto/register.dto";
@@ -37,12 +38,14 @@ export class CredentialsController {
   }
 
   @Post("register")
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async register(@Body() dto: RegisterDto): Promise<PublicUser> {
     const user = await this.credentialsService.register(dto);
     return toPublicUser(user);
   }
 
   @Post("login")
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
