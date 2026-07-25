@@ -8,6 +8,8 @@ const REQUIRED_BASE = {
   OTP_PEPPER: "c".repeat(16),
   MINIO_ACCESS_KEY: "test-access-key",
   MINIO_SECRET_KEY: "test-secret-key",
+  SSLCOMMERZ_STORE_ID: "test-store-id",
+  SSLCOMMERZ_STORE_PASSWORD: "test-store-password",
 };
 
 describe("validateEnv", () => {
@@ -135,5 +137,37 @@ describe("validateEnv", () => {
     expect(() =>
       validateEnv({ ...REQUIRED_BASE, THROTTLE_LIMIT: "not-a-number" }),
     ).toThrow(/THROTTLE_LIMIT/);
+  });
+
+  it("applies SSLCommerz/frontend defaults when not provided", () => {
+    const result = validateEnv({
+      ...REQUIRED_BASE,
+      SSLCOMMERZ_STORE_ID: "test-store",
+      SSLCOMMERZ_STORE_PASSWORD: "test-password",
+    });
+    expect(result.SSLCOMMERZ_SANDBOX).toBe(true);
+    expect(result.FRONTEND_URL).toBe("http://localhost:3000");
+  });
+
+  it("throws when SSLCOMMERZ_STORE_ID is missing", () => {
+    const { SSLCOMMERZ_STORE_ID: _omit, ...withoutId } = {
+      ...REQUIRED_BASE,
+      SSLCOMMERZ_STORE_ID: "x",
+      SSLCOMMERZ_STORE_PASSWORD: "y",
+    };
+    expect(() => validateEnv(withoutId)).toThrow(/SSLCOMMERZ_STORE_ID/);
+  });
+
+  it('parses the literal string "false" as boolean false for SSLCOMMERZ_SANDBOX', () => {
+    // Same regression class already fixed for MINIO_USE_SSL:
+    // z.coerce.boolean() coerces ANY non-empty string (including "false")
+    // to true via Boolean(str). Must use the enum+transform pattern instead.
+    const result = validateEnv({
+      ...REQUIRED_BASE,
+      SSLCOMMERZ_STORE_ID: "test-store",
+      SSLCOMMERZ_STORE_PASSWORD: "test-password",
+      SSLCOMMERZ_SANDBOX: "false",
+    });
+    expect(result.SSLCOMMERZ_SANDBOX).toBe(false);
   });
 });
