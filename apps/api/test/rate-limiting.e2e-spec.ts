@@ -61,21 +61,19 @@ describe("Rate limiting (e2e)", () => {
 
   it("never throttles GET /health even after exceeding the global default many times over", async () => {
     // 150 requests > the global 100/min default, proving @SkipThrottle() truly
-    // exempts this route rather than just having a generous limit. Sent in
-    // small concurrent batches (not one 150-way Promise.all) — this environment's
-    // socket/connection handling can't sustain 150 simultaneous in-process
-    // supertest connections against a single Nest test server, which is an
-    // infra ceiling unrelated to the throttling behavior under test.
-    const batchSize = 10;
+    // exempts this route rather than just having a generous limit. Sent
+    // strictly sequentially (one at a time) rather than concurrently — even
+    // small concurrent batches (tried: 10-way) produced ECONNRESET on both a
+    // local Windows dev machine and GitHub Actions' Linux CI runner, an infra
+    // ceiling on simultaneous in-process supertest connections against a
+    // single Nest test server, unrelated to the throttling behavior under
+    // test. Sequential requests eliminate that ceiling entirely; the total
+    // count exceeding the window's limit is what this test needs to prove,
+    // not concurrency.
     const totalRequests = 150;
-    for (let sent = 0; sent < totalRequests; sent += batchSize) {
-      const batch = Array.from({ length: batchSize }, () =>
-        request(app.getHttpServer()).get("/health"),
-      );
-      const results = await Promise.all(batch);
-      for (const res of results) {
-        expect(res.status).toBe(200);
-      }
+    for (let i = 0; i < totalRequests; i += 1) {
+      const res = await request(app.getHttpServer()).get("/health");
+      expect(res.status).toBe(200);
     }
   });
 });
