@@ -35,13 +35,14 @@
 
 ## Phase 2 — Guides / Payments / Analytics
 
-| #   | Module                                                                                  | Status |
-| --- | --------------------------------------------------------------------------------------- | ------ |
-| 2.1 | `add-guide-module` (tour guide listing/approval/booking)                                | ⬜     |
-| 2.2 | `add-packages-bundling` (hotel+vehicle+guide combo package)                             | ⬜     |
-| 2.3 | `add-earnings-analytics-dashboard`                                                      | ⬜     |
-| 2.4 | `add-reviews-notifications` (booking SMS/email confirmation, review/rating)             | ⬜     |
-| 2.5 | Vehicle photo support (Hotel/Room-এর সাথে সামঞ্জস্য, যদি real product need নিশ্চিত হয়) | ⬜     |
+| #   | Module                                                                                                        | Status |
+| --- | ------------------------------------------------------------------------------------------------------------- | ------ |
+| 2.1 | `add-guide-module` (tour guide listing/approval/booking)                                                      | ⬜     |
+| 2.2 | `add-packages-bundling` (hotel+vehicle+guide combo package)                                                   | ⬜     |
+| 2.3 | `add-earnings-analytics-dashboard`                                                                            | ⬜     |
+| 2.4 | `add-reviews-notifications` (booking SMS/email confirmation, review/rating)                                   | ⬜     |
+| 2.5 | Vehicle photo support (Hotel/Room-এর সাথে সামঞ্জস্য, যদি real product need নিশ্চিত হয়)                       | ⬜     |
+| 2.6 | `add-eps-payment-gateway` (EPS — eps.com.bd, দ্বিতীয় payment aggregator, bKash/Nagad/Rocket/card/banking সহ) | ⬜     |
 
 ## Phase 3 — Growth
 
