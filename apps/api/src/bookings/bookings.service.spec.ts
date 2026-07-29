@@ -45,7 +45,8 @@ describe("BookingsService.createBooking", () => {
     service = new BookingsService(
       prisma as unknown as PrismaService,
       { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
-      { charge: jest.fn() } as never,
+      { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
+      { get: jest.fn() } as never,
     );
   });
 
@@ -327,131 +328,474 @@ describe("BookingsService.createBooking", () => {
   });
 });
 
-describe("BookingsService.confirmPayment", () => {
+describe("initiatePayment", () => {
   let prisma: {
     booking: {
       findUnique: jest.Mock;
-      findUniqueOrThrow: jest.Mock;
       updateMany: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
+      update: jest.Mock;
     };
+    ledgerEntry: { createMany: jest.Mock };
+    user: { findUnique: jest.Mock };
   };
   let expiryQueue: { scheduleExpiry: jest.Mock; cancelExpiry: jest.Mock };
-  let paymentProvider: { charge: jest.Mock };
+  let paymentProvider: {
+    createSession: jest.Mock;
+    validateTransaction: jest.Mock;
+  };
   let service: BookingsService;
 
   beforeEach(() => {
     prisma = {
       booking: {
         findUnique: jest.fn(),
-        findUniqueOrThrow: jest.fn(),
         updateMany: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+        update: jest.fn(),
       },
+      ledgerEntry: { createMany: jest.fn() },
+      user: { findUnique: jest.fn() },
     };
     expiryQueue = { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() };
     paymentProvider = {
-      charge: jest.fn().mockResolvedValue({ success: true }),
+      createSession: jest.fn(),
+      validateTransaction: jest.fn(),
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
       expiryQueue as never,
       paymentProvider as never,
+      { get: jest.fn() } as never,
     );
   });
 
-  it("confirms a HELD booking, charges via the payment provider, and cancels the expiry job", async () => {
+  it("creates a payment session for a HELD booking owned by the caller", async () => {
     prisma.booking.findUnique.mockResolvedValue({
       id: "b1",
       userId: "u1",
       status: "HELD",
-      totalAmountMinor: 1000000,
+      totalAmountMinor: 500000,
       currency: "BDT",
     });
-    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
-    prisma.booking.findUniqueOrThrow.mockResolvedValue({
-      id: "b1",
-      userId: "u1",
-      bookableType: "ROOM",
-      roomId: "r1",
-      vehicleId: null,
-      resourceOwnerId: "v1",
-      guestCount: 2,
-      totalAmountMinor: 1000000,
-      currency: "BDT",
-      status: "CONFIRMED",
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    paymentProvider.createSession.mockResolvedValue({
+      gatewayUrl: "https://sandbox.sslcommerz.com/pay/xyz",
+      tranId: "tran-1",
     });
+    prisma.booking.update.mockResolvedValue({});
 
-    const result = await service.confirmPayment("u1", "b1");
+    const result = await service.initiatePayment("u1", "b1");
 
-    expect(paymentProvider.charge).toHaveBeenCalledWith("b1", 1000000, "BDT");
-    expect(expiryQueue.cancelExpiry).toHaveBeenCalledWith("b1");
-    expect(result.status).toBe("CONFIRMED");
-  });
-
-  it("is idempotent: calling confirmPayment on an already-CONFIRMED booking succeeds without re-charging", async () => {
-    prisma.booking.findUnique.mockResolvedValue({
-      id: "b1",
-      userId: "u1",
-      status: "CONFIRMED",
-      totalAmountMinor: 1000000,
-      currency: "BDT",
-    });
-
-    const result = await service.confirmPayment("u1", "b1");
-
-    expect(paymentProvider.charge).not.toHaveBeenCalled();
-    expect(result.status).toBe("CONFIRMED");
-  });
-
-  it("throws ConflictException when the booking already expired (AUTO_CANCELLED)", async () => {
-    prisma.booking.findUnique.mockResolvedValue({
-      id: "b1",
-      userId: "u1",
-      status: "AUTO_CANCELLED",
-      totalAmountMinor: 1000000,
-      currency: "BDT",
-    });
-    await expect(service.confirmPayment("u1", "b1")).rejects.toThrow(
-      ConflictException,
+    expect(paymentProvider.createSession).toHaveBeenCalledWith(
+      "b1",
+      500000,
+      "BDT",
     );
-  });
-
-  it("throws ConflictException when the auto-cancel timer wins the race after the read", async () => {
-    prisma.booking.findUnique.mockResolvedValue({
-      id: "b1",
-      userId: "u1",
-      status: "HELD",
-      totalAmountMinor: 1000000,
-      currency: "BDT",
+    expect(prisma.booking.update).toHaveBeenCalledWith({
+      where: { id: "b1" },
+      data: { gatewayTranId: "tran-1" },
     });
-    prisma.booking.updateMany.mockResolvedValue({ count: 0 });
-    await expect(service.confirmPayment("u1", "b1")).rejects.toThrow(
-      ConflictException,
-    );
-    expect(paymentProvider.charge).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      gatewayUrl: "https://sandbox.sslcommerz.com/pay/xyz",
+    });
   });
 
-  it("throws NotFoundException for a missing booking", async () => {
+  it("throws NotFoundException when the booking does not exist", async () => {
     prisma.booking.findUnique.mockResolvedValue(null);
-    await expect(service.confirmPayment("u1", "missing")).rejects.toThrow(
-      NotFoundException,
+    await expect(service.initiatePayment("u1", "missing")).rejects.toThrow(
+      "Booking not found",
     );
   });
 
   it("throws ForbiddenException when the caller does not own the booking", async () => {
     prisma.booking.findUnique.mockResolvedValue({
       id: "b1",
-      userId: "u1",
+      userId: "someone-else",
       status: "HELD",
-      totalAmountMinor: 1000000,
-      currency: "BDT",
     });
-    await expect(service.confirmPayment("someone-else", "b1")).rejects.toThrow(
-      ForbiddenException,
+    await expect(service.initiatePayment("u1", "b1")).rejects.toThrow(
+      "You do not own this booking",
+    );
+  });
+
+  it("throws ConflictException when the booking is not HELD", async () => {
+    prisma.booking.findUnique.mockResolvedValue({
+      id: "b1",
+      userId: "u1",
+      status: "CONFIRMED",
+    });
+    await expect(service.initiatePayment("u1", "b1")).rejects.toThrow(/HELD/);
+  });
+});
+
+describe("confirmIfValid", () => {
+  let prisma: {
+    booking: {
+      findUnique: jest.Mock;
+      updateMany: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
+      update: jest.Mock;
+    };
+    ledgerEntry: { createMany: jest.Mock };
+    user: { findUnique: jest.Mock };
+  };
+  let expiryQueue: { scheduleExpiry: jest.Mock; cancelExpiry: jest.Mock };
+  let paymentProvider: {
+    createSession: jest.Mock;
+    validateTransaction: jest.Mock;
+  };
+  let service: BookingsService;
+
+  const heldBooking = {
+    id: "b1",
+    userId: "u1",
+    status: "HELD",
+    resourceOwnerId: "vendor1",
+    totalAmountMinor: 500000,
+    currency: "BDT",
+  };
+
+  beforeEach(() => {
+    prisma = {
+      booking: {
+        findUnique: jest.fn(),
+        updateMany: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+        update: jest.fn(),
+      },
+      ledgerEntry: { createMany: jest.fn() },
+      user: { findUnique: jest.fn() },
+    };
+    expiryQueue = { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() };
+    paymentProvider = {
+      createSession: jest.fn(),
+      validateTransaction: jest.fn(),
+    };
+    service = new BookingsService(
+      prisma as unknown as PrismaService,
+      expiryQueue as never,
+      paymentProvider as never,
+      { get: jest.fn() } as never,
+    );
+  });
+
+  it("confirms a booking when validation succeeds with matching amount and currency", async () => {
+    prisma.booking.findUnique.mockResolvedValue(heldBooking);
+    paymentProvider.validateTransaction.mockResolvedValue({
+      valid: true,
+      amountMinor: 500000,
+      currency: "BDT",
+      storeId: null,
+    });
+    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    prisma.user.findUnique.mockResolvedValue({ commissionRatePercent: 10 });
+    prisma.booking.findUniqueOrThrow.mockResolvedValue({
+      ...heldBooking,
+      status: "CONFIRMED",
+      paymentStatus: "PAID",
+    });
+
+    await service.confirmIfValid("b1", "val-123");
+
+    expect(prisma.booking.updateMany).toHaveBeenCalledWith({
+      where: { id: "b1", status: "HELD" },
+      data: expect.objectContaining({
+        status: "CONFIRMED",
+        paymentStatus: "PAID",
+        gatewayValId: "val-123",
+        vendorOwedMinor: 450000,
+      }),
+    });
+    expect(prisma.ledgerEntry.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          bookingId: "b1",
+          type: "GROSS_PAYMENT",
+          amountMinor: 500000,
+          ratePercentApplied: 10,
+        },
+        {
+          bookingId: "b1",
+          type: "PLATFORM_FEE",
+          amountMinor: 50000,
+          ratePercentApplied: 10,
+        },
+        {
+          bookingId: "b1",
+          type: "VENDOR_OWED",
+          amountMinor: 450000,
+          ratePercentApplied: 10,
+        },
+      ],
+    });
+    expect(expiryQueue.cancelExpiry).toHaveBeenCalledWith("b1");
+  });
+
+  it("does nothing when the booking is not found", async () => {
+    prisma.booking.findUnique.mockResolvedValue(null);
+    await service.confirmIfValid("missing", "val-123");
+    expect(paymentProvider.validateTransaction).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when the booking is not HELD (already confirmed by the other path)", async () => {
+    prisma.booking.findUnique.mockResolvedValue({
+      ...heldBooking,
+      status: "CONFIRMED",
+    });
+    await service.confirmIfValid("b1", "val-123");
+    expect(paymentProvider.validateTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects and makes no state change when validation reports invalid", async () => {
+    prisma.booking.findUnique.mockResolvedValue(heldBooking);
+    paymentProvider.validateTransaction.mockResolvedValue({
+      valid: false,
+      amountMinor: 0,
+      currency: "",
+      storeId: null,
+    });
+
+    await service.confirmIfValid("b1", "val-123");
+
+    expect(prisma.booking.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the validated amount does not match the booking's total", async () => {
+    prisma.booking.findUnique.mockResolvedValue(heldBooking);
+    paymentProvider.validateTransaction.mockResolvedValue({
+      valid: true,
+      amountMinor: 400000,
+      currency: "BDT",
+      storeId: null,
+    });
+
+    await service.confirmIfValid("b1", "val-123");
+
+    expect(prisma.booking.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the validated currency does not match the booking's currency", async () => {
+    prisma.booking.findUnique.mockResolvedValue(heldBooking);
+    paymentProvider.validateTransaction.mockResolvedValue({
+      valid: true,
+      amountMinor: 500000,
+      currency: "USD",
+      storeId: null,
+    });
+
+    await service.confirmIfValid("b1", "val-123");
+
+    expect(prisma.booking.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects when a returned storeId does not match the configured store", async () => {
+    prisma.booking.findUnique.mockResolvedValue(heldBooking);
+    paymentProvider.validateTransaction.mockResolvedValue({
+      valid: true,
+      amountMinor: 500000,
+      currency: "BDT",
+      storeId: "some-other-store",
+    });
+
+    await service.confirmIfValid("b1", "val-123");
+
+    expect(prisma.booking.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("is a safe no-op if the guarded update loses the race (count 0)", async () => {
+    prisma.booking.findUnique.mockResolvedValue(heldBooking);
+    paymentProvider.validateTransaction.mockResolvedValue({
+      valid: true,
+      amountMinor: 500000,
+      currency: "BDT",
+      storeId: null,
+    });
+    prisma.booking.updateMany.mockResolvedValue({ count: 0 });
+
+    await service.confirmIfValid("b1", "val-123");
+
+    expect(prisma.ledgerEntry.createMany).not.toHaveBeenCalled();
+  });
+
+  it("computes correct ledger amounts with floor rounding for a non-evenly-divisible total", async () => {
+    prisma.booking.findUnique.mockResolvedValue({
+      ...heldBooking,
+      totalAmountMinor: 999,
+    });
+    paymentProvider.validateTransaction.mockResolvedValue({
+      valid: true,
+      amountMinor: 999,
+      currency: "BDT",
+      storeId: null,
+    });
+    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    prisma.user.findUnique.mockResolvedValue({ commissionRatePercent: 10 });
+    prisma.booking.findUniqueOrThrow.mockResolvedValue({
+      ...heldBooking,
+      status: "CONFIRMED",
+    });
+
+    await service.confirmIfValid("b1", "val-123");
+
+    expect(prisma.ledgerEntry.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          bookingId: "b1",
+          type: "GROSS_PAYMENT",
+          amountMinor: 999,
+          ratePercentApplied: 10,
+        },
+        {
+          bookingId: "b1",
+          type: "PLATFORM_FEE",
+          amountMinor: 99,
+          ratePercentApplied: 10,
+        },
+        {
+          bookingId: "b1",
+          type: "VENDOR_OWED",
+          amountMinor: 900,
+          ratePercentApplied: 10,
+        },
+      ],
+    });
+  });
+});
+
+describe("cancel with payment-status policy", () => {
+  let prisma: {
+    booking: {
+      findUnique: jest.Mock;
+      updateMany: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
+      update: jest.Mock;
+    };
+    ledgerEntry: { createMany: jest.Mock };
+    user: { findUnique: jest.Mock };
+  };
+  let service: BookingsService;
+
+  beforeEach(() => {
+    prisma = {
+      booking: {
+        findUnique: jest.fn(),
+        updateMany: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+        update: jest.fn(),
+      },
+      ledgerEntry: { createMany: jest.fn() },
+      user: { findUnique: jest.fn() },
+    };
+    service = new BookingsService(
+      prisma as unknown as PrismaService,
+      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
+      { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
+      { get: jest.fn() } as never,
+    );
+  });
+
+  it("cancels a HELD booking with no acknowledgement required", async () => {
+    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    prisma.booking.findUniqueOrThrow.mockResolvedValue({
+      id: "b1",
+      status: "CANCELLED",
+      paymentStatus: "PENDING",
+    });
+    const result = await service.cancel("u1", "b1");
+    expect(prisma.booking.updateMany).toHaveBeenCalledWith({
+      where: { id: "b1", userId: "u1", status: { in: ["HELD", "CONFIRMED"] } },
+      data: { status: "CANCELLED" },
+    });
+    expect(result.status).toBe("CANCELLED");
+  });
+
+  it("rejects cancelling a CONFIRMED+PAID booking without acknowledgeNoRefund", async () => {
+    prisma.booking.findUnique.mockResolvedValue({
+      id: "b1",
+      userId: "u1",
+      status: "CONFIRMED",
+      paymentStatus: "PAID",
+    });
+    await expect(service.cancel("u1", "b1", false)).rejects.toThrow(
+      /no refund/i,
     );
     expect(prisma.booking.updateMany).not.toHaveBeenCalled();
-    expect(paymentProvider.charge).not.toHaveBeenCalled();
+  });
+
+  it("cancels a CONFIRMED+PAID booking when acknowledgeNoRefund is true, keeping paymentStatus PAID", async () => {
+    prisma.booking.findUnique.mockResolvedValue({
+      id: "b1",
+      userId: "u1",
+      status: "CONFIRMED",
+      paymentStatus: "PAID",
+    });
+    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    prisma.booking.findUniqueOrThrow.mockResolvedValue({
+      id: "b1",
+      status: "CANCELLED",
+      paymentStatus: "PAID",
+    });
+
+    const result = await service.cancel("u1", "b1", true);
+
+    expect(result.status).toBe("CANCELLED");
+    expect(result.paymentStatus).toBe("PAID");
+  });
+});
+
+describe("getPaymentStatus", () => {
+  let prisma: {
+    booking: {
+      findUnique: jest.Mock;
+      updateMany: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
+      update: jest.Mock;
+    };
+    ledgerEntry: { createMany: jest.Mock };
+    user: { findUnique: jest.Mock };
+  };
+  let service: BookingsService;
+
+  beforeEach(() => {
+    prisma = {
+      booking: {
+        findUnique: jest.fn(),
+        updateMany: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+        update: jest.fn(),
+      },
+      ledgerEntry: { createMany: jest.fn() },
+      user: { findUnique: jest.fn() },
+    };
+    service = new BookingsService(
+      prisma as unknown as PrismaService,
+      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
+      { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
+      { get: jest.fn() } as never,
+    );
+  });
+
+  it("returns the booking's payment status for its own caller", async () => {
+    prisma.booking.findUnique.mockResolvedValue({
+      id: "b1",
+      userId: "u1",
+      paymentStatus: "PAID",
+      gatewayTranId: "tran-1",
+    });
+    const result = await service.getPaymentStatus("u1", "b1");
+    expect(result).toEqual({ paymentStatus: "PAID", gatewayTranId: "tran-1" });
+  });
+
+  it("throws ForbiddenException for a non-owner caller", async () => {
+    prisma.booking.findUnique.mockResolvedValue({
+      id: "b1",
+      userId: "someone-else",
+      paymentStatus: "PENDING",
+      gatewayTranId: null,
+    });
+    await expect(service.getPaymentStatus("u1", "b1")).rejects.toThrow(
+      "You do not own this booking",
+    );
   });
 });
 
@@ -476,7 +820,8 @@ describe("BookingsService.checkout", () => {
     service = new BookingsService(
       prisma as unknown as PrismaService,
       { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
-      { charge: jest.fn() } as never,
+      { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
+      { get: jest.fn() } as never,
     );
   });
 
@@ -539,7 +884,8 @@ describe("BookingsService.cancel", () => {
     service = new BookingsService(
       prisma as unknown as PrismaService,
       { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
-      { charge: jest.fn() } as never,
+      { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
+      { get: jest.fn() } as never,
     );
   });
 
@@ -592,7 +938,8 @@ describe("BookingsService.createBlock", () => {
     service = new BookingsService(
       prisma as unknown as PrismaService,
       { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
-      { charge: jest.fn() } as never,
+      { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
+      { get: jest.fn() } as never,
     );
   });
 
