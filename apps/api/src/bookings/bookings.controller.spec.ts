@@ -8,7 +8,8 @@ describe("BookingsController", () => {
   let controller: BookingsController;
   let bookingsService: {
     createBooking: jest.Mock;
-    confirmPayment: jest.Mock;
+    initiatePayment: jest.Mock;
+    getPaymentStatus: jest.Mock;
     checkout: jest.Mock;
     cancel: jest.Mock;
     createBlock: jest.Mock;
@@ -17,7 +18,8 @@ describe("BookingsController", () => {
   beforeEach(async () => {
     bookingsService = {
       createBooking: jest.fn(),
-      confirmPayment: jest.fn(),
+      initiatePayment: jest.fn(),
+      getPaymentStatus: jest.fn(),
       checkout: jest.fn(),
       cancel: jest.fn(),
       createBlock: jest.fn(),
@@ -50,19 +52,6 @@ describe("BookingsController", () => {
     expect(result).toEqual({ id: "b1" });
   });
 
-  it("confirmPayment() passes the caller's id and booking id", async () => {
-    bookingsService.confirmPayment.mockResolvedValue({
-      id: "b1",
-      status: "CONFIRMED",
-    });
-    const result = await controller.confirmPayment(
-      { id: "u1", roles: ["TRAVELER"] },
-      "b1",
-    );
-    expect(bookingsService.confirmPayment).toHaveBeenCalledWith("u1", "b1");
-    expect(result.status).toBe("CONFIRMED");
-  });
-
   it("checkout() passes the caller's id", async () => {
     bookingsService.checkout.mockResolvedValue({
       id: "b1",
@@ -72,10 +61,64 @@ describe("BookingsController", () => {
     expect(bookingsService.checkout).toHaveBeenCalledWith("v1", "b1");
   });
 
-  it("cancel() passes the caller's id", async () => {
-    bookingsService.cancel.mockResolvedValue({ id: "b1", status: "CANCELLED" });
-    await controller.cancel({ id: "u1", roles: ["TRAVELER"] }, "b1");
-    expect(bookingsService.cancel).toHaveBeenCalledWith("u1", "b1");
+  describe("initiatePayment", () => {
+    it("delegates to BookingsService.initiatePayment", async () => {
+      bookingsService.initiatePayment.mockResolvedValue({
+        gatewayUrl: "https://sandbox.sslcommerz.com/pay/xyz",
+      });
+      const result = await controller.initiatePayment(
+        { id: "u1", roles: ["TRAVELER"] },
+        "b1",
+      );
+      expect(bookingsService.initiatePayment).toHaveBeenCalledWith("u1", "b1");
+      expect(result).toEqual({
+        gatewayUrl: "https://sandbox.sslcommerz.com/pay/xyz",
+      });
+    });
+  });
+
+  describe("getPaymentStatus", () => {
+    it("delegates to BookingsService.getPaymentStatus", async () => {
+      bookingsService.getPaymentStatus.mockResolvedValue({
+        paymentStatus: "PAID",
+        gatewayTranId: "tran-1",
+      });
+      const result = await controller.getPaymentStatus(
+        { id: "u1", roles: ["TRAVELER"] },
+        "b1",
+      );
+      expect(bookingsService.getPaymentStatus).toHaveBeenCalledWith("u1", "b1");
+      expect(result).toEqual({
+        paymentStatus: "PAID",
+        gatewayTranId: "tran-1",
+      });
+    });
+  });
+
+  describe("cancel", () => {
+    it("passes acknowledgeNoRefund through to BookingsService.cancel", async () => {
+      bookingsService.cancel.mockResolvedValue({
+        id: "b1",
+        status: "CANCELLED",
+      });
+      await controller.cancel({ id: "u1", roles: ["TRAVELER"] }, "b1", {
+        acknowledgeNoRefund: true,
+      });
+      expect(bookingsService.cancel).toHaveBeenCalledWith("u1", "b1", true);
+    });
+
+    it("passes undefined when acknowledgeNoRefund is not provided", async () => {
+      bookingsService.cancel.mockResolvedValue({
+        id: "b1",
+        status: "CANCELLED",
+      });
+      await controller.cancel({ id: "u1", roles: ["TRAVELER"] }, "b1", {});
+      expect(bookingsService.cancel).toHaveBeenCalledWith(
+        "u1",
+        "b1",
+        undefined,
+      );
+    });
   });
 
   it("createBlock() passes the caller's id", async () => {
