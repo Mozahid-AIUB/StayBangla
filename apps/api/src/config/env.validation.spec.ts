@@ -139,7 +139,7 @@ describe("validateEnv", () => {
     ).toThrow(/THROTTLE_LIMIT/);
   });
 
-  it("applies SSLCommerz/frontend defaults when not provided", () => {
+  it("applies SSLCommerz/frontend/API defaults when not provided", () => {
     const result = validateEnv({
       ...REQUIRED_BASE,
       SSLCOMMERZ_STORE_ID: "test-store",
@@ -147,6 +147,7 @@ describe("validateEnv", () => {
     });
     expect(result.SSLCOMMERZ_SANDBOX).toBe(true);
     expect(result.FRONTEND_URL).toBe("http://localhost:3000");
+    expect(result.API_BASE_URL).toBe("http://localhost:3001");
   });
 
   it("throws when SSLCOMMERZ_STORE_ID is missing", () => {

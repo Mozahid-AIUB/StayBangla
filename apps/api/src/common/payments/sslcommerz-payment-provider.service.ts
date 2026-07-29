@@ -35,6 +35,7 @@ export class SslcommerzPaymentProviderService implements PaymentProviderPort {
   private readonly storePassword: string;
   private readonly baseUrl: string;
   private readonly frontendUrl: string;
+  private readonly apiBaseUrl: string;
 
   constructor(config: ConfigService) {
     this.storeId = config.get<string>("SSLCOMMERZ_STORE_ID", "");
@@ -46,6 +47,10 @@ export class SslcommerzPaymentProviderService implements PaymentProviderPort {
     this.frontendUrl = config.get<string>(
       "FRONTEND_URL",
       "http://localhost:3000",
+    );
+    this.apiBaseUrl = config.get<string>(
+      "API_BASE_URL",
+      "http://localhost:3001",
     );
   }
 
@@ -66,7 +71,7 @@ export class SslcommerzPaymentProviderService implements PaymentProviderPort {
       success_url: `${this.frontendUrl}/bookings/${bookingId}/payment-result?status=success`,
       fail_url: `${this.frontendUrl}/bookings/${bookingId}/payment-result?status=fail`,
       cancel_url: `${this.frontendUrl}/bookings/${bookingId}/payment-result?status=cancel`,
-      ipn_url: `${this.frontendUrl}/payments/sslcommerz/ipn`,
+      ipn_url: `${this.apiBaseUrl}/payments/sslcommerz/ipn`,
       cus_name: "StayBangla Traveler",
       cus_email: "traveler@staybangla.example",
       cus_add1: "Dhaka",

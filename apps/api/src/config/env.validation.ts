@@ -60,6 +60,7 @@ const envSchema = z.object({
     .default("true")
     .transform((val) => val === "true"),
   FRONTEND_URL: z.string().url().default("http://localhost:3000"),
+  API_BASE_URL: z.string().url().default("http://localhost:3001"),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
