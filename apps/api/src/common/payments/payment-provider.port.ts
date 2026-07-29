@@ -8,6 +8,7 @@ export interface ValidationResult {
   amountMinor: number;
   currency: string;
   storeId: string | null;
+  valId: string | null;
 }
 
 export abstract class PaymentProviderPort {
@@ -18,4 +19,6 @@ export abstract class PaymentProviderPort {
   ): Promise<PaymentSession>;
 
   abstract validateTransaction(valId: string): Promise<ValidationResult>;
+
+  abstract queryByTranId(tranId: string): Promise<ValidationResult>;
 }

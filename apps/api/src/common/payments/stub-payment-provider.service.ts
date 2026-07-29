@@ -34,6 +34,18 @@ export class StubPaymentProviderService implements PaymentProviderPort {
       amountMinor: 0,
       currency: "BDT",
       storeId: null,
+      valId,
+    };
+  }
+
+  async queryByTranId(tranId: string): Promise<ValidationResult> {
+    this.logger.log(`[stub payment] queryByTranId tranId=${tranId} -> valid`);
+    return {
+      valid: true,
+      amountMinor: 0,
+      currency: "BDT",
+      storeId: null,
+      valId: `stub-val-id-for-${tranId}`,
     };
   }
 }

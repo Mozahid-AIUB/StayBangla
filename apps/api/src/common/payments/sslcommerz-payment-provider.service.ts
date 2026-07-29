@@ -24,6 +24,10 @@ interface ValidationApiResponse {
   store_id?: string;
 }
 
+interface TransactionQueryApiResponse extends ValidationApiResponse {
+  val_id?: string;
+}
+
 @Injectable()
 export class SslcommerzPaymentProviderService implements PaymentProviderPort {
   private readonly logger = new Logger(SslcommerzPaymentProviderService.name);
@@ -102,7 +106,13 @@ export class SslcommerzPaymentProviderService implements PaymentProviderPort {
       const data = (await response.json()) as ValidationApiResponse;
 
       if (data.status !== "VALID" && data.status !== "VALIDATED") {
-        return { valid: false, amountMinor: 0, currency: "", storeId: null };
+        return {
+          valid: false,
+          amountMinor: 0,
+          currency: "",
+          storeId: null,
+          valId: null,
+        };
       }
 
       const amountMinor = Math.round(parseFloat(data.amount ?? "0") * 100);
@@ -111,13 +121,66 @@ export class SslcommerzPaymentProviderService implements PaymentProviderPort {
         amountMinor,
         currency: data.currency ?? "",
         storeId: data.store_id ?? null,
+        valId,
       };
     } catch (error) {
       this.logger.error(
         `SSLCommerz validation API call failed for valId=${valId}`,
         error instanceof Error ? error.stack : undefined,
       );
-      return { valid: false, amountMinor: 0, currency: "", storeId: null };
+      return {
+        valid: false,
+        amountMinor: 0,
+        currency: "",
+        storeId: null,
+        valId: null,
+      };
+    }
+  }
+
+  async queryByTranId(tranId: string): Promise<ValidationResult> {
+    try {
+      const query = new URLSearchParams({
+        tran_id: tranId,
+        store_id: this.storeId,
+        store_passwd: this.storePassword,
+        format: "json",
+      });
+      const response = await fetch(
+        `${this.baseUrl}/validator/api/merchantTransIDvalidationAPI.php?${query.toString()}`,
+      );
+      const data = (await response.json()) as TransactionQueryApiResponse;
+
+      if (data.status !== "VALID" && data.status !== "VALIDATED") {
+        return {
+          valid: false,
+          amountMinor: 0,
+          currency: "",
+          storeId: null,
+          valId: null,
+        };
+      }
+
+      const amountMinor = Math.round(parseFloat(data.amount ?? "0") * 100);
+      return {
+        valid: true,
+        amountMinor,
+        currency: data.currency ?? "",
+        storeId: data.store_id ?? null,
+        valId: data.val_id ?? null,
+      };
+    } catch (error) {
+      this.logger.error(
+        `SSLCommerz transaction query API call failed for tranId=${tranId}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      return {
+        valid: false,
+        amountMinor: 0,
+        currency: "",
+        storeId: null,
+        valId: null,
+      };
     }
   }
 }

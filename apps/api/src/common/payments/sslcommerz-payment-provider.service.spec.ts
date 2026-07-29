@@ -96,6 +96,7 @@ describe("SslcommerzPaymentProviderService", () => {
         amountMinor: 500000,
         currency: "BDT",
         storeId: "test-store",
+        valId: "val-id-123",
       });
     });
 
@@ -116,6 +117,58 @@ describe("SslcommerzPaymentProviderService", () => {
       const result = await service.validateTransaction("val-id-123");
 
       expect(result.valid).toBe(false);
+    });
+  });
+
+  describe("queryByTranId", () => {
+    it("calls the Transaction Query API and returns a valid result with val_id on VALID status", async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: "VALID",
+          amount: "5000.00",
+          currency: "BDT",
+          store_id: "test-store",
+          val_id: "val-id-456",
+        }),
+      });
+
+      const result = await service.queryByTranId("tran-id-123");
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("tran_id=tran-id-123"),
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("merchantTransIDvalidationAPI.php"),
+      );
+      expect(result).toEqual({
+        valid: true,
+        amountMinor: 500000,
+        currency: "BDT",
+        storeId: "test-store",
+        valId: "val-id-456",
+      });
+    });
+
+    it("returns valid:false when SSLCommerz reports a non-VALID status", async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: "INVALID_TRANSACTION" }),
+      });
+
+      const result = await service.queryByTranId("tran-id-123");
+
+      expect(result.valid).toBe(false);
+      expect(result.valId).toBeNull();
+    });
+
+    it("returns valid:false (not a thrown error) if the HTTP call itself fails", async () => {
+      fetchMock.mockRejectedValue(new Error("network error"));
+
+      const result = await service.queryByTranId("tran-id-123");
+
+      expect(result.valid).toBe(false);
+      expect(result.valId).toBeNull();
     });
   });
 });
