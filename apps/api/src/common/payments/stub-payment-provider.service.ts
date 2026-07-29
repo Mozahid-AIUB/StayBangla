@@ -1,18 +1,51 @@
+import { randomUUID } from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
-import { ChargeResult, PaymentProviderPort } from "./payment-provider.port";
+import {
+  PaymentProviderPort,
+  PaymentSession,
+  ValidationResult,
+} from "./payment-provider.port";
 
 @Injectable()
 export class StubPaymentProviderService implements PaymentProviderPort {
   private readonly logger = new Logger(StubPaymentProviderService.name);
 
-  async charge(
+  async createSession(
     bookingId: string,
     amountMinor: number,
     currency: string,
-  ): Promise<ChargeResult> {
+  ): Promise<PaymentSession> {
+    const tranId = randomUUID();
     this.logger.log(
-      `[stub payment] booking=${bookingId} amount=${amountMinor} ${currency} -> success`,
+      `[stub payment] createSession booking=${bookingId} amount=${amountMinor} ${currency} tranId=${tranId}`,
     );
-    return { success: true };
+    return {
+      gatewayUrl: `https://stub-gateway.example.com/pay/${bookingId}`,
+      tranId,
+    };
+  }
+
+  async validateTransaction(valId: string): Promise<ValidationResult> {
+    this.logger.log(
+      `[stub payment] validateTransaction valId=${valId} -> valid`,
+    );
+    return {
+      valid: true,
+      amountMinor: 0,
+      currency: "BDT",
+      storeId: null,
+      valId,
+    };
+  }
+
+  async queryByTranId(tranId: string): Promise<ValidationResult> {
+    this.logger.log(`[stub payment] queryByTranId tranId=${tranId} -> valid`);
+    return {
+      valid: true,
+      amountMinor: 0,
+      currency: "BDT",
+      storeId: null,
+      valId: `stub-val-id-for-${tranId}`,
+    };
   }
 }

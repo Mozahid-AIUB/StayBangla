@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -8,6 +8,7 @@ import { BookingsService } from "./bookings.service";
 import { BookingRecord } from "./bookings.types";
 import { CreateBookingDto } from "./dto/create-booking.dto";
 import { CreateBlockDto } from "./dto/create-block.dto";
+import { CancelBookingDto } from "./dto/cancel-booking.dto";
 
 @Controller()
 export class BookingsController {
@@ -23,13 +24,24 @@ export class BookingsController {
     return this.bookingsService.createBooking(user.id, dto);
   }
 
-  @Post("bookings/:id/confirm-payment")
-  @UseGuards(JwtAuthGuard)
-  async confirmPayment(
+  @Post("bookings/:id/initiate-payment")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("TRAVELER")
+  async initiatePayment(
     @CurrentUser() user: RequestUser,
     @Param("id") id: string,
-  ): Promise<BookingRecord> {
-    return this.bookingsService.confirmPayment(user.id, id);
+  ): Promise<{ gatewayUrl: string }> {
+    return this.bookingsService.initiatePayment(user.id, id);
+  }
+
+  @Get("bookings/:id/payment-status")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("TRAVELER")
+  async getPaymentStatus(
+    @CurrentUser() user: RequestUser,
+    @Param("id") id: string,
+  ): Promise<{ paymentStatus: string; gatewayTranId: string | null }> {
+    return this.bookingsService.getPaymentStatus(user.id, id);
   }
 
   @Post("bookings/:id/checkout")
@@ -48,8 +60,9 @@ export class BookingsController {
   async cancel(
     @CurrentUser() user: RequestUser,
     @Param("id") id: string,
+    @Body() dto: CancelBookingDto,
   ): Promise<BookingRecord> {
-    return this.bookingsService.cancel(user.id, id);
+    return this.bookingsService.cancel(user.id, id, dto.acknowledgeNoRefund);
   }
 
   @Post("vendor/blocks")

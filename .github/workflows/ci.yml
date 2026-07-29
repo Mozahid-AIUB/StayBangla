@@ -80,6 +80,11 @@ jobs:
           MINIO_ACCESS_KEY=staybangla
           MINIO_SECRET_KEY=staybangla-secret
           MINIO_BUCKET=staybangla-photos
+          SSLCOMMERZ_STORE_ID=ci-test-store-id
+          SSLCOMMERZ_STORE_PASSWORD=ci-test-store-password
+          SSLCOMMERZ_SANDBOX=true
+          FRONTEND_URL=http://localhost:3000
+          API_BASE_URL=http://localhost:3001
           EOF
       - run: pnpm --filter @staybangla/api exec dotenv -e .env.test -- prisma migrate deploy
       - run: pnpm lint

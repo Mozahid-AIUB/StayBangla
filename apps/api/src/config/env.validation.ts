@@ -52,6 +52,15 @@ const envSchema = z.object({
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
   THROTTLE_OTP_LIMIT: z.coerce.number().int().positive().default(5),
   THROTTLE_AUTH_LIMIT: z.coerce.number().int().positive().default(10),
+
+  SSLCOMMERZ_STORE_ID: z.string().min(1),
+  SSLCOMMERZ_STORE_PASSWORD: z.string().min(1),
+  SSLCOMMERZ_SANDBOX: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((val) => val === "true"),
+  FRONTEND_URL: z.string().url().default("http://localhost:3000"),
+  API_BASE_URL: z.string().url().default("http://localhost:3001"),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

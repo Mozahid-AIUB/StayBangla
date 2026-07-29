@@ -36,6 +36,9 @@ export async function cleanDatabase(): Promise<void> {
   await testPrisma.hotelPhoto.deleteMany();
   await testPrisma.roomPhoto.deleteMany();
   await testPrisma.vendorVerificationLog.deleteMany();
+  // LedgerEntry has a real Prisma @relation FK to Booking, so it must be
+  // cleared before Booking rows are deleted.
+  await testPrisma.ledgerEntry.deleteMany();
   // Booking references room/vehicle ids as plain columns (no Prisma @relation),
   // so it has no FK constraint, but it's still cleared first for hygiene.
   await testPrisma.booking.deleteMany();

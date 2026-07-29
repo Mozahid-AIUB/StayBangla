@@ -13,6 +13,7 @@ export interface BookingRecord {
   totalAmountMinor: number;
   currency: string;
   status: string;
+  paymentStatus: string;
   createdAt: Date;
   updatedAt: Date;
 }

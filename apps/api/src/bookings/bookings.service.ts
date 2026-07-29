@@ -5,7 +5,8 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { ConfigService } from "@nestjs/config";
+import { LedgerEntryType, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { PaymentProviderPort } from "../common/payments/payment-provider.port";
 import { BookingExpiryQueueService } from "./queue/booking-expiry-queue.service";
@@ -34,6 +35,7 @@ export class BookingsService {
     private readonly prisma: PrismaService,
     private readonly expiryQueue: BookingExpiryQueueService,
     private readonly paymentProvider: PaymentProviderPort,
+    private readonly config: ConfigService,
   ) {}
 
   private validateDates(checkIn: string, checkOut: string): void {
@@ -147,10 +149,10 @@ export class BookingsService {
     }
   }
 
-  async confirmPayment(
+  async initiatePayment(
     callerId: string,
     bookingId: string,
-  ): Promise<BookingRecord> {
+  ): Promise<{ gatewayUrl: string }> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
     });
@@ -158,40 +160,113 @@ export class BookingsService {
     if (booking.userId !== callerId) {
       throw new ForbiddenException("You do not own this booking");
     }
-
-    if (booking.status === "CONFIRMED") {
-      return this.toBookingRecord(booking);
-    }
     if (booking.status !== "HELD") {
       throw new ConflictException(
-        `Booking is ${booking.status}, cannot confirm payment`,
+        `Booking is ${booking.status}, must be HELD to initiate payment`,
       );
     }
 
-    const result = await this.prisma.booking.updateMany({
-      where: { id: bookingId, status: "HELD" },
-      data: { status: "CONFIRMED" },
-    });
-    if (result.count === 0) {
-      // Lost the race to the auto-cancel timer between our read and this update.
-      // Charge the customer only AFTER this guard succeeds, never before —
-      // otherwise a losing race would charge money for a booking that ends up
-      // AUTO_CANCELLED with no compensating refund.
-      throw new ConflictException(
-        "Booking hold expired before payment could be confirmed",
-      );
-    }
-
-    await this.paymentProvider.charge(
+    const session = await this.paymentProvider.createSession(
       bookingId,
       booking.totalAmountMinor,
       booking.currency,
     );
-    await this.expiryQueue.cancelExpiry(bookingId);
-    const updated = await this.prisma.booking.findUniqueOrThrow({
+    await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: { gatewayTranId: session.tranId },
+    });
+
+    return { gatewayUrl: session.gatewayUrl };
+  }
+
+  async confirmIfValid(bookingId: string, valId: string): Promise<void> {
+    const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
     });
-    return this.toBookingRecord(updated);
+    if (!booking || booking.status !== "HELD") {
+      return;
+    }
+
+    const validation = await this.paymentProvider.validateTransaction(valId);
+    if (
+      !validation.valid ||
+      validation.amountMinor !== booking.totalAmountMinor ||
+      validation.currency !== booking.currency
+    ) {
+      return;
+    }
+    if (
+      validation.storeId !== null &&
+      validation.storeId !== this.config.get<string>("SSLCOMMERZ_STORE_ID")
+    ) {
+      return;
+    }
+
+    const owner = await this.prisma.user.findUnique({
+      where: { id: booking.resourceOwnerId },
+    });
+    const commissionRatePercent = owner?.commissionRatePercent ?? 10;
+    const platformFeeMinor = Math.floor(
+      (booking.totalAmountMinor * commissionRatePercent) / 100,
+    );
+    const vendorOwedMinor = booking.totalAmountMinor - platformFeeMinor;
+
+    const result = await this.prisma.booking.updateMany({
+      where: { id: bookingId, status: "HELD" },
+      data: {
+        status: "CONFIRMED",
+        paymentStatus: "PAID",
+        gatewayValId: valId,
+        vendorOwedMinor,
+      },
+    });
+    if (result.count === 0) {
+      // Lost the race to another confirmation path (webhook vs. reconciliation
+      // firing near-simultaneously, or the hold expired) between our read and
+      // this update.
+      return;
+    }
+
+    await this.prisma.ledgerEntry.createMany({
+      data: [
+        {
+          bookingId,
+          type: LedgerEntryType.GROSS_PAYMENT,
+          amountMinor: booking.totalAmountMinor,
+          ratePercentApplied: commissionRatePercent,
+        },
+        {
+          bookingId,
+          type: LedgerEntryType.PLATFORM_FEE,
+          amountMinor: platformFeeMinor,
+          ratePercentApplied: commissionRatePercent,
+        },
+        {
+          bookingId,
+          type: LedgerEntryType.VENDOR_OWED,
+          amountMinor: vendorOwedMinor,
+          ratePercentApplied: commissionRatePercent,
+        },
+      ],
+    });
+    await this.expiryQueue.cancelExpiry(bookingId);
+  }
+
+  async getPaymentStatus(
+    callerId: string,
+    bookingId: string,
+  ): Promise<{ paymentStatus: string; gatewayTranId: string | null }> {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+    if (!booking) throw new NotFoundException("Booking not found");
+    if (booking.userId !== callerId) {
+      throw new ForbiddenException("You do not own this booking");
+    }
+    return {
+      paymentStatus: booking.paymentStatus,
+      gatewayTranId: booking.gatewayTranId,
+    };
   }
 
   async checkout(callerId: string, bookingId: string): Promise<BookingRecord> {
@@ -214,7 +289,26 @@ export class BookingsService {
     return this.toBookingRecord(updated);
   }
 
-  async cancel(callerId: string, bookingId: string): Promise<BookingRecord> {
+  async cancel(
+    callerId: string,
+    bookingId: string,
+    acknowledgeNoRefund?: boolean,
+  ): Promise<BookingRecord> {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+    if (
+      booking &&
+      booking.userId === callerId &&
+      booking.status === "CONFIRMED" &&
+      booking.paymentStatus === "PAID" &&
+      !acknowledgeNoRefund
+    ) {
+      throw new BadRequestException(
+        "Cancelling a confirmed, paid booking forfeits the payment — pass acknowledgeNoRefund: true to confirm (no refund)",
+      );
+    }
+
     const result = await this.prisma.booking.updateMany({
       where: {
         id: bookingId,
@@ -307,6 +401,7 @@ export class BookingsService {
     totalAmountMinor: number;
     currency: string;
     status: string;
+    paymentStatus: string;
     createdAt: Date;
     updatedAt: Date;
   }): BookingRecord {
