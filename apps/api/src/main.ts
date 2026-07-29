@@ -9,8 +9,29 @@ async function bootstrap(): Promise<void> {
   app.useLogger(app.get(Logger));
   configureApp(app);
 
-  const config = new DocumentBuilder().setTitle("StayBangla API").setVersion("0.0.0").build();
-  SwaggerModule.setup("api/docs", app, SwaggerModule.createDocument(app, config));
+  const config = new DocumentBuilder()
+    .setTitle("StayBangla API")
+    .setDescription(
+      "StayBangla is a Bangladesh tourism-booking platform: hotel rooms, " +
+        "vehicles, and (in progress) tour guides. This API serves traveler " +
+        "booking flows, vendor listing management, SSLCommerz payment " +
+        "confirmation, and admin verification/commission workflows.",
+    )
+    .setVersion("1.0")
+    .addBearerAuth({
+      type: "http",
+      scheme: "bearer",
+      bearerFormat: "JWT",
+      description:
+        "Paste the accessToken returned by /v1/auth/login, /v1/auth/otp/verify, " +
+        "or /v1/auth/refresh.",
+    })
+    .build();
+  SwaggerModule.setup(
+    "api/docs",
+    app,
+    SwaggerModule.createDocument(app, config),
+  );
 
   const port = process.env.API_PORT ?? 3001;
   await app.listen(port);
