@@ -3,6 +3,7 @@ import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { AppModule } from "src/app.module";
 import { configureApp } from "src/bootstrap/configure-app";
+import { PaymentProviderPort } from "src/common/payments/payment-provider.port";
 import { cleanDatabase } from "./helpers/test-db";
 import { registerAndLogin } from "./helpers/test-users";
 import {
@@ -13,11 +14,24 @@ import {
 
 describe("Booking ownership (e2e)", () => {
   let app: INestApplication;
+  let fakeProvider: {
+    createSession: jest.Mock;
+    validateTransaction: jest.Mock;
+    queryByTranId: jest.Mock;
+  };
 
   beforeAll(async () => {
+    fakeProvider = {
+      createSession: jest.fn(),
+      validateTransaction: jest.fn(),
+      queryByTranId: jest.fn(),
+    };
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(PaymentProviderPort)
+      .useValue(fakeProvider)
+      .compile();
     app = moduleRef.createNestApplication();
     configureApp(app);
     await app.init();
@@ -30,6 +44,7 @@ describe("Booking ownership (e2e)", () => {
 
   beforeEach(async () => {
     await cleanDatabase();
+    jest.clearAllMocks();
   });
 
   it("vendor B cannot checkout vendor A's booking", async () => {
@@ -56,9 +71,25 @@ describe("Booking ownership (e2e)", () => {
         checkIn: "2027-01-01",
         checkOut: "2027-01-03",
       });
+    fakeProvider.createSession.mockResolvedValue({
+      gatewayUrl: "https://sandbox.sslcommerz.com/pay/xyz",
+      tranId: "tran-ownership-1",
+    });
     await request(app.getHttpServer())
-      .post(`/bookings/${created.body.id}/confirm-payment`)
+      .post(`/bookings/${created.body.id}/initiate-payment`)
       .set("Authorization", `Bearer ${travelerToken}`);
+    fakeProvider.validateTransaction.mockResolvedValue({
+      valid: true,
+      amountMinor: 1000000,
+      currency: "BDT",
+      storeId: null,
+      valId: "val-ownership-1",
+    });
+    await request(app.getHttpServer()).post("/payments/sslcommerz/ipn").send({
+      tran_id: "tran-ownership-1",
+      val_id: "val-ownership-1",
+      status: "VALID",
+    });
 
     const res = await request(app.getHttpServer())
       .post(`/bookings/${created.body.id}/checkout`)
@@ -99,7 +130,7 @@ describe("Booking ownership (e2e)", () => {
     expect(res.status).toBe(409);
   });
 
-  it("confirm-payment requires auth and rejects a caller who is not the booking's traveler", async () => {
+  it("initiate-payment requires auth and rejects a caller who is not the booking's traveler", async () => {
     const { accessToken: vendorToken } = await createVerifiedVendor(
       app,
       "confirm-owner-vendor@example.com",
@@ -125,12 +156,12 @@ describe("Booking ownership (e2e)", () => {
       });
 
     const noAuth = await request(app.getHttpServer()).post(
-      `/bookings/${created.body.id}/confirm-payment`,
+      `/bookings/${created.body.id}/initiate-payment`,
     );
     expect(noAuth.status).toBe(401);
 
     const wrongTraveler = await request(app.getHttpServer())
-      .post(`/bookings/${created.body.id}/confirm-payment`)
+      .post(`/bookings/${created.body.id}/initiate-payment`)
       .set("Authorization", `Bearer ${travelerBToken}`);
     expect(wrongTraveler.status).toBe(403);
   });
