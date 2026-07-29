@@ -1,4 +1,10 @@
-import { Body, Controller, Logger, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Logger,
+  Post,
+  VERSION_NEUTRAL,
+} from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { BookingsService } from "./bookings.service";
 
@@ -8,7 +14,7 @@ interface SslcommerzIpnBody {
   status: string;
 }
 
-@Controller("payments/sslcommerz")
+@Controller({ path: "payments/sslcommerz", version: VERSION_NEUTRAL })
 export class PaymentsController {
   private readonly logger = new Logger(PaymentsController.name);
 

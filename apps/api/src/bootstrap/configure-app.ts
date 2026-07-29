@@ -1,4 +1,8 @@
-import { INestApplication, ValidationPipe } from "@nestjs/common";
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
@@ -13,6 +17,10 @@ export function configureApp(app: INestApplication): void {
     configService.get<string>("CORS_ORIGINS", "http://localhost:3000"),
   );
 
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: "1",
+  });
   app.use(helmet());
   app.use(cookieParser());
   app.enableCors({ origin: corsOrigins, credentials: true });
