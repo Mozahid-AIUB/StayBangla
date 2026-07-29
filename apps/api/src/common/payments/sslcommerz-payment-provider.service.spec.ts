@@ -7,6 +7,7 @@ function makeConfig(): ConfigService {
     SSLCOMMERZ_STORE_PASSWORD: "test-password",
     SSLCOMMERZ_SANDBOX: true,
     FRONTEND_URL: "http://localhost:3000",
+    API_BASE_URL: "http://localhost:3001",
   };
   return { get: (key: string) => values[key] } as unknown as ConfigService;
 }
@@ -71,6 +72,25 @@ describe("SslcommerzPaymentProviderService", () => {
       const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
       const body = options.body as URLSearchParams;
       expect(body.get("total_amount")).toBe("5000.00");
+    });
+
+    it("sends ipn_url on the API's own base URL, not the frontend URL", async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: "SUCCESS",
+          GatewayPageURL: "https://sandbox.sslcommerz.com/EasyCheckOut/abc123",
+        }),
+      });
+
+      await service.createSession("booking-1", 500000, "BDT");
+
+      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = options.body as URLSearchParams;
+      expect(body.get("ipn_url")).toBe(
+        "http://localhost:3001/payments/sslcommerz/ipn",
+      );
+      expect(body.get("success_url")).toContain("http://localhost:3000");
     });
   });
 
