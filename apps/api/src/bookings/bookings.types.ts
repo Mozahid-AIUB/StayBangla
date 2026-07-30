@@ -14,6 +14,17 @@ export interface BookingRecord {
   currency: string;
   status: string;
   paymentStatus: string;
+  source: "ONLINE" | "OFFLINE";
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface CreateOfflineBookingInput {
+  bookableType: BookableType;
+  bookableId: string;
+  checkIn: string;
+  checkOut: string;
+  guestName?: string;
+  amountMinor: number;
+  note?: string;
 }

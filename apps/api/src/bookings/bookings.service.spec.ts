@@ -1100,3 +1100,238 @@ describe("BookingsService.createBlock", () => {
     });
   });
 });
+
+describe("createOfflineBooking", () => {
+  let prisma: {
+    $queryRaw: jest.Mock;
+    room: { findUnique: jest.Mock };
+    vehicle: { findUnique: jest.Mock };
+    booking: {
+      findUnique: jest.Mock;
+      updateMany: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
+    };
+    vendorLedgerEntry: { create: jest.Mock };
+    $transaction: jest.Mock;
+  };
+  let service: BookingsService;
+
+  beforeEach(() => {
+    prisma = {
+      $queryRaw: jest.fn(),
+      room: { findUnique: jest.fn() },
+      vehicle: { findUnique: jest.fn() },
+      booking: {
+        findUnique: jest.fn(),
+        updateMany: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+      },
+      vendorLedgerEntry: { create: jest.fn() },
+      $transaction: jest.fn(),
+    };
+    service = new BookingsService(
+      prisma as unknown as PrismaService,
+      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
+      { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
+      { get: jest.fn() } as never,
+    );
+  });
+
+  it("inserts a CONFIRMED, source=OFFLINE booking and a linked WALK_IN_BOOKING ledger entry", async () => {
+    prisma.room.findUnique.mockResolvedValue({
+      id: "room1",
+      hotelId: "hotel1",
+      isActive: true,
+      hotel: { ownerId: "vendor1" },
+    });
+    prisma.$transaction.mockImplementation(
+      async (fn: (tx: unknown) => unknown) => fn(prisma),
+    );
+    prisma.$queryRaw.mockResolvedValue([
+      {
+        id: "booking1",
+        userId: null,
+        bookableType: "ROOM",
+        roomId: "room1",
+        vehicleId: null,
+        resourceOwnerId: "vendor1",
+        checkIn: "2026-08-01",
+        checkOut: "2026-08-03",
+        guestCount: null,
+        totalAmountMinor: 5000,
+        currency: "BDT",
+        status: "CONFIRMED",
+        paymentStatus: "PENDING",
+        source: "OFFLINE",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    prisma.vendorLedgerEntry.create.mockResolvedValue({
+      id: "vle1",
+      vendorId: "vendor1",
+      roomId: "room1",
+      vehicleId: null,
+      bookingId: "booking1",
+      direction: "INCOME",
+      category: "WALK_IN_BOOKING",
+      amountMinor: 5000,
+      note: null,
+      entryDate: new Date("2026-08-01"),
+      deletedAt: null,
+      createdAt: new Date(),
+    });
+
+    const result = await service.createOfflineBooking("vendor1", {
+      bookableType: "ROOM",
+      bookableId: "room1",
+      checkIn: "2026-08-01",
+      checkOut: "2026-08-03",
+      amountMinor: 5000,
+    });
+
+    expect(result.booking.status).toBe("CONFIRMED");
+    expect(result.booking.source).toBe("OFFLINE");
+    expect(result.vendorLedgerEntry.category).toBe("WALK_IN_BOOKING");
+    expect(prisma.vendorLedgerEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          bookingId: "booking1",
+          direction: "INCOME",
+          category: "WALK_IN_BOOKING",
+          amountMinor: 5000,
+        }),
+      }),
+    );
+  });
+
+  it("rejects when the caller does not own the room", async () => {
+    prisma.room.findUnique.mockResolvedValue({
+      id: "room1",
+      hotelId: "hotel1",
+      isActive: true,
+      hotel: { ownerId: "someone-else" },
+    });
+
+    await expect(
+      service.createOfflineBooking("vendor1", {
+        bookableType: "ROOM",
+        bookableId: "room1",
+        checkIn: "2026-08-01",
+        checkOut: "2026-08-03",
+        amountMinor: 5000,
+      }),
+    ).rejects.toThrow(/do not own/i);
+  });
+
+  it("translates an exclusion-constraint violation into a 409 Conflict", async () => {
+    prisma.room.findUnique.mockResolvedValue({
+      id: "room1",
+      hotelId: "hotel1",
+      isActive: true,
+      hotel: { ownerId: "vendor1" },
+    });
+    prisma.$transaction.mockImplementation(
+      async (fn: (tx: unknown) => unknown) => fn(prisma),
+    );
+    const exclusionError = Object.assign(
+      new Prisma.PrismaClientKnownRequestError("conflict", {
+        code: "P2010",
+        clientVersion: "6.0.0",
+        meta: { code: "23P01" },
+      }),
+      {},
+    );
+    prisma.$queryRaw.mockRejectedValue(exclusionError);
+
+    await expect(
+      service.createOfflineBooking("vendor1", {
+        bookableType: "ROOM",
+        bookableId: "room1",
+        checkIn: "2026-08-01",
+        checkOut: "2026-08-03",
+        amountMinor: 5000,
+      }),
+    ).rejects.toThrow(ConflictException);
+  });
+});
+
+describe("cancelOfflineBooking", () => {
+  let prisma: {
+    $queryRaw: jest.Mock;
+    room: { findUnique: jest.Mock };
+    vehicle: { findUnique: jest.Mock };
+    booking: {
+      findUnique: jest.Mock;
+      updateMany: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
+    };
+    vendorLedgerEntry: { create: jest.Mock };
+    $transaction: jest.Mock;
+  };
+  let service: BookingsService;
+
+  beforeEach(() => {
+    prisma = {
+      $queryRaw: jest.fn(),
+      room: { findUnique: jest.fn() },
+      vehicle: { findUnique: jest.fn() },
+      booking: {
+        findUnique: jest.fn(),
+        updateMany: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+      },
+      vendorLedgerEntry: { create: jest.fn() },
+      $transaction: jest.fn(),
+    };
+    service = new BookingsService(
+      prisma as unknown as PrismaService,
+      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
+      { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
+      { get: jest.fn() } as never,
+    );
+  });
+
+  it("sets an OFFLINE booking to CANCELLED without touching its linked ledger entry", async () => {
+    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    prisma.booking.findUniqueOrThrow.mockResolvedValue({
+      id: "booking1",
+      userId: null,
+      bookableType: "ROOM",
+      roomId: "room1",
+      vehicleId: null,
+      resourceOwnerId: "vendor1",
+      dateRange: undefined,
+      guestCount: null,
+      totalAmountMinor: 5000,
+      currency: "BDT",
+      status: "CANCELLED",
+      paymentStatus: "PENDING",
+      source: "OFFLINE",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await service.cancelOfflineBooking("vendor1", "booking1");
+
+    expect(prisma.booking.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "booking1",
+        resourceOwnerId: "vendor1",
+        source: "OFFLINE",
+        status: { in: ["HELD", "CONFIRMED", "CHECKED_IN"] },
+      },
+      data: { status: "CANCELLED" },
+    });
+    expect(result.status).toBe("CANCELLED");
+    expect(prisma.vendorLedgerEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the booking is not found, not owned, or not an OFFLINE booking in a cancellable state", async () => {
+    prisma.booking.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.cancelOfflineBooking("vendor1", "booking1"),
+    ).rejects.toThrow(ConflictException);
+  });
+});

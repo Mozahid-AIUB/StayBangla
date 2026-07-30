@@ -10,7 +10,7 @@ import { LedgerEntryType, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { PaymentProviderPort } from "../common/payments/payment-provider.port";
 import { BookingExpiryQueueService } from "./queue/booking-expiry-queue.service";
-import { BookingRecord } from "./bookings.types";
+import { BookingRecord, CreateOfflineBookingInput } from "./bookings.types";
 
 export interface CreateBookingInput {
   bookableType: "ROOM" | "VEHICLE";
@@ -388,6 +388,114 @@ export class BookingsService {
       }
       throw error;
     }
+  }
+
+  async createOfflineBooking(
+    callerId: string,
+    input: CreateOfflineBookingInput,
+  ): Promise<{
+    booking: BookingRecord;
+    vendorLedgerEntry: import("@prisma/client").VendorLedgerEntry;
+  }> {
+    this.validateDates(input.checkIn, input.checkOut);
+
+    let resourceOwnerId: string;
+    if (input.bookableType === "ROOM") {
+      const room = await this.prisma.room.findUnique({
+        where: { id: input.bookableId },
+        include: { hotel: true },
+      });
+      if (!room || !room.isActive)
+        throw new NotFoundException("Room not found or inactive");
+      resourceOwnerId = room.hotel.ownerId;
+    } else {
+      const vehicle = await this.prisma.vehicle.findUnique({
+        where: { id: input.bookableId },
+      });
+      if (!vehicle || !vehicle.isActive)
+        throw new NotFoundException("Vehicle not found or inactive");
+      resourceOwnerId = vehicle.ownerId;
+    }
+
+    if (resourceOwnerId !== callerId) {
+      throw new ForbiddenException("You do not own this room/vehicle");
+    }
+
+    const roomId = input.bookableType === "ROOM" ? input.bookableId : null;
+    const vehicleId =
+      input.bookableType === "VEHICLE" ? input.bookableId : null;
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const rows = await tx.$queryRaw<BookingRecord[]>(Prisma.sql`
+          INSERT INTO bookings (
+            id, user_id, bookable_type, room_id, vehicle_id, resource_owner_id,
+            date_range, total_amount_minor, currency, status, source, created_at, updated_at
+          ) VALUES (
+            gen_random_uuid(), NULL, ${input.bookableType}::"BookableType", ${roomId}, ${vehicleId}, ${resourceOwnerId},
+            daterange(${input.checkIn}::date, ${input.checkOut}::date, '[)'),
+            ${input.amountMinor}, 'BDT', 'CONFIRMED', 'OFFLINE', now(), now()
+          )
+          RETURNING id, user_id AS "userId", bookable_type AS "bookableType", room_id AS "roomId",
+                    vehicle_id AS "vehicleId", resource_owner_id AS "resourceOwnerId",
+                    lower(date_range)::text AS "checkIn", upper(date_range)::text AS "checkOut",
+                    guest_count AS "guestCount", total_amount_minor AS "totalAmountMinor",
+                    currency, status, payment_status AS "paymentStatus", source,
+                    created_at AS "createdAt", updated_at AS "updatedAt"
+        `);
+        const booking = rows[0];
+        if (!booking) {
+          throw new Error("Offline booking insert returned no rows");
+        }
+
+        const vendorLedgerEntry = await tx.vendorLedgerEntry.create({
+          data: {
+            vendorId: callerId,
+            roomId,
+            vehicleId,
+            bookingId: booking.id,
+            direction: "INCOME",
+            category: "WALK_IN_BOOKING",
+            amountMinor: input.amountMinor,
+            note: input.note ?? input.guestName ?? null,
+            entryDate: new Date(input.checkIn),
+          },
+        });
+
+        return { booking, vendorLedgerEntry };
+      });
+    } catch (error) {
+      if (this.isExclusionViolation(error)) {
+        throw new ConflictException(
+          "This room/vehicle is no longer available for the selected dates",
+        );
+      }
+      throw error;
+    }
+  }
+
+  async cancelOfflineBooking(
+    callerId: string,
+    bookingId: string,
+  ): Promise<BookingRecord> {
+    const result = await this.prisma.booking.updateMany({
+      where: {
+        id: bookingId,
+        resourceOwnerId: callerId,
+        source: "OFFLINE",
+        status: { in: ["HELD", "CONFIRMED", "CHECKED_IN"] },
+      },
+      data: { status: "CANCELLED" },
+    });
+    if (result.count === 0) {
+      throw new ConflictException(
+        "Offline booking not found, not yours, or not cancellable",
+      );
+    }
+    const updated = await this.prisma.booking.findUniqueOrThrow({
+      where: { id: bookingId },
+    });
+    return this.toBookingRecord(updated);
   }
 
   private toBookingRecord(booking: {
