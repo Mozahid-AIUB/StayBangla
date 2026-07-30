@@ -33,7 +33,7 @@ describe("Auth Refresh (e2e)", () => {
       "refresh1@example.com",
     );
     const res = await request(app.getHttpServer())
-      .post("/auth/refresh")
+      .post("/v1/auth/refresh")
       .set("Cookie", refreshCookie);
     expect(res.status).toBe(201);
     expect(res.body.accessToken).toEqual(expect.any(String));
@@ -48,23 +48,23 @@ describe("Auth Refresh (e2e)", () => {
       "refresh2@example.com",
     );
     const first = await request(app.getHttpServer())
-      .post("/auth/refresh")
+      .post("/v1/auth/refresh")
       .set("Cookie", refreshCookie);
     const rotatedCookie = extractCookie(first);
 
     const reuse = await request(app.getHttpServer())
-      .post("/auth/refresh")
+      .post("/v1/auth/refresh")
       .set("Cookie", refreshCookie);
     expect(reuse.status).toBe(401);
 
     const legitimateFollowUp = await request(app.getHttpServer())
-      .post("/auth/refresh")
+      .post("/v1/auth/refresh")
       .set("Cookie", rotatedCookie);
     expect(legitimateFollowUp.status).toBe(401);
   });
 
   it("rejects refresh with no cookie present", async () => {
-    const res = await request(app.getHttpServer()).post("/auth/refresh");
+    const res = await request(app.getHttpServer()).post("/v1/auth/refresh");
     expect(res.status).toBe(401);
   });
 
@@ -74,10 +74,10 @@ describe("Auth Refresh (e2e)", () => {
       "refresh3@example.com",
     );
     await request(app.getHttpServer())
-      .post("/auth/logout")
+      .post("/v1/auth/logout")
       .set("Cookie", refreshCookie);
     const res = await request(app.getHttpServer())
-      .post("/auth/refresh")
+      .post("/v1/auth/refresh")
       .set("Cookie", refreshCookie);
     expect(res.status).toBe(401);
   });

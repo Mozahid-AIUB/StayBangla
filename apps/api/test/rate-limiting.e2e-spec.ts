@@ -26,13 +26,13 @@ describe("Rate limiting (e2e)", () => {
     await cleanDatabase();
   });
 
-  it("throttles /auth/otp/request after 5 requests in the window and returns a well-formed 429", async () => {
+  it("throttles /v1/auth/otp/request after 5 requests in the window and returns a well-formed 429", async () => {
     // The route's own @Throttle decorator hardcodes limit:5 (see Task 3) —
     // this test exercises that literal directly, not an env-driven value.
     let lastRes;
     for (let i = 0; i < 6; i += 1) {
       lastRes = await request(app.getHttpServer())
-        .post("/auth/otp/request")
+        .post("/v1/auth/otp/request")
         .send({ channel: "sms", identifier: `+880170000${i}` });
     }
 
@@ -43,16 +43,16 @@ describe("Rate limiting (e2e)", () => {
         error: expect.any(String),
         message: expect.any(String),
         timestamp: expect.any(String),
-        path: "/auth/otp/request",
+        path: "/v1/auth/otp/request",
       }),
     );
   });
 
-  it("throttles /auth/login after 10 requests in the window", async () => {
+  it("throttles /v1/auth/login after 10 requests in the window", async () => {
     let lastRes;
     for (let i = 0; i < 11; i += 1) {
       lastRes = await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/v1/auth/login")
         .send({ identifier: "nobody@example.com", password: "wrong-password" });
     }
 

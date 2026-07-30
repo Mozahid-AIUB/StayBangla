@@ -27,12 +27,14 @@ describe("Auth Credentials (e2e)", () => {
   });
 
   it("registers a vendor with PENDING status and never leaks the password hash", async () => {
-    const res = await request(app.getHttpServer()).post("/auth/register").send({
-      email: "vendor1@example.com",
-      password: "supersecret1",
-      fullName: "Vendor One",
-      role: "VENDOR",
-    });
+    const res = await request(app.getHttpServer())
+      .post("/v1/auth/register")
+      .send({
+        email: "vendor1@example.com",
+        password: "supersecret1",
+        fullName: "Vendor One",
+        role: "VENDOR",
+      });
 
     expect(res.status).toBe(201);
     expect(res.body.verifiedStatus).toBe("PENDING");
@@ -42,23 +44,25 @@ describe("Auth Credentials (e2e)", () => {
   });
 
   it("rejects duplicate email registration with 409", async () => {
-    await request(app.getHttpServer()).post("/auth/register").send({
+    await request(app.getHttpServer()).post("/v1/auth/register").send({
       email: "vendor2@example.com",
       password: "supersecret1",
       fullName: "Vendor Two",
       role: "VENDOR",
     });
-    const res = await request(app.getHttpServer()).post("/auth/register").send({
-      email: "vendor2@example.com",
-      password: "anotherpassword",
-      fullName: "Vendor Two Duplicate",
-      role: "VENDOR",
-    });
+    const res = await request(app.getHttpServer())
+      .post("/v1/auth/register")
+      .send({
+        email: "vendor2@example.com",
+        password: "anotherpassword",
+        fullName: "Vendor Two Duplicate",
+        role: "VENDOR",
+      });
     expect(res.status).toBe(409);
   });
 
   it("logs in with correct credentials and sets a refresh cookie", async () => {
-    await request(app.getHttpServer()).post("/auth/register").send({
+    await request(app.getHttpServer()).post("/v1/auth/register").send({
       email: "vendor3@example.com",
       password: "supersecret1",
       fullName: "Vendor Three",
@@ -66,7 +70,7 @@ describe("Auth Credentials (e2e)", () => {
     });
 
     const res = await request(app.getHttpServer())
-      .post("/auth/login")
+      .post("/v1/auth/login")
       .send({ identifier: "vendor3@example.com", password: "supersecret1" });
 
     expect(res.status).toBe(201);
@@ -78,14 +82,14 @@ describe("Auth Credentials (e2e)", () => {
   });
 
   it("rejects wrong password with a generic 401 message (anti-enumeration)", async () => {
-    await request(app.getHttpServer()).post("/auth/register").send({
+    await request(app.getHttpServer()).post("/v1/auth/register").send({
       email: "vendor4@example.com",
       password: "supersecret1",
       fullName: "Vendor Four",
       role: "VENDOR",
     });
     const res = await request(app.getHttpServer())
-      .post("/auth/login")
+      .post("/v1/auth/login")
       .send({ identifier: "vendor4@example.com", password: "wrongpassword" });
     expect(res.status).toBe(401);
     expect((res.body.message as string).toLowerCase()).not.toContain(
@@ -94,12 +98,14 @@ describe("Auth Credentials (e2e)", () => {
   });
 
   it("rejects weak passwords via DTO validation", async () => {
-    const res = await request(app.getHttpServer()).post("/auth/register").send({
-      email: "weakpass@example.com",
-      password: "short",
-      fullName: "Weak Pass",
-      role: "VENDOR",
-    });
+    const res = await request(app.getHttpServer())
+      .post("/v1/auth/register")
+      .send({
+        email: "weakpass@example.com",
+        password: "short",
+        fullName: "Weak Pass",
+        role: "VENDOR",
+      });
     expect(res.status).toBe(400);
   });
 });

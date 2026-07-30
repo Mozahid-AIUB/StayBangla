@@ -10,7 +10,7 @@ export async function createVerifiedVendor(
 ): Promise<{ vendorId: string; accessToken: string }> {
   const { accessToken } = await registerAndLogin(app, email);
   const me = await request(app.getHttpServer())
-    .get("/users/me")
+    .get("/v1/users/me")
     .set("Authorization", `Bearer ${accessToken}`);
 
   // Test-only shortcut: directly flip verifiedStatus via Prisma, since the real
@@ -29,7 +29,7 @@ export async function createHotelWithRoom(
   overrides: Partial<{ pricePerNightMinor: number; capacity: number }> = {},
 ): Promise<{ hotelId: string; roomId: string }> {
   const hotel = await request(app.getHttpServer())
-    .post("/hotels")
+    .post("/v1/hotels")
     .set("Authorization", `Bearer ${vendorToken}`)
     .send({
       name: "Test Hotel",
@@ -40,7 +40,7 @@ export async function createHotelWithRoom(
     });
 
   const room = await request(app.getHttpServer())
-    .post(`/hotels/${hotel.body.id}/rooms`)
+    .post(`/v1/hotels/${hotel.body.id}/rooms`)
     .set("Authorization", `Bearer ${vendorToken}`)
     .send({
       roomType: "DOUBLE",

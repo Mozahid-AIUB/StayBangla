@@ -29,14 +29,14 @@ describe("RBAC + CASL (e2e)", () => {
   });
 
   it("GET /users/me without a token returns 401", async () => {
-    const res = await request(app.getHttpServer()).get("/users/me");
+    const res = await request(app.getHttpServer()).get("/v1/users/me");
     expect(res.status).toBe(401);
   });
 
   it("GET /users/me with a valid token returns the profile without passwordHash", async () => {
     const { accessToken } = await registerAndLogin(app, "rbac1@example.com");
     const res = await request(app.getHttpServer())
-      .get("/users/me")
+      .get("/v1/users/me")
       .set("Authorization", `Bearer ${accessToken}`);
     expect(res.status).toBe(200);
     expect(res.body.email).toBe("rbac1@example.com");
@@ -48,7 +48,7 @@ describe("RBAC + CASL (e2e)", () => {
   it("PATCH /users/me updates only the caller's own profile, ignoring any id in the body", async () => {
     const { accessToken } = await registerAndLogin(app, "rbac2@example.com");
     const res = await request(app.getHttpServer())
-      .patch("/users/me")
+      .patch("/v1/users/me")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({ fullName: "Updated Name" });
 
@@ -60,7 +60,7 @@ describe("RBAC + CASL (e2e)", () => {
   it("PATCH /users/me rejects unknown fields via DTO whitelist", async () => {
     const { accessToken } = await registerAndLogin(app, "rbac3@example.com");
     const res = await request(app.getHttpServer())
-      .patch("/users/me")
+      .patch("/v1/users/me")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({ fullName: "Ok Name", verifiedStatus: "VERIFIED" });
 
@@ -69,7 +69,7 @@ describe("RBAC + CASL (e2e)", () => {
 
   it("GET /users/me with an invalid token returns 401", async () => {
     const res = await request(app.getHttpServer())
-      .get("/users/me")
+      .get("/v1/users/me")
       .set("Authorization", "Bearer not-a-real-jwt");
     expect(res.status).toBe(401);
   });
@@ -89,7 +89,7 @@ describe("RBAC + CASL (e2e)", () => {
       "rbac-vendor@example.com",
     );
     const res = await request(app.getHttpServer())
-      .post("/hotels")
+      .post("/v1/hotels")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
         name: "Regression Test Hotel",

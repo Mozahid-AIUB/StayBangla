@@ -4,6 +4,7 @@ import {
   VersioningType,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { AllExceptionsFilter } from "../common/filters/all-exceptions.filter";
@@ -32,4 +33,28 @@ export function configureApp(app: INestApplication): void {
     }),
   );
   app.useGlobalFilters(new AllExceptionsFilter());
+
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle("StayBangla API")
+    .setDescription(
+      "StayBangla is a Bangladesh tourism-booking platform: hotel rooms, " +
+        "vehicles, and (in progress) tour guides. This API serves traveler " +
+        "booking flows, vendor listing management, SSLCommerz payment " +
+        "confirmation, and admin verification/commission workflows.",
+    )
+    .setVersion("1.0")
+    .addBearerAuth({
+      type: "http",
+      scheme: "bearer",
+      bearerFormat: "JWT",
+      description:
+        "Paste the accessToken returned by /v1/auth/login, /v1/auth/otp/verify, " +
+        "or /v1/auth/refresh.",
+    })
+    .build();
+  SwaggerModule.setup(
+    "api/docs",
+    app,
+    SwaggerModule.createDocument(app, swaggerConfig),
+  );
 }
