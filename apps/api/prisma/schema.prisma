@@ -55,6 +55,7 @@ model User {
 
   verificationLogsAsVendor VendorVerificationLog[] @relation("VendorVerificationTarget")
   verificationLogsAsAdmin  VendorVerificationLog[] @relation("VendorVerificationActor")
+  vendorLedgerEntries      VendorLedgerEntry[]
 
   @@map("users")
 }
@@ -215,6 +216,8 @@ model Room {
   hotel  Hotel       @relation(fields: [hotelId], references: [id])
   photos RoomPhoto[]
 
+  vendorLedgerEntries VendorLedgerEntry[]
+
   @@map("rooms")
 }
 
@@ -232,6 +235,8 @@ model Vehicle {
   updatedAt        DateTime        @updatedAt @map("updated_at")
 
   owner User @relation(fields: [ownerId], references: [id])
+
+  vendorLedgerEntries VendorLedgerEntry[]
 
   @@map("vehicles")
 }
@@ -295,8 +300,10 @@ model Booking {
   gatewayTranId    String?                  @unique @map("gateway_tran_id")
   gatewayValId     String?                  @map("gateway_val_id")
   vendorOwedMinor  Int?                     @map("vendor_owed_minor")
+  source           BookingSource            @default(ONLINE) @map("source")
 
-  ledgerEntries LedgerEntry[]
+  ledgerEntries       LedgerEntry[]
+  vendorLedgerEntries VendorLedgerEntry[]
 
   @@index([userId])
   @@index([resourceOwnerId])
@@ -315,4 +322,48 @@ model LedgerEntry {
 
   @@index([bookingId])
   @@map("ledger_entries")
+}
+
+enum LedgerDirection {
+  INCOME
+  EXPENSE
+}
+
+enum VendorLedgerCategory {
+  WALK_IN_BOOKING
+  MAINTENANCE
+  SALARY
+  UTILITY
+  OTHER
+}
+
+enum BookingSource {
+  ONLINE
+  OFFLINE
+}
+
+model VendorLedgerEntry {
+  id          String               @id @default(uuid())
+  vendorId    String               @map("vendor_id")
+  roomId      String?              @map("room_id")
+  vehicleId   String?              @map("vehicle_id")
+  bookingId   String?              @map("booking_id")
+  direction   LedgerDirection
+  category    VendorLedgerCategory
+  amountMinor Int                  @map("amount_minor")
+  note        String?
+  entryDate   DateTime             @map("entry_date")
+  deletedAt   DateTime?            @map("deleted_at")
+  createdAt   DateTime             @default(now()) @map("created_at")
+
+  vendor  User     @relation(fields: [vendorId], references: [id])
+  room    Room?    @relation(fields: [roomId], references: [id])
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
+  booking Booking? @relation(fields: [bookingId], references: [id])
+
+  @@index([vendorId, entryDate])
+  @@index([roomId])
+  @@index([vehicleId])
+  @@index([bookingId])
+  @@map("vendor_ledger_entries")
 }
