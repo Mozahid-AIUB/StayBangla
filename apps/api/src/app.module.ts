@@ -17,6 +17,7 @@ import { HotelsModule } from "./hotels/hotels.module";
 import { VehiclesModule } from "./vehicles/vehicles.module";
 import { BookingsModule } from "./bookings/bookings.module";
 import { AdminModule } from "./admin/admin.module";
+import { VendorDashboardModule } from "./vendor-dashboard/vendor-dashboard.module";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -67,6 +68,7 @@ const isProduction = process.env.NODE_ENV === "production";
     VehiclesModule,
     BookingsModule,
     AdminModule,
+    VendorDashboardModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
