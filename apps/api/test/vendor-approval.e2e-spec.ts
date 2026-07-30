@@ -36,7 +36,7 @@ describe("Vendor approval (e2e)", () => {
     await registerAndLogin(app, "pending-vendor@example.com");
 
     const res = await request(app.getHttpServer())
-      .get("/admin/vendors/pending")
+      .get("/v1/admin/vendors/pending")
       .set("Authorization", `Bearer ${adminToken}`);
 
     expect(res.status).toBe(200);
@@ -57,17 +57,17 @@ describe("Vendor approval (e2e)", () => {
       "approve-vendor@example.com",
     );
     const me = await request(app.getHttpServer())
-      .get("/users/me")
+      .get("/v1/users/me")
       .set("Authorization", `Bearer ${vendorToken}`);
 
     const approve = await request(app.getHttpServer())
-      .post(`/admin/vendors/${me.body.id}/approve`)
+      .post(`/v1/admin/vendors/${me.body.id}/approve`)
       .set("Authorization", `Bearer ${adminToken}`);
     expect(approve.status).toBe(201);
     expect(approve.body.verifiedStatus).toBe("VERIFIED");
 
     const createHotel = await request(app.getHttpServer())
-      .post("/hotels")
+      .post("/v1/hotels")
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({
         name: "Approved Hotel",
@@ -89,18 +89,18 @@ describe("Vendor approval (e2e)", () => {
       "reject-vendor@example.com",
     );
     const me = await request(app.getHttpServer())
-      .get("/users/me")
+      .get("/v1/users/me")
       .set("Authorization", `Bearer ${vendorToken}`);
 
     const reject = await request(app.getHttpServer())
-      .post(`/admin/vendors/${me.body.id}/reject`)
+      .post(`/v1/admin/vendors/${me.body.id}/reject`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ reason: "NID document unclear" });
     expect(reject.status).toBe(201);
     expect(reject.body.verifiedStatus).toBe("REJECTED");
 
     const history = await request(app.getHttpServer())
-      .get(`/admin/vendors/${me.body.id}/history`)
+      .get(`/v1/admin/vendors/${me.body.id}/history`)
       .set("Authorization", `Bearer ${adminToken}`);
     expect(history.body).toHaveLength(1);
     expect(history.body[0].reason).toBe("NID document unclear");
@@ -117,16 +117,16 @@ describe("Vendor approval (e2e)", () => {
       "resubmit-vendor@example.com",
     );
     const me = await request(app.getHttpServer())
-      .get("/users/me")
+      .get("/v1/users/me")
       .set("Authorization", `Bearer ${vendorToken}`);
 
     await request(app.getHttpServer())
-      .post(`/admin/vendors/${me.body.id}/reject`)
+      .post(`/v1/admin/vendors/${me.body.id}/reject`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ reason: "incomplete profile" });
 
     const resubmit = await request(app.getHttpServer())
-      .post("/users/me/resubmit")
+      .post("/v1/users/me/resubmit")
       .set("Authorization", `Bearer ${vendorToken}`);
 
     expect(resubmit.status).toBe(201);
@@ -139,7 +139,7 @@ describe("Vendor approval (e2e)", () => {
       "sneaky-vendor@example.com",
     );
     const res = await request(app.getHttpServer())
-      .get("/admin/vendors/pending")
+      .get("/v1/admin/vendors/pending")
       .set("Authorization", `Bearer ${vendorToken}`);
     expect(res.status).toBe(403);
   });
@@ -154,15 +154,15 @@ describe("Vendor approval (e2e)", () => {
       "double-vendor@example.com",
     );
     const me = await request(app.getHttpServer())
-      .get("/users/me")
+      .get("/v1/users/me")
       .set("Authorization", `Bearer ${vendorToken}`);
 
     await request(app.getHttpServer())
-      .post(`/admin/vendors/${me.body.id}/approve`)
+      .post(`/v1/admin/vendors/${me.body.id}/approve`)
       .set("Authorization", `Bearer ${adminToken}`);
 
     const secondReject = await request(app.getHttpServer())
-      .post(`/admin/vendors/${me.body.id}/reject`)
+      .post(`/v1/admin/vendors/${me.body.id}/reject`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ reason: "changed my mind" });
 
@@ -187,21 +187,21 @@ describe("Vendor approval (e2e)", () => {
     });
 
     const pending = await request(app.getHttpServer())
-      .get("/admin/vendors/pending")
+      .get("/v1/admin/vendors/pending")
       .set("Authorization", `Bearer ${adminToken}`);
     expect(JSON.stringify(pending.body)).not.toMatch(
       /passwordHash|password_hash|\$argon2/,
     );
 
     const approve = await request(app.getHttpServer())
-      .post(`/admin/vendors/${vendorId}/approve`)
+      .post(`/v1/admin/vendors/${vendorId}/approve`)
       .set("Authorization", `Bearer ${adminToken}`);
     expect(JSON.stringify(approve.body)).not.toMatch(
       /passwordHash|password_hash|\$argon2/,
     );
 
     const reject = await request(app.getHttpServer())
-      .post(`/admin/vendors/${vendorId}/reject`)
+      .post(`/v1/admin/vendors/${vendorId}/reject`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ reason: "re-checking for the leak test" });
     expect(JSON.stringify(reject.body)).not.toMatch(

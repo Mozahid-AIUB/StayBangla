@@ -8,6 +8,12 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { Hotel, HotelPhoto } from "@prisma/client";
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -18,15 +24,30 @@ import { CreateHotelDto } from "./dto/create-hotel.dto";
 import { PresignPhotoDto } from "./dto/presign-photo.dto";
 import { ConfirmPhotoDto } from "./dto/confirm-photo.dto";
 
+@ApiTags("hotels")
 @Controller("hotels")
 export class HotelsController {
   constructor(private readonly hotelsService: HotelsService) {}
 
+  @ApiOperation({ summary: "Get a hotel's public detail page" })
+  @ApiResponse({
+    status: 200,
+    description: "Hotel detail with photos and active rooms.",
+  })
+  @ApiResponse({ status: 404, description: "Hotel not found." })
   @Get(":id")
   async findOne(@Param("id") id: string): Promise<HotelDetailResult> {
     return this.hotelsService.findPublicDetailOrThrow(id);
   }
 
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Create a hotel listing (vendor only)" })
+  @ApiResponse({ status: 201, description: "Hotel created." })
+  @ApiResponse({ status: 401, description: "Missing or invalid access token." })
+  @ApiResponse({
+    status: 403,
+    description: "Caller is not a VENDOR, or is not yet verified.",
+  })
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("VENDOR")
@@ -37,6 +58,16 @@ export class HotelsController {
     return this.hotelsService.create(user.id, dto);
   }
 
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Get a presigned MinIO upload URL for a hotel photo",
+    description:
+      "Upload the file directly to uploadUrl, then call POST /:id/photos/confirm with the returned objectKey.",
+  })
+  @ApiResponse({ status: 201, description: "Presigned URL and objectKey." })
+  @ApiResponse({ status: 401, description: "Missing or invalid access token." })
+  @ApiResponse({ status: 403, description: "Caller does not own this hotel." })
+  @ApiResponse({ status: 404, description: "Hotel not found." })
   @Post(":id/photos/presign")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("VENDOR")
@@ -48,6 +79,17 @@ export class HotelsController {
     return this.hotelsService.presignPhotoUpload(user.id, id, dto.contentType);
   }
 
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Confirm a hotel photo upload after it lands in MinIO",
+  })
+  @ApiResponse({ status: 201, description: "Photo record created." })
+  @ApiResponse({ status: 401, description: "Missing or invalid access token." })
+  @ApiResponse({ status: 403, description: "Caller does not own this hotel." })
+  @ApiResponse({
+    status: 404,
+    description: "Hotel not found, or the object was never actually uploaded.",
+  })
   @Post(":id/photos/confirm")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("VENDOR")
@@ -64,6 +106,12 @@ export class HotelsController {
     );
   }
 
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Delete a hotel photo" })
+  @ApiResponse({ status: 200, description: "Photo deleted." })
+  @ApiResponse({ status: 401, description: "Missing or invalid access token." })
+  @ApiResponse({ status: 403, description: "Caller does not own this hotel." })
+  @ApiResponse({ status: 404, description: "Hotel or photo not found." })
   @Delete(":id/photos/:photoId")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("VENDOR")

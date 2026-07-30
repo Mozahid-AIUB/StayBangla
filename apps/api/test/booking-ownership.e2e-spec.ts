@@ -63,7 +63,7 @@ describe("Booking ownership (e2e)", () => {
     );
 
     const created = await request(app.getHttpServer())
-      .post("/bookings")
+      .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({
         bookableType: "ROOM",
@@ -76,7 +76,7 @@ describe("Booking ownership (e2e)", () => {
       tranId: "tran-ownership-1",
     });
     await request(app.getHttpServer())
-      .post(`/bookings/${created.body.id}/initiate-payment`)
+      .post(`/v1/bookings/${created.body.id}/initiate-payment`)
       .set("Authorization", `Bearer ${travelerToken}`);
     fakeProvider.validateTransaction.mockResolvedValue({
       valid: true,
@@ -92,7 +92,7 @@ describe("Booking ownership (e2e)", () => {
     });
 
     const res = await request(app.getHttpServer())
-      .post(`/bookings/${created.body.id}/checkout`)
+      .post(`/v1/bookings/${created.body.id}/checkout`)
       .set("Authorization", `Bearer ${vendorBToken}`);
 
     expect(res.status).toBe(409);
@@ -114,7 +114,7 @@ describe("Booking ownership (e2e)", () => {
     );
 
     const created = await request(app.getHttpServer())
-      .post("/bookings")
+      .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerAToken}`)
       .send({
         bookableType: "ROOM",
@@ -124,7 +124,7 @@ describe("Booking ownership (e2e)", () => {
       });
 
     const res = await request(app.getHttpServer())
-      .post(`/bookings/${created.body.id}/cancel`)
+      .post(`/v1/bookings/${created.body.id}/cancel`)
       .set("Authorization", `Bearer ${travelerBToken}`);
 
     expect(res.status).toBe(409);
@@ -146,7 +146,7 @@ describe("Booking ownership (e2e)", () => {
     );
 
     const created = await request(app.getHttpServer())
-      .post("/bookings")
+      .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerAToken}`)
       .send({
         bookableType: "ROOM",
@@ -156,12 +156,12 @@ describe("Booking ownership (e2e)", () => {
       });
 
     const noAuth = await request(app.getHttpServer()).post(
-      `/bookings/${created.body.id}/initiate-payment`,
+      `/v1/bookings/${created.body.id}/initiate-payment`,
     );
     expect(noAuth.status).toBe(401);
 
     const wrongTraveler = await request(app.getHttpServer())
-      .post(`/bookings/${created.body.id}/initiate-payment`)
+      .post(`/v1/bookings/${created.body.id}/initiate-payment`)
       .set("Authorization", `Bearer ${travelerBToken}`);
     expect(wrongTraveler.status).toBe(403);
   });
@@ -172,7 +172,7 @@ describe("Booking ownership (e2e)", () => {
       "unverified@example.com",
     );
     const res = await request(app.getHttpServer())
-      .post("/hotels")
+      .post("/v1/hotels")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
         name: "Sneaky Hotel",

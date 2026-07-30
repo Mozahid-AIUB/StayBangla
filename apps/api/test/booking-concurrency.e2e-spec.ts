@@ -56,7 +56,7 @@ describe("Booking concurrency (e2e)", () => {
       const results = await Promise.all(
         travelers.map(({ accessToken }) =>
           request(app.getHttpServer())
-            .post("/bookings")
+            .post("/v1/bookings")
             .set("Authorization", `Bearer ${accessToken}`)
             .send({
               bookableType: "ROOM",
@@ -92,7 +92,7 @@ describe("Booking concurrency (e2e)", () => {
     );
 
     const first = await request(app.getHttpServer())
-      .post("/bookings")
+      .post("/v1/bookings")
       .set("Authorization", `Bearer ${traveler1}`)
       .send({
         bookableType: "ROOM",
@@ -102,7 +102,7 @@ describe("Booking concurrency (e2e)", () => {
       });
 
     const second = await request(app.getHttpServer())
-      .post("/bookings")
+      .post("/v1/bookings")
       .set("Authorization", `Bearer ${traveler2}`)
       .send({
         bookableType: "ROOM",

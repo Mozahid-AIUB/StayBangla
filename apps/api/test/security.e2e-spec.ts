@@ -8,7 +8,9 @@ describe("Security hardening (e2e)", () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
     app = moduleRef.createNestApplication();
     configureApp(app);
     await app.init();
@@ -25,15 +27,23 @@ describe("Security hardening (e2e)", () => {
   });
 
   it("reflects Access-Control-Allow-Origin only for the configured allowed origin", async () => {
-    const allowed = await request(app.getHttpServer()).get("/health").set("Origin", "http://localhost:3000");
-    expect(allowed.headers["access-control-allow-origin"]).toBe("http://localhost:3000");
+    const allowed = await request(app.getHttpServer())
+      .get("/health")
+      .set("Origin", "http://localhost:3000");
+    expect(allowed.headers["access-control-allow-origin"]).toBe(
+      "http://localhost:3000",
+    );
 
-    const disallowed = await request(app.getHttpServer()).get("/health").set("Origin", "http://evil.example.com");
+    const disallowed = await request(app.getHttpServer())
+      .get("/health")
+      .set("Origin", "http://evil.example.com");
     expect(disallowed.headers["access-control-allow-origin"]).toBeUndefined();
   });
 
   it("returns the standardized error shape for unknown routes", async () => {
-    const res = await request(app.getHttpServer()).get("/this-route-does-not-exist");
+    const res = await request(app.getHttpServer()).get(
+      "/this-route-does-not-exist",
+    );
     expect(res.status).toBe(404);
     expect(res.body).toEqual(
       expect.objectContaining({
@@ -42,5 +52,10 @@ describe("Security hardening (e2e)", () => {
       }),
     );
     expect(typeof res.body.timestamp).toBe("string");
+  });
+
+  it("Swagger docs remain reachable at their unversioned path", async () => {
+    const res = await request(app.getHttpServer()).get("/api/docs");
+    expect(res.status).toBe(200);
   });
 });

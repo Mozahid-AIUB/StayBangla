@@ -19,11 +19,11 @@ export async function registerAndLogin(
   password = "supersecret1",
 ): Promise<{ accessToken: string; refreshCookie: string }> {
   await request(app.getHttpServer())
-    .post("/auth/register")
+    .post("/v1/auth/register")
     .send({ email, password, fullName: "Test User", role: "VENDOR" });
 
   const login = await request(app.getHttpServer())
-    .post("/auth/login")
+    .post("/v1/auth/login")
     .send({ identifier: email, password });
 
   return {

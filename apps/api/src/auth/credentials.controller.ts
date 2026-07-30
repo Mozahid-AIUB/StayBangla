@@ -9,6 +9,7 @@ import {
 import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 import { ConfigService } from "@nestjs/config";
+import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { CredentialsService } from "./credentials.service";
@@ -18,6 +19,7 @@ import { toPublicUser, PublicUser } from "../users/to-public-user";
 
 const REFRESH_COOKIE = "refreshToken";
 
+@ApiTags("auth")
 @Controller("auth")
 export class CredentialsController {
   constructor(
@@ -37,6 +39,16 @@ export class CredentialsController {
     });
   }
 
+  @ApiOperation({
+    summary: "Register a vendor or guide account",
+    description:
+      "Traveler accounts are never created here — they self-provision via OTP verify.",
+  })
+  @ApiResponse({
+    status: 201,
+    description: "Account created with verifiedStatus=PENDING.",
+  })
+  @ApiResponse({ status: 409, description: "Email already registered." })
   @Post("register")
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   async register(@Body() dto: RegisterDto): Promise<PublicUser> {
@@ -44,6 +56,14 @@ export class CredentialsController {
     return toPublicUser(user);
   }
 
+  @ApiOperation({
+    summary: "Log in with email + password (vendor/guide/admin)",
+  })
+  @ApiResponse({
+    status: 201,
+    description: "Access token returned; refresh token set as httpOnly cookie.",
+  })
+  @ApiResponse({ status: 401, description: "Invalid credentials." })
   @Post("login")
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   async login(
@@ -58,6 +78,19 @@ export class CredentialsController {
     return { accessToken };
   }
 
+  @ApiOperation({
+    summary: "Rotate the refresh-token cookie and issue a new access token",
+    description:
+      "Reusing an already-rotated refresh token revokes its entire token family (reuse detection).",
+  })
+  @ApiResponse({
+    status: 201,
+    description: "New access token issued; refresh cookie rotated.",
+  })
+  @ApiResponse({
+    status: 401,
+    description: "Missing, expired, or reused refresh token.",
+  })
   @Post("refresh")
   async refresh(
     @Req() req: Request,
@@ -84,6 +117,14 @@ export class CredentialsController {
     return { accessToken };
   }
 
+  @ApiOperation({
+    summary:
+      "Log out — revokes the current refresh-token family and clears the cookie",
+  })
+  @ApiResponse({
+    status: 201,
+    description: "Logged out (idempotent — no error if already logged out).",
+  })
   @Post("logout")
   async logout(
     @Req() req: Request,

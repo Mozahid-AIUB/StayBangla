@@ -38,7 +38,7 @@ describe("Room/hotel photo upload (e2e)", () => {
     const { hotelId } = await createHotelWithRoom(app, vendorToken);
 
     const presign = await request(app.getHttpServer())
-      .post(`/hotels/${hotelId}/photos/presign`)
+      .post(`/v1/hotels/${hotelId}/photos/presign`)
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({ contentType: "image/jpeg" });
     expect(presign.status).toBe(201);
@@ -57,7 +57,7 @@ describe("Room/hotel photo upload (e2e)", () => {
     expect(uploadRes.ok).toBe(true);
 
     const confirm = await request(app.getHttpServer())
-      .post(`/hotels/${hotelId}/photos/confirm`)
+      .post(`/v1/hotels/${hotelId}/photos/confirm`)
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({ objectKey: presign.body.objectKey, isPrimary: true });
     expect(confirm.status).toBe(201);
@@ -72,21 +72,21 @@ describe("Room/hotel photo upload (e2e)", () => {
     const { hotelId } = await createHotelWithRoom(app, vendorToken);
 
     const presign1 = await request(app.getHttpServer())
-      .post(`/hotels/${hotelId}/photos/presign`)
+      .post(`/v1/hotels/${hotelId}/photos/presign`)
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({ contentType: "image/jpeg" });
     const first = await request(app.getHttpServer())
-      .post(`/hotels/${hotelId}/photos/confirm`)
+      .post(`/v1/hotels/${hotelId}/photos/confirm`)
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({ objectKey: presign1.body.objectKey, isPrimary: true });
     expect(first.body.isPrimary).toBe(true);
 
     const presign2 = await request(app.getHttpServer())
-      .post(`/hotels/${hotelId}/photos/presign`)
+      .post(`/v1/hotels/${hotelId}/photos/presign`)
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({ contentType: "image/jpeg" });
     const second = await request(app.getHttpServer())
-      .post(`/hotels/${hotelId}/photos/confirm`)
+      .post(`/v1/hotels/${hotelId}/photos/confirm`)
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({ objectKey: presign2.body.objectKey, isPrimary: true });
     expect(second.body.isPrimary).toBe(true);
@@ -101,7 +101,7 @@ describe("Room/hotel photo upload (e2e)", () => {
     expect(firstAfterSwap.isPrimary).toBe(false);
 
     const deleteFirst = await request(app.getHttpServer())
-      .delete(`/hotels/${hotelId}/photos/${first.body.id}`)
+      .delete(`/v1/hotels/${hotelId}/photos/${first.body.id}`)
       .set("Authorization", `Bearer ${vendorToken}`);
     expect(deleteFirst.status).toBe(200);
   });
@@ -118,7 +118,7 @@ describe("Room/hotel photo upload (e2e)", () => {
     const { hotelId } = await createHotelWithRoom(app, vendorAToken);
 
     const res = await request(app.getHttpServer())
-      .post(`/hotels/${hotelId}/photos/presign`)
+      .post(`/v1/hotels/${hotelId}/photos/presign`)
       .set("Authorization", `Bearer ${vendorBToken}`)
       .send({ contentType: "image/jpeg" });
 
@@ -133,7 +133,7 @@ describe("Room/hotel photo upload (e2e)", () => {
     const { roomId } = await createHotelWithRoom(app, vendorToken);
 
     const res = await request(app.getHttpServer())
-      .post(`/rooms/${roomId}/photos/presign`)
+      .post(`/v1/rooms/${roomId}/photos/presign`)
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({ contentType: "image/png" });
 
