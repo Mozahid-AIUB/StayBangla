@@ -38,7 +38,9 @@ describe("Hotel/Vehicle detail endpoints (e2e)", () => {
       );
       const { hotelId, roomId } = await createHotelWithRoom(app, vendorToken);
 
-      const res = await request(app.getHttpServer()).get(`/hotels/${hotelId}`);
+      const res = await request(app.getHttpServer()).get(
+        `/v1/hotels/${hotelId}`,
+      );
 
       expect(res.status).toBe(200);
       expect(res.body.id).toBe(hotelId);
@@ -49,7 +51,7 @@ describe("Hotel/Vehicle detail endpoints (e2e)", () => {
 
     it("returns 404 for a hotel id that does not exist", async () => {
       const res = await request(app.getHttpServer()).get(
-        "/hotels/00000000-0000-0000-0000-000000000000",
+        "/v1/hotels/00000000-0000-0000-0000-000000000000",
       );
       expect(res.status).toBe(404);
     });
@@ -62,7 +64,7 @@ describe("Hotel/Vehicle detail endpoints (e2e)", () => {
         "detail-vendor2@example.com",
       );
       const create = await request(app.getHttpServer())
-        .post("/vehicles")
+        .post("/v1/vehicles")
         .set("Authorization", `Bearer ${vendorToken}`)
         .send({
           category: "CNG",
@@ -72,7 +74,7 @@ describe("Hotel/Vehicle detail endpoints (e2e)", () => {
         });
 
       const res = await request(app.getHttpServer()).get(
-        `/vehicles/${create.body.id}`,
+        `/v1/vehicles/${create.body.id}`,
       );
 
       expect(res.status).toBe(200);
@@ -82,7 +84,7 @@ describe("Hotel/Vehicle detail endpoints (e2e)", () => {
 
     it("returns 404 for a vehicle id that does not exist", async () => {
       const res = await request(app.getHttpServer()).get(
-        "/vehicles/00000000-0000-0000-0000-000000000000",
+        "/v1/vehicles/00000000-0000-0000-0000-000000000000",
       );
       expect(res.status).toBe(404);
     });

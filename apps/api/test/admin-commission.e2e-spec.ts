@@ -38,7 +38,7 @@ describe("Admin commission (e2e)", () => {
     );
 
     const res = await request(app.getHttpServer())
-      .patch(`/admin/vendors/${vendorId}/commission`)
+      .patch(`/v1/admin/vendors/${vendorId}/commission`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ commissionRatePercent: 20 });
 
@@ -53,7 +53,7 @@ describe("Admin commission (e2e)", () => {
     );
 
     const res = await request(app.getHttpServer())
-      .patch(`/admin/vendors/${vendorId}/commission`)
+      .patch(`/v1/admin/vendors/${vendorId}/commission`)
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({ commissionRatePercent: 20 });
 
@@ -71,7 +71,7 @@ describe("Admin commission (e2e)", () => {
     );
 
     const res = await request(app.getHttpServer())
-      .patch(`/admin/vendors/${vendorId}/commission`)
+      .patch(`/v1/admin/vendors/${vendorId}/commission`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ commissionRatePercent: 150 });
 
