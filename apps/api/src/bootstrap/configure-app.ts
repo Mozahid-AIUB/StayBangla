@@ -12,6 +12,9 @@ import { parseCorsOrigins } from "./parse-cors-origins";
 
 // Shared by main.ts (real bootstrap) and e2e tests, so tests exercise the exact
 // same hardening wiring that runs in production — no risk of the two drifting apart.
+// Also owns URI versioning and Swagger doc generation for the same reason: both
+// must be identical between the real app and the e2e-test app, not just the
+// security-hardening middleware the comment above originally described.
 export function configureApp(app: INestApplication): void {
   const configService = app.get(ConfigService);
   const corsOrigins = parseCorsOrigins(
