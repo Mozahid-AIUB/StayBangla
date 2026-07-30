@@ -10,6 +10,26 @@ import {
   createTraveler,
 } from "./helpers/test-fixtures";
 
+function lastNightOfCurrentDhakaMonth(): { checkIn: string; checkOut: string } {
+  // Deliberately picks the last calendar night of "this month" in Dhaka
+  // (UTC+6) — this is exactly the boundary a UTC-vs-Dhaka date-truncation
+  // bug in the occupancy calculation would get wrong (a night correctly
+  // inside the month gets silently dropped, or a night from the next month
+  // gets silently included, depending on the direction of the error).
+  const nowUtc = new Date();
+  const dhakaNow = new Date(nowUtc.getTime() + 6 * 60 * 60 * 1000);
+  const year = dhakaNow.getUTCFullYear();
+  const month = dhakaNow.getUTCMonth();
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const checkIn = new Date(Date.UTC(year, month, lastDay))
+    .toISOString()
+    .slice(0, 10);
+  const checkOut = new Date(Date.UTC(year, month + 1, 1))
+    .toISOString()
+    .slice(0, 10);
+  return { checkIn, checkOut };
+}
+
 describe("Vendor Dashboard (e2e)", () => {
   let app: INestApplication;
 
@@ -53,6 +73,40 @@ describe("Vendor Dashboard (e2e)", () => {
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty("hotelOccupancyRatePct");
     expect(res.body.activeListings).toBe(0);
+  });
+
+  it("GET /vendor/dashboard/summary counts a booking on the last night of the current Dhaka month toward occupancy (real Postgres, not mocked)", async () => {
+    const { vendorId, accessToken } = await createVerifiedVendor(
+      app,
+      "dash-vendor-occupancy@example.com",
+    );
+    await testPrisma.user.update({
+      where: { id: vendorId },
+      data: { vendorType: "HOTEL" },
+    });
+    const { roomId } = await createHotelWithRoom(app, accessToken);
+    const { checkIn, checkOut } = lastNightOfCurrentDhakaMonth();
+
+    const booking = await request(app.getHttpServer())
+      .post("/v1/vendor/bookings/offline")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        bookableType: "ROOM",
+        bookableId: roomId,
+        checkIn,
+        checkOut,
+        amountMinor: 5000,
+      });
+    expect(booking.status).toBe(201);
+
+    const res = await request(app.getHttpServer())
+      .get("/v1/vendor/dashboard/summary")
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(res.status).toBe(200);
+    // A UTC-truncation bug in the occupancy SQL would drop this last-night
+    // booking from "this month" entirely, reporting 0% instead of a
+    // positive rate for the vendor's one room with one booked night.
+    expect(res.body.hotelOccupancyRatePct).toBeGreaterThan(0);
   });
 
   it("GET /vendor/listings returns the vendor's own rooms with photoCount", async () => {

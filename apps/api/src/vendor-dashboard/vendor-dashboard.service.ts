@@ -72,17 +72,27 @@ export class VendorDashboardService {
         (monthEnd.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24),
       );
 
+    // monthStart/monthEnd are already the correct UTC instants for Dhaka
+    // midnight boundaries (computed by startOfDhakaMonth/endOfDhakaMonth).
+    // Truncating them to ::date must not go through .toISOString() (which
+    // truncates using the UTC calendar date — up to a day earlier than the
+    // intended Dhaka calendar date) nor a bare ::date cast on the bound
+    // timestamptz parameter (which truncates using Postgres's session/server
+    // timezone, defaulting to UTC in this deployment — the same bug under a
+    // different spelling). Explicitly converting at 'Asia/Dhaka' before the
+    // ::date cast truncates against the correct calendar day regardless of
+    // the database server's own timezone setting.
     const rows = await this.prisma.$queryRaw<
       { bookedNights: bigint }[]
     >(Prisma.sql`
       SELECT COALESCE(SUM(
-        upper(date_range * daterange(${monthStart.toISOString()}::date, ${monthEnd.toISOString()}::date, '[)')) -
-        lower(date_range * daterange(${monthStart.toISOString()}::date, ${monthEnd.toISOString()}::date, '[)'))
+        upper(date_range * daterange((${monthStart}::timestamptz AT TIME ZONE 'Asia/Dhaka')::date, (${monthEnd}::timestamptz AT TIME ZONE 'Asia/Dhaka')::date, '[)')) -
+        lower(date_range * daterange((${monthStart}::timestamptz AT TIME ZONE 'Asia/Dhaka')::date, (${monthEnd}::timestamptz AT TIME ZONE 'Asia/Dhaka')::date, '[)'))
       ), 0) AS "bookedNights"
       FROM bookings
       WHERE ${Prisma.raw(resourceIdsColumn)} = ANY(${resourceIds})
         AND status IN ('CONFIRMED', 'CHECKED_IN', 'COMPLETED')
-        AND date_range && daterange(${monthStart.toISOString()}::date, ${monthEnd.toISOString()}::date, '[)')
+        AND date_range && daterange((${monthStart}::timestamptz AT TIME ZONE 'Asia/Dhaka')::date, (${monthEnd}::timestamptz AT TIME ZONE 'Asia/Dhaka')::date, '[)')
     `);
 
     const bookedNights = Number(rows[0]?.bookedNights ?? 0);
