@@ -39,6 +39,14 @@ export async function cleanDatabase(): Promise<void> {
   // LedgerEntry has a real Prisma @relation FK to Booking, so it must be
   // cleared before Booking rows are deleted.
   await testPrisma.ledgerEntry.deleteMany();
+  // VendorLedgerEntry FK-constrains to Room/Vehicle/Booking with ON DELETE
+  // SET NULL — but its room_id/vehicle_id columns also carry a DB-level XOR
+  // CHECK constraint (exactly one of the two must be non-null). Deleting a
+  // Room/Vehicle that a VendorLedgerEntry still references would have
+  // Postgres null out that one FK column, leaving both null and violating
+  // the XOR check — so this table must be cleared before Room/Vehicle below,
+  // the same reasoning as LedgerEntry above.
+  await testPrisma.vendorLedgerEntry.deleteMany();
   // Booking references room/vehicle ids as plain columns (no Prisma @relation),
   // so it has no FK constraint, but it's still cleared first for hygiene.
   await testPrisma.booking.deleteMany();
