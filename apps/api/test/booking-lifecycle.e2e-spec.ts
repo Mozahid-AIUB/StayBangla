@@ -58,7 +58,7 @@ describe("Booking lifecycle (e2e)", () => {
       tranId,
     });
     await request(app.getHttpServer())
-      .post(`/bookings/${bookingId}/initiate-payment`)
+      .post(`/v1/bookings/${bookingId}/initiate-payment`)
       .set("Authorization", `Bearer ${travelerToken}`);
     fakeProvider.validateTransaction.mockResolvedValue({
       valid: true,
@@ -84,7 +84,7 @@ describe("Booking lifecycle (e2e)", () => {
     );
 
     const created = await request(app.getHttpServer())
-      .post("/bookings")
+      .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({
         bookableType: "ROOM",
@@ -106,12 +106,12 @@ describe("Booking lifecycle (e2e)", () => {
     );
 
     const statusRes = await request(app.getHttpServer())
-      .get(`/bookings/${created.body.id}/payment-status`)
+      .get(`/v1/bookings/${created.body.id}/payment-status`)
       .set("Authorization", `Bearer ${travelerToken}`);
     expect(statusRes.body.paymentStatus).toBe("PAID");
 
     const checkedOut = await request(app.getHttpServer())
-      .post(`/bookings/${created.body.id}/checkout`)
+      .post(`/v1/bookings/${created.body.id}/checkout`)
       .set("Authorization", `Bearer ${vendorToken}`);
     expect(checkedOut.status).toBe(201);
     expect(checkedOut.body.status).toBe("COMPLETED");
@@ -129,7 +129,7 @@ describe("Booking lifecycle (e2e)", () => {
     );
 
     const created = await request(app.getHttpServer())
-      .post("/bookings")
+      .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({
         bookableType: "ROOM",
@@ -143,7 +143,7 @@ describe("Booking lifecycle (e2e)", () => {
       tranId: "tran-idempotent-1",
     });
     await request(app.getHttpServer())
-      .post(`/bookings/${created.body.id}/initiate-payment`)
+      .post(`/v1/bookings/${created.body.id}/initiate-payment`)
       .set("Authorization", `Bearer ${travelerToken}`);
     fakeProvider.validateTransaction.mockResolvedValue({
       valid: true,
@@ -172,7 +172,7 @@ describe("Booking lifecycle (e2e)", () => {
     expect(second.status).toBe(201);
 
     const statusRes = await request(app.getHttpServer())
-      .get(`/bookings/${created.body.id}/payment-status`)
+      .get(`/v1/bookings/${created.body.id}/payment-status`)
       .set("Authorization", `Bearer ${travelerToken}`);
     expect(statusRes.body.paymentStatus).toBe("PAID");
   });
@@ -191,7 +191,7 @@ describe("Booking lifecycle (e2e)", () => {
     );
 
     const res = await request(app.getHttpServer())
-      .post("/bookings")
+      .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({
         bookableType: "ROOM",
@@ -216,7 +216,7 @@ describe("Booking lifecycle (e2e)", () => {
     );
 
     const res = await request(app.getHttpServer())
-      .post("/bookings")
+      .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({
         bookableType: "ROOM",
@@ -240,7 +240,7 @@ describe("Booking lifecycle (e2e)", () => {
     );
 
     const block = await request(app.getHttpServer())
-      .post("/vendor/blocks")
+      .post("/v1/vendor/blocks")
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({
         bookableType: "ROOM",
@@ -251,7 +251,7 @@ describe("Booking lifecycle (e2e)", () => {
     expect(block.status).toBe(201);
 
     const attempt = await request(app.getHttpServer())
-      .post("/bookings")
+      .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({
         bookableType: "ROOM",

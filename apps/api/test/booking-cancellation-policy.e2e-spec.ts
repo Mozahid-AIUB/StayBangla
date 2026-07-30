@@ -57,7 +57,7 @@ describe("Booking cancellation policy (e2e)", () => {
       "cancel-traveler1@example.com",
     );
     const booking = await request(app.getHttpServer())
-      .post("/bookings")
+      .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({
         bookableType: "ROOM",
@@ -67,7 +67,7 @@ describe("Booking cancellation policy (e2e)", () => {
       });
 
     const res = await request(app.getHttpServer())
-      .post(`/bookings/${booking.body.id}/cancel`)
+      .post(`/v1/bookings/${booking.body.id}/cancel`)
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({});
 
@@ -86,7 +86,7 @@ describe("Booking cancellation policy (e2e)", () => {
       "cancel-traveler2@example.com",
     );
     const booking = await request(app.getHttpServer())
-      .post("/bookings")
+      .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({
         bookableType: "ROOM",
@@ -99,7 +99,7 @@ describe("Booking cancellation policy (e2e)", () => {
       tranId: "tran-cancel-1",
     });
     await request(app.getHttpServer())
-      .post(`/bookings/${booking.body.id}/initiate-payment`)
+      .post(`/v1/bookings/${booking.body.id}/initiate-payment`)
       .set("Authorization", `Bearer ${travelerToken}`);
     fakeProvider.validateTransaction.mockResolvedValue({
       valid: true,
@@ -115,13 +115,13 @@ describe("Booking cancellation policy (e2e)", () => {
     });
 
     const res = await request(app.getHttpServer())
-      .post(`/bookings/${booking.body.id}/cancel`)
+      .post(`/v1/bookings/${booking.body.id}/cancel`)
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({});
     expect(res.status).toBe(400);
 
     const statusRes = await request(app.getHttpServer())
-      .get(`/bookings/${booking.body.id}/payment-status`)
+      .get(`/v1/bookings/${booking.body.id}/payment-status`)
       .set("Authorization", `Bearer ${travelerToken}`);
     expect(statusRes.body.paymentStatus).toBe("PAID");
   });
@@ -137,7 +137,7 @@ describe("Booking cancellation policy (e2e)", () => {
       "cancel-traveler3@example.com",
     );
     const booking = await request(app.getHttpServer())
-      .post("/bookings")
+      .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({
         bookableType: "ROOM",
@@ -150,7 +150,7 @@ describe("Booking cancellation policy (e2e)", () => {
       tranId: "tran-cancel-2",
     });
     await request(app.getHttpServer())
-      .post(`/bookings/${booking.body.id}/initiate-payment`)
+      .post(`/v1/bookings/${booking.body.id}/initiate-payment`)
       .set("Authorization", `Bearer ${travelerToken}`);
     fakeProvider.validateTransaction.mockResolvedValue({
       valid: true,
@@ -166,7 +166,7 @@ describe("Booking cancellation policy (e2e)", () => {
     });
 
     const res = await request(app.getHttpServer())
-      .post(`/bookings/${booking.body.id}/cancel`)
+      .post(`/v1/bookings/${booking.body.id}/cancel`)
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({ acknowledgeNoRefund: true });
 

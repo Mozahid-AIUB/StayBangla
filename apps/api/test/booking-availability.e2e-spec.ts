@@ -38,7 +38,7 @@ describe("Booking availability search (e2e)", () => {
     await createHotelWithRoom(app, vendorToken);
 
     const res = await request(app.getHttpServer())
-      .get("/rooms/available")
+      .get("/v1/rooms/available")
       .query({ checkIn: "2027-03-01", checkOut: "2027-03-03", city: "DHAKA" });
 
     expect(res.status).toBe(200);
@@ -47,7 +47,7 @@ describe("Booking availability search (e2e)", () => {
 
   it("GET /rooms/available rejects a missing checkIn with a clean 400, not a 500", async () => {
     const res = await request(app.getHttpServer())
-      .get("/rooms/available")
+      .get("/v1/rooms/available")
       .query({ checkOut: "2027-03-03" });
 
     expect(res.status).toBe(400);
@@ -55,7 +55,7 @@ describe("Booking availability search (e2e)", () => {
 
   it("GET /rooms/available rejects a malformed checkIn with a clean 400, not a 500", async () => {
     const res = await request(app.getHttpServer())
-      .get("/rooms/available")
+      .get("/v1/rooms/available")
       .query({ checkIn: "not-a-date", checkOut: "2027-03-03" });
 
     expect(res.status).toBe(400);
@@ -63,7 +63,7 @@ describe("Booking availability search (e2e)", () => {
 
   it("GET /vehicles/available rejects a missing startDate with a clean 400, not a 500", async () => {
     const res = await request(app.getHttpServer())
-      .get("/vehicles/available")
+      .get("/v1/vehicles/available")
       .query({ endDate: "2027-03-03" });
 
     expect(res.status).toBe(400);
@@ -71,7 +71,7 @@ describe("Booking availability search (e2e)", () => {
 
   it("GET /vehicles/available rejects a malformed endDate with a clean 400, not a 500", async () => {
     const res = await request(app.getHttpServer())
-      .get("/vehicles/available")
+      .get("/v1/vehicles/available")
       .query({ startDate: "2027-03-01", endDate: "not-a-date" });
 
     expect(res.status).toBe(400);
@@ -84,7 +84,7 @@ describe("Booking availability search (e2e)", () => {
     );
 
     const createRes = await request(app.getHttpServer())
-      .post("/vehicles")
+      .post("/v1/vehicles")
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({
         category: "CNG",
@@ -95,7 +95,7 @@ describe("Booking availability search (e2e)", () => {
     expect(createRes.status).toBe(201);
 
     const res = await request(app.getHttpServer())
-      .get("/vehicles/available")
+      .get("/v1/vehicles/available")
       .query({
         startDate: "2027-03-01",
         endDate: "2027-03-03",

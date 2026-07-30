@@ -62,7 +62,7 @@ describe("Payment confirmation (e2e)", () => {
       "payment-traveler@example.com",
     );
     const booking = await request(app.getHttpServer())
-      .post("/bookings")
+      .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({
         bookableType: "ROOM",
@@ -76,7 +76,7 @@ describe("Payment confirmation (e2e)", () => {
   it("POST /bookings/:id/confirm-payment no longer exists", async () => {
     const { bookingId, travelerToken } = await createHeldBooking();
     const res = await request(app.getHttpServer())
-      .post(`/bookings/${bookingId}/confirm-payment`)
+      .post(`/v1/bookings/${bookingId}/confirm-payment`)
       .set("Authorization", `Bearer ${travelerToken}`);
     expect(res.status).toBe(404);
   });
@@ -89,7 +89,7 @@ describe("Payment confirmation (e2e)", () => {
     });
 
     const res = await request(app.getHttpServer())
-      .post(`/bookings/${bookingId}/initiate-payment`)
+      .post(`/v1/bookings/${bookingId}/initiate-payment`)
       .set("Authorization", `Bearer ${travelerToken}`);
 
     expect(res.status).toBe(201);
@@ -103,7 +103,7 @@ describe("Payment confirmation (e2e)", () => {
       tranId: "tran-e2e-2",
     });
     await request(app.getHttpServer())
-      .post(`/bookings/${bookingId}/initiate-payment`)
+      .post(`/v1/bookings/${bookingId}/initiate-payment`)
       .set("Authorization", `Bearer ${travelerToken}`);
 
     fakeProvider.validateTransaction.mockResolvedValue({
@@ -120,7 +120,7 @@ describe("Payment confirmation (e2e)", () => {
     expect(ipnRes.status).toBe(201);
 
     const statusRes = await request(app.getHttpServer())
-      .get(`/bookings/${bookingId}/payment-status`)
+      .get(`/v1/bookings/${bookingId}/payment-status`)
       .set("Authorization", `Bearer ${travelerToken}`);
     expect(statusRes.body.paymentStatus).toBe("PAID");
 
@@ -141,7 +141,7 @@ describe("Payment confirmation (e2e)", () => {
       tranId: "tran-e2e-3",
     });
     await request(app.getHttpServer())
-      .post(`/bookings/${bookingId}/initiate-payment`)
+      .post(`/v1/bookings/${bookingId}/initiate-payment`)
       .set("Authorization", `Bearer ${travelerToken}`);
 
     fakeProvider.validateTransaction.mockResolvedValue({
@@ -159,7 +159,7 @@ describe("Payment confirmation (e2e)", () => {
     });
 
     const statusRes = await request(app.getHttpServer())
-      .get(`/bookings/${bookingId}/payment-status`)
+      .get(`/v1/bookings/${bookingId}/payment-status`)
       .set("Authorization", `Bearer ${travelerToken}`);
     expect(statusRes.body.paymentStatus).toBe("PENDING");
   });
@@ -171,7 +171,7 @@ describe("Payment confirmation (e2e)", () => {
       tranId: "tran-e2e-4",
     });
     await request(app.getHttpServer())
-      .post(`/bookings/${bookingId}/initiate-payment`)
+      .post(`/v1/bookings/${bookingId}/initiate-payment`)
       .set("Authorization", `Bearer ${travelerToken}`);
     fakeProvider.validateTransaction.mockResolvedValue({
       valid: true,
