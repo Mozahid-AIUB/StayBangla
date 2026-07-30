@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { User, VendorVerificationLog } from "@prisma/client";
+import { User } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -22,8 +22,13 @@ export class VendorVerificationService {
     if (result.count === 0) {
       throw new ConflictException("Vendor is not currently pending review");
     }
-    await this.prisma.vendorVerificationLog.create({
-      data: { vendorId, adminId, action: "VERIFIED", reason: undefined },
+    await this.prisma.adminAuditLog.create({
+      data: {
+        targetId: vendorId,
+        actorId: adminId,
+        action: "VENDOR_APPROVED",
+        reason: undefined,
+      },
     });
     return this.prisma.user.findUniqueOrThrow({ where: { id: vendorId } });
   }
@@ -40,17 +45,15 @@ export class VendorVerificationService {
     if (result.count === 0) {
       throw new ConflictException("Vendor is not currently pending review");
     }
-    await this.prisma.vendorVerificationLog.create({
-      data: { vendorId, adminId, action: "REJECTED", reason },
+    await this.prisma.adminAuditLog.create({
+      data: {
+        targetId: vendorId,
+        actorId: adminId,
+        action: "VENDOR_REJECTED",
+        reason,
+      },
     });
     return this.prisma.user.findUniqueOrThrow({ where: { id: vendorId } });
-  }
-
-  async getHistory(vendorId: string): Promise<VendorVerificationLog[]> {
-    return this.prisma.vendorVerificationLog.findMany({
-      where: { vendorId },
-      orderBy: { createdAt: "desc" },
-    });
   }
 
   async resubmit(vendorId: string): Promise<User> {
@@ -68,11 +71,11 @@ export class VendorVerificationService {
       data: { verifiedStatus: "PENDING" },
     });
     if (result.count === 1) {
-      await this.prisma.vendorVerificationLog.create({
+      await this.prisma.adminAuditLog.create({
         data: {
-          vendorId,
-          adminId: vendorId, // self-service action; there is no admin actor for a resubmit
-          action: "PENDING",
+          targetId: vendorId,
+          actorId: vendorId, // self-service action; there is no admin actor for a resubmit
+          action: "VENDOR_RESUBMITTED",
           reason: undefined,
         },
       });
