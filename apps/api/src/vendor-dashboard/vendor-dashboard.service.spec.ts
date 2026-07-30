@@ -243,4 +243,63 @@ describe("VendorDashboardService", () => {
       expect(result.total).toBe(4000);
     });
   });
+
+  describe("getSummary — occupancy math", () => {
+    it("computes hotelOccupancyRatePct as booked room-nights over available room-nights this month", async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: "vendor1",
+        vendorType: "HOTEL",
+        verifiedStatus: "VERIFIED",
+      });
+      prisma.room.findMany.mockResolvedValue([
+        { id: "room1", isActive: true },
+        { id: "room2", isActive: true },
+      ]);
+      prisma.booking.count.mockResolvedValue(0);
+      // getSummary issues two separate $queryRaw calls: the today-counts
+      // query first, then computeOccupancyRatePct's booked-nights query —
+      // mockResolvedValueOnce in call order, not a single blanket mock,
+      // since each call expects a different result shape.
+      prisma.$queryRaw
+        .mockResolvedValueOnce([{ checkIns: BigInt(0), checkOuts: BigInt(0) }])
+        .mockResolvedValueOnce([{ bookedNights: BigInt(10) }]);
+      prisma.ledgerEntry.aggregate.mockResolvedValue({
+        _sum: { amountMinor: null },
+      });
+      prisma.vendorLedgerEntry.aggregate.mockResolvedValue({
+        _sum: { amountMinor: null },
+      });
+
+      const result = await service.getSummary("vendor1");
+
+      // 2 rooms * ~31 days (July) = 62 available room-nights; 10 booked -> ~16%
+      expect(result.hotelOccupancyRatePct).toBeGreaterThan(0);
+      expect(result.hotelOccupancyRatePct).toBeLessThanOrEqual(100);
+    });
+
+    it("returns 0 when the vendor has no active listings (avoids divide-by-zero)", async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: "vendor1",
+        vendorType: "HOTEL",
+        verifiedStatus: "VERIFIED",
+      });
+      prisma.room.findMany.mockResolvedValue([]);
+      prisma.booking.count.mockResolvedValue(0);
+      prisma.$queryRaw.mockResolvedValueOnce([
+        { checkIns: BigInt(0), checkOuts: BigInt(0) },
+      ]);
+      // No second $queryRaw call expected — computeOccupancyRatePct returns
+      // 0 immediately when resourceIds is empty, without querying.
+      prisma.ledgerEntry.aggregate.mockResolvedValue({
+        _sum: { amountMinor: null },
+      });
+      prisma.vendorLedgerEntry.aggregate.mockResolvedValue({
+        _sum: { amountMinor: null },
+      });
+
+      const result = await service.getSummary("vendor1");
+
+      expect(result.hotelOccupancyRatePct).toBe(0);
+    });
+  });
 });

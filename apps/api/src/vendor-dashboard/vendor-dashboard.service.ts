@@ -58,6 +58,38 @@ export interface EarningsResult {
 export class VendorDashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async computeOccupancyRatePct(
+    resourceIdsColumn: "room_id" | "vehicle_id",
+    resourceIds: string[],
+    monthStart: Date,
+    monthEnd: Date,
+  ): Promise<number> {
+    if (resourceIds.length === 0) return 0;
+
+    const totalNightsAvailable =
+      resourceIds.length *
+      Math.round(
+        (monthEnd.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24),
+      );
+
+    const rows = await this.prisma.$queryRaw<
+      { bookedNights: bigint }[]
+    >(Prisma.sql`
+      SELECT COALESCE(SUM(
+        upper(date_range * daterange(${monthStart.toISOString()}::date, ${monthEnd.toISOString()}::date, '[)')) -
+        lower(date_range * daterange(${monthStart.toISOString()}::date, ${monthEnd.toISOString()}::date, '[)'))
+      ), 0) AS "bookedNights"
+      FROM bookings
+      WHERE ${Prisma.raw(resourceIdsColumn)} = ANY(${resourceIds})
+        AND status IN ('CONFIRMED', 'CHECKED_IN', 'COMPLETED')
+        AND date_range && daterange(${monthStart.toISOString()}::date, ${monthEnd.toISOString()}::date, '[)')
+    `);
+
+    const bookedNights = Number(rows[0]?.bookedNights ?? 0);
+    if (totalNightsAvailable === 0) return 0;
+    return Math.round((bookedNights / totalNightsAvailable) * 100);
+  }
+
   private async getVendor(vendorId: string) {
     const vendor = await this.prisma.user.findUnique({
       where: { id: vendorId },
@@ -154,9 +186,19 @@ export class VendorDashboardService {
     };
 
     if (isHotel) {
-      summary.hotelOccupancyRatePct = 0; // computed fully in a later iteration; placeholder-free default of 0 rooms booked today is correct for zero active listings
+      summary.hotelOccupancyRatePct = await this.computeOccupancyRatePct(
+        "room_id",
+        rooms.filter((r) => r.isActive).map((r) => r.id),
+        monthStart,
+        monthEnd,
+      );
     } else {
-      summary.vehicleUtilizationRatePct = 0;
+      summary.vehicleUtilizationRatePct = await this.computeOccupancyRatePct(
+        "vehicle_id",
+        vehicles.filter((v) => v.isActive).map((v) => v.id),
+        monthStart,
+        monthEnd,
+      );
     }
 
     return summary;
