@@ -130,7 +130,10 @@ describe("BookingsService.createBooking", () => {
       capacity: 2,
       pricePerNightMinor: 500000,
       currency: "BDT",
-      hotel: { ownerId: "v1", owner: { verifiedStatus: "VERIFIED" } },
+      hotel: {
+        ownerId: "v1",
+        owner: { verifiedStatus: "VERIFIED", suspendedAt: null },
+      },
     });
     prisma.$queryRaw.mockResolvedValue([
       makeRawRow({ totalAmountMinor: 1000000 }),
@@ -155,7 +158,10 @@ describe("BookingsService.createBooking", () => {
       capacity: 2,
       pricePerNightMinor: 500000,
       currency: "BDT",
-      hotel: { ownerId: "v1", owner: { verifiedStatus: "VERIFIED" } },
+      hotel: {
+        ownerId: "v1",
+        owner: { verifiedStatus: "VERIFIED", suspendedAt: null },
+      },
     });
     const pgError = Object.assign(
       new Error("conflicting key value violates exclusion constraint"),
@@ -186,7 +192,10 @@ describe("BookingsService.createBooking", () => {
       capacity: 2,
       pricePerNightMinor: 500000,
       currency: "BDT",
-      hotel: { ownerId: "v1", owner: { verifiedStatus: "VERIFIED" } },
+      hotel: {
+        ownerId: "v1",
+        owner: { verifiedStatus: "VERIFIED", suspendedAt: null },
+      },
     });
     prisma.$queryRaw.mockRejectedValue(new Error("connection reset"));
 
@@ -207,7 +216,10 @@ describe("BookingsService.createBooking", () => {
       capacity: 2,
       pricePerNightMinor: 500000,
       currency: "BDT",
-      hotel: { ownerId: "v1", owner: { verifiedStatus: "VERIFIED" } },
+      hotel: {
+        ownerId: "v1",
+        owner: { verifiedStatus: "VERIFIED", suspendedAt: null },
+      },
     });
     prisma.$queryRaw.mockResolvedValue([]);
 
@@ -219,6 +231,49 @@ describe("BookingsService.createBooking", () => {
         checkOut: "2026-09-03",
       }),
     ).rejects.toThrow("Booking insert returned no rows");
+  });
+
+  it("rejects a booking on a room whose owner is suspended", async () => {
+    prisma.room.findUnique.mockResolvedValue({
+      id: "room1",
+      isActive: true,
+      capacity: 2,
+      pricePerNightMinor: 5000,
+      currency: "BDT",
+      hotel: {
+        ownerId: "vendor1",
+        owner: { verifiedStatus: "VERIFIED", suspendedAt: new Date() },
+      },
+    });
+
+    await expect(
+      service.createBooking("traveler1", {
+        bookableType: "ROOM",
+        bookableId: "room1",
+        checkIn: "2026-09-01",
+        checkOut: "2026-09-03",
+      }),
+    ).rejects.toThrow(/suspended/i);
+  });
+
+  it("rejects a booking on a vehicle whose owner is suspended", async () => {
+    prisma.vehicle.findUnique.mockResolvedValue({
+      id: "veh1",
+      isActive: true,
+      capacity: 4,
+      pricePerDayMinor: 3000,
+      currency: "BDT",
+      owner: { verifiedStatus: "VERIFIED", suspendedAt: new Date() },
+    });
+
+    await expect(
+      service.createBooking("traveler1", {
+        bookableType: "VEHICLE",
+        bookableId: "veh1",
+        checkIn: "2026-09-01",
+        checkOut: "2026-09-03",
+      }),
+    ).rejects.toThrow(/suspended/i);
   });
 
   describe("VEHICLE bookableType", () => {
@@ -303,7 +358,7 @@ describe("BookingsService.createBooking", () => {
         pricePerDayMinor: 300000,
         currency: "BDT",
         ownerId: "v1",
-        owner: { verifiedStatus: "VERIFIED" },
+        owner: { verifiedStatus: "VERIFIED", suspendedAt: null },
       });
       prisma.$queryRaw.mockResolvedValue([
         makeRawRow({

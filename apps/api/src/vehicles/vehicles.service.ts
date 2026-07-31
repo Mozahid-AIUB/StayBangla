@@ -42,6 +42,9 @@ export class VehiclesService {
     if (!owner || owner.verifiedStatus !== "VERIFIED") {
       throw new ForbiddenException("Only verified vendors can create listings");
     }
+    if (owner.suspendedAt !== null) {
+      throw new ForbiddenException("Your account is suspended");
+    }
     return this.prisma.vehicle.create({ data: { ownerId, ...input } });
   }
 
@@ -84,6 +87,7 @@ export class VehiclesService {
              v.price_per_day_minor AS "pricePerDayMinor", v.currency
       FROM vehicles v
       WHERE v.is_active = true ${cityFilter}
+        AND v.owner_id NOT IN (SELECT id FROM users WHERE suspended_at IS NOT NULL)
         AND NOT EXISTS (
           SELECT 1 FROM bookings b
           WHERE b.vehicle_id = v.id

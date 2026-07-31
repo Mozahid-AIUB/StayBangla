@@ -88,6 +88,9 @@ export class BookingsService {
       if (room.hotel.owner.verifiedStatus !== "VERIFIED") {
         throw new ForbiddenException("This listing's owner is not verified");
       }
+      if (room.hotel.owner.suspendedAt !== null) {
+        throw new ForbiddenException("This listing's owner is suspended");
+      }
       resourceOwnerId = room.hotel.ownerId;
       pricePerUnit = room.pricePerNightMinor;
       currency = room.currency;
@@ -105,6 +108,9 @@ export class BookingsService {
       }
       if (vehicle.owner.verifiedStatus !== "VERIFIED") {
         throw new ForbiddenException("This listing's owner is not verified");
+      }
+      if (vehicle.owner.suspendedAt !== null) {
+        throw new ForbiddenException("This listing's owner is suspended");
       }
       resourceOwnerId = vehicle.ownerId;
       pricePerUnit = vehicle.pricePerDayMinor;

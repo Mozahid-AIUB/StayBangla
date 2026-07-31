@@ -65,6 +65,7 @@ describe("CredentialsService", () => {
       usersService.findByIdentifier.mockResolvedValue({
         id: "u1",
         passwordHash: "$argon2id$hashed",
+        suspendedAt: null,
         roles: [{ role: "VENDOR" }],
       });
       passwordService.verify.mockResolvedValue(true);
@@ -106,6 +107,21 @@ describe("CredentialsService", () => {
       await expect(
         service.login("traveler@example.com", "whatever"),
       ).rejects.toThrow(/invalid credentials/i);
+    });
+
+    it("rejects login for a suspended vendor with a 403, not the generic 401 invalid-credentials message", async () => {
+      usersService.findByIdentifier.mockResolvedValue({
+        id: "vendor1",
+        passwordHash: "$argon2id$hashed",
+        suspendedAt: new Date(),
+        roles: [{ role: "VENDOR" }],
+      });
+      passwordService.verify.mockResolvedValue(true);
+
+      await expect(
+        service.login("vendor@example.com", "correct-password"),
+      ).rejects.toThrow(/suspended/i);
+      expect(tokenService.issueTokenPair).not.toHaveBeenCalled();
     });
   });
 });

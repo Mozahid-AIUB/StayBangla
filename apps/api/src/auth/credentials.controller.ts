@@ -106,6 +106,11 @@ export class CredentialsController {
     const { accessToken, refreshToken } =
       await this.tokenService.rotateRefreshToken(presented, async (userId) => {
         const user = await this.usersService.findById(userId);
+        if (user?.suspendedAt) {
+          throw new UnauthorizedException(
+            "This account is suspended and cannot refresh its session",
+          );
+        }
         const roles =
           (user as { roles?: { role: string }[] } | null)?.roles?.map(
             (r) => r.role,

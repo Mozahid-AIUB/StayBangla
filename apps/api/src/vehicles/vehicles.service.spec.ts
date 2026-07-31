@@ -28,6 +28,7 @@ describe("VehiclesService", () => {
       usersService.findById.mockResolvedValue({
         id: "v1",
         verifiedStatus: "VERIFIED",
+        suspendedAt: null,
       });
       prisma.vehicle.create.mockResolvedValue({ id: "veh1", ownerId: "v1" });
 
@@ -59,6 +60,22 @@ describe("VehiclesService", () => {
           pricePerDayMinor: 200000,
         }),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("rejects vehicle creation when the caller is suspended", async () => {
+      usersService.findById.mockResolvedValue({
+        verifiedStatus: "VERIFIED",
+        suspendedAt: new Date(),
+      });
+
+      await expect(
+        service.create("vendor1", {
+          category: "CNG",
+          city: "DHAKA",
+          capacity: 4,
+          pricePerDayMinor: 3000,
+        }),
+      ).rejects.toThrow(/suspended/i);
     });
   });
 
@@ -137,6 +154,16 @@ describe("VehiclesService", () => {
       const results = await service.searchAvailable("2026-09-01", "2026-09-02");
       expect(results).toEqual([]);
       expect(prisma.$queryRaw).toHaveBeenCalled();
+    });
+
+    it("excludes suspended owners' vehicles from the availability query", async () => {
+      prisma.$queryRaw.mockResolvedValue([]);
+
+      await service.searchAvailable("2026-09-01", "2026-09-03");
+
+      const [sqlObject] = prisma.$queryRaw.mock.calls[0];
+      const rendered = sqlObject.strings.join("");
+      expect(rendered).toContain("suspended_at");
     });
   });
 });
