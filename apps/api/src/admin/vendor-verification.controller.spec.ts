@@ -7,18 +7,14 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 describe("VendorVerificationController", () => {
   let controller: VendorVerificationController;
   let service: {
-    listPending: jest.Mock;
     approve: jest.Mock;
     reject: jest.Mock;
-    getHistory: jest.Mock;
   };
 
   beforeEach(async () => {
     service = {
-      listPending: jest.fn(),
       approve: jest.fn(),
       reject: jest.fn(),
-      getHistory: jest.fn(),
     };
     const moduleRef = await Test.createTestingModule({
       controllers: [VendorVerificationController],
@@ -30,12 +26,6 @@ describe("VendorVerificationController", () => {
       .useValue({ canActivate: () => true })
       .compile();
     controller = moduleRef.get(VendorVerificationController);
-  });
-
-  it("listPending() delegates to the service", async () => {
-    service.listPending.mockResolvedValue([{ id: "v1" }]);
-    const result = await controller.listPending();
-    expect(result).toEqual([{ id: "v1" }]);
   });
 
   it("approve() passes the admin's id and vendor id", async () => {
@@ -50,21 +40,6 @@ describe("VendorVerificationController", () => {
       reason: "bad docs",
     });
     expect(service.reject).toHaveBeenCalledWith("admin1", "v1", "bad docs");
-  });
-
-  it("getHistory() passes the vendor id", async () => {
-    service.getHistory.mockResolvedValue([{ id: "log1" }]);
-    await controller.getHistory("v1");
-    expect(service.getHistory).toHaveBeenCalledWith("v1");
-  });
-
-  it("listPending() strips passwordHash from each returned user", async () => {
-    service.listPending.mockResolvedValue([
-      { id: "v1", email: "a@b.com", passwordHash: "$argon2id$secret" },
-    ]);
-    const result = await controller.listPending();
-    expect(result[0]).not.toHaveProperty("passwordHash");
-    expect(result[0]!.email).toBe("a@b.com");
   });
 
   it("approve() strips passwordHash from the returned user", async () => {

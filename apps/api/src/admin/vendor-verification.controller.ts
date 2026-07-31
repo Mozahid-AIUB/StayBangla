@@ -1,5 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
-import { VendorVerificationLog } from "@prisma/client";
+import { Body, Controller, Param, Post, UseGuards } from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -24,24 +23,6 @@ export class VendorVerificationController {
   constructor(
     private readonly vendorVerificationService: VendorVerificationService,
   ) {}
-
-  @ApiOperation({
-    summary: "List vendors awaiting verification (ADMIN/SUPER_ADMIN only)",
-  })
-  @ApiResponse({
-    status: 200,
-    description: "Vendors with verifiedStatus=PENDING.",
-  })
-  @ApiResponse({ status: 401, description: "Missing or invalid access token." })
-  @ApiResponse({
-    status: 403,
-    description: "Caller is not ADMIN or SUPER_ADMIN.",
-  })
-  @Get("pending")
-  async listPending(): Promise<PublicUser[]> {
-    const vendors = await this.vendorVerificationService.listPending();
-    return vendors.map(toPublicUser);
-  }
 
   @ApiOperation({
     summary: "Approve a pending vendor (ADMIN/SUPER_ADMIN only)",
@@ -84,23 +65,5 @@ export class VendorVerificationController {
       dto.reason,
     );
     return toPublicUser(vendor);
-  }
-
-  @ApiOperation({
-    summary:
-      "Get a vendor's full verification history (ADMIN/SUPER_ADMIN only)",
-  })
-  @ApiResponse({
-    status: 200,
-    description: "Chronological approve/reject/resubmit log.",
-  })
-  @ApiResponse({ status: 401, description: "Missing or invalid access token." })
-  @ApiResponse({
-    status: 403,
-    description: "Caller is not ADMIN or SUPER_ADMIN.",
-  })
-  @Get(":id/history")
-  async getHistory(@Param("id") id: string): Promise<VendorVerificationLog[]> {
-    return this.vendorVerificationService.getHistory(id);
   }
 }
