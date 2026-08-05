@@ -2,25 +2,62 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #14201a;
+
+  /* Tea-garden green. Primary actions and brand marks.
+     --primary on white = 5.9:1, passes AA for normal text.
+     White on --primary = 5.9:1, so button labels pass too. */
+  --primary: #10643f;
+  --primary-hover: #0b4b2f;
+  --on-primary: #ffffff;
+
+  /* Bay-of-Bengal blue. Secondary accents only — never a second CTA,
+     which would compete with search. */
+  --accent: #0f5b73;
+
+  /* Surfaces. --muted-foreground on --surface = 5.1:1 (AA);
+     it is for supporting copy, never for anything load-bearing. */
+  --surface: #f5f7f5;
+  --border: #dbe3dd;
+  --muted-foreground: #5a6b60;
+
+  /* Scrim over hero photography. The headline must not depend on the
+     photograph happening to be dark — this guarantees contrast whatever
+     image sits underneath. */
+  --hero-scrim: rgb(6 26 18 / 0.55);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
+  --color-accent: var(--accent);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-muted-foreground: var(--muted-foreground);
+
+  /* Bengali first so Bangla glyphs resolve; Geist follows for Latin and
+     numerals. Tailwind maps --font-sans onto --default-font-family, so this
+     becomes the body font without the old `body { font-family: Arial }`
+     rule that used to override it. */
+  --font-sans:
+    var(--font-bengali), var(--font-geist-sans), ui-sans-serif, system-ui,
+    sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0d1512;
+    --foreground: #e8efea;
+    --primary: #3fb883;
+    --primary-hover: #5ccb98;
+    --on-primary: #06231a;
+    --accent: #5ab4cf;
+    --surface: #16211c;
+    --border: #26332c;
+    --muted-foreground: #9fb0a6;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }

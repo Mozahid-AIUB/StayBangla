@@ -1,8 +1,19 @@
+import { Hero } from "@/components/hero";
+import { DistrictGrid } from "@/components/district-grid";
+import { WhyStayBangla } from "@/components/why-staybangla";
+import { VendorCta } from "@/components/vendor-cta";
+import { SiteFooter } from "@/components/site-footer";
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4">
-      <h1 className="text-4xl font-bold">StayBangla</h1>
-      <p className="text-lg text-gray-500">Tourism booking platform — coming soon.</p>
-    </main>
+    <>
+      <main className="flex-1">
+        <Hero />
+        <DistrictGrid />
+        <WhyStayBangla />
+        <VendorCta />
+      </main>
+      <SiteFooter />
+    </>
   );
 }
