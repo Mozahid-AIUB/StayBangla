@@ -10,6 +10,18 @@ import {
   createTraveler,
 } from "./helpers/test-fixtures";
 
+// createOfflineBooking's validateDates() rejects a checkIn in the past
+// relative to the real clock, so any fixture booking dates must be computed
+// relative to "now" rather than hardcoded literals that will eventually
+// roll into the past — see bookings.service.spec.ts's identical helper and
+// its comment for the prior incident (hardcoded 2026-08-01 dates rotting
+// and turning that suite red).
+function futureDateStr(daysFromNow: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  return d.toISOString().slice(0, 10);
+}
+
 function lastNightOfCurrentDhakaMonth(): { checkIn: string; checkOut: string } {
   // Deliberately picks the last calendar night of "this month" in Dhaka
   // (UTC+6) — this is exactly the boundary a UTC-vs-Dhaka date-truncation
@@ -124,15 +136,20 @@ describe("Vendor Dashboard (e2e)", () => {
     });
     const { roomId } = await createHotelWithRoom(app, accessToken);
 
-    // Future CONFIRMED booking — must be counted as upcoming.
+    // Future CONFIRMED booking — must be counted as upcoming. Computed
+    // relative to "now" rather than a hardcoded literal: this test's
+    // correctness depends on the date actually being in the future, and a
+    // fixed literal silently stops discriminating once the calendar
+    // catches up to it (this codebase has already been bitten by exactly
+    // this — see futureDateStr's comment above).
     const future = await request(app.getHttpServer())
       .post("/v1/vendor/bookings/offline")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
         bookableType: "ROOM",
         bookableId: roomId,
-        checkIn: "2026-12-01",
-        checkOut: "2026-12-03",
+        checkIn: futureDateStr(30),
+        checkOut: futureDateStr(32),
         amountMinor: 5000,
       });
     expect(future.status).toBe(201);
@@ -479,6 +496,16 @@ describe("Vendor Dashboard (e2e)", () => {
     // contains "CONFIRMED" stays green against this bug because it never
     // executes real SQL. This test must run the query for real, and must
     // assert exclusion (a non-matching row is absent), not just presence.
+    //
+    // A single-booking version of this test (create one CONFIRMED booking,
+    // cancel it, filter status=CONFIRMED, assert .not.toContain) cannot
+    // distinguish a working filter from a broken one: after the cancel
+    // there are zero CONFIRMED bookings for this vendor, so an empty array
+    // satisfies `.not.toContain` whether the filter works or the endpoint
+    // just returns nothing. Keeping a second booking CONFIRMED and
+    // asserting it IS present, in the same response that must exclude the
+    // cancelled one, is what actually discriminates — see the DEFECT 2
+    // fix report for the break-it-and-watch-it-fail proof.
     const { vendorId, accessToken } = await createVerifiedVendor(
       app,
       "dash-vendor-status-filter@example.com",
@@ -489,24 +516,38 @@ describe("Vendor Dashboard (e2e)", () => {
     });
     const { roomId } = await createHotelWithRoom(app, accessToken);
 
-    const confirmed = await request(app.getHttpServer())
+    const toCancel = await request(app.getHttpServer())
       .post("/v1/vendor/bookings/offline")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
         bookableType: "ROOM",
         bookableId: roomId,
-        checkIn: "2026-10-01",
-        checkOut: "2026-10-03",
+        checkIn: futureDateStr(30),
+        checkOut: futureDateStr(32),
         amountMinor: 5000,
       });
-    expect(confirmed.status).toBe(201);
-    const confirmedBookingId = confirmed.body.booking.id as string;
+    expect(toCancel.status).toBe(201);
+    const cancelledBookingId = toCancel.body.booking.id as string;
 
-    // Cancel it so we have a second, CANCELLED booking that must be
-    // excluded when filtering status=CONFIRMED.
+    // Cancel it — must be excluded when filtering status=CONFIRMED.
     await request(app.getHttpServer())
-      .delete(`/v1/vendor/bookings/offline/${confirmedBookingId}`)
+      .delete(`/v1/vendor/bookings/offline/${cancelledBookingId}`)
       .set("Authorization", `Bearer ${accessToken}`);
+
+    // A second booking on different, non-overlapping dates that stays
+    // CONFIRMED — must be present in the filtered response.
+    const stillConfirmed = await request(app.getHttpServer())
+      .post("/v1/vendor/bookings/offline")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        bookableType: "ROOM",
+        bookableId: roomId,
+        checkIn: futureDateStr(60),
+        checkOut: futureDateStr(62),
+        amountMinor: 5000,
+      });
+    expect(stillConfirmed.status).toBe(201);
+    const confirmedBookingId = stillConfirmed.body.booking.id as string;
 
     const res = await request(app.getHttpServer())
       .get("/v1/vendor/bookings?status=CONFIRMED")
@@ -516,7 +557,8 @@ describe("Vendor Dashboard (e2e)", () => {
     // = text) — reaching a 200 at all is part of what this test proves.
     expect(res.status).toBe(200);
     const ids = res.body.map((b: { id: string }) => b.id);
-    expect(ids).not.toContain(confirmedBookingId);
+    expect(ids).toContain(confirmedBookingId);
+    expect(ids).not.toContain(cancelledBookingId);
   });
 
   it("GET /vendor/bookings?status=abc123 (not a real enum value) returns 400, not a raw 500", async () => {
@@ -540,6 +582,23 @@ describe("Vendor Dashboard (e2e)", () => {
     );
     const res = await request(app.getHttpServer())
       .get("/v1/vendor/bookings?from=abc")
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(res.status).toBe(400);
+  });
+
+  it("GET /vendor/bookings?from=2026-02-30 (calendar-invalid but ISO8601-shaped) rejects with 400 instead of a raw Postgres 500", async () => {
+    // DEFECT 6 regression: the default (loose) @IsISO8601() check accepts
+    // "2026-02-30" — isISO8601("2026-02-30") === true — because it only
+    // validates the string's shape, not calendar validity. That value then
+    // reaches `${filter.from}::date` in raw SQL and Postgres raises 22007
+    // (date/time field value out of range), which AllExceptionsFilter maps
+    // to a generic 500. { strict: true } must catch this before the DB.
+    const { accessToken } = await createVerifiedVendor(
+      app,
+      "dash-vendor-calendar-invalid-from@example.com",
+    );
+    const res = await request(app.getHttpServer())
+      .get("/v1/vendor/bookings?from=2026-02-30")
       .set("Authorization", `Bearer ${accessToken}`);
     expect(res.status).toBe(400);
   });
@@ -629,6 +688,75 @@ describe("Vendor Dashboard (e2e)", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.offline).toBe(7700);
+  });
+
+  it("GET /vendor/earnings?from=... alone (no `to`) filters from that date forward instead of silently falling back to the current-month period", async () => {
+    // DEFECT 7 regression: the unfixed code only special-cased
+    // `query.from && query.to` together — a lone `from` fell through to the
+    // `else` branch and silently used the current-month window, ignoring
+    // the caller's filter with no error. An entry outside the current
+    // month but at/after the supplied `from` must be included; an entry
+    // before `from` must be excluded — neither of which the current-month
+    // fallback would reliably get right by coincidence.
+    const { vendorId, accessToken } = await createVerifiedVendor(
+      app,
+      "dash-vendor-earnings-onesided@example.com",
+    );
+    await testPrisma.user.update({
+      where: { id: vendorId },
+      data: { vendorType: "HOTEL" },
+    });
+    const { roomId } = await createHotelWithRoom(app, accessToken);
+
+    // Before the filter's `from` — must be excluded.
+    await testPrisma.vendorLedgerEntry.create({
+      data: {
+        vendorId,
+        roomId,
+        direction: "INCOME",
+        category: "OTHER",
+        amountMinor: 1234,
+        entryDate: new Date("2020-01-01"),
+      },
+    });
+    // On/after the filter's `from`, far in the future — must be included.
+    // A current-month fallback would exclude this, since it is many months
+    // away from "now".
+    await testPrisma.vendorLedgerEntry.create({
+      data: {
+        vendorId,
+        roomId,
+        direction: "INCOME",
+        category: "OTHER",
+        amountMinor: 5678,
+        entryDate: new Date("2030-01-01"),
+      },
+    });
+
+    const res = await request(app.getHttpServer())
+      .get("/v1/vendor/earnings?from=2025-01-01")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.offline).toBe(5678);
+  });
+
+  it("GET /vendor/earnings?from=2026-02-30 (calendar-invalid but ISO8601-shaped) rejects with 400 instead of a raw Postgres 500", async () => {
+    // DEFECT 6 regression, earnings-endpoint half: same underlying issue as
+    // the /vendor/bookings case above — EarningsQueryDto's from/to used the
+    // default (loose) @IsISO8601(), which accepts "2026-02-30" as
+    // well-formed. That value reaches startOfDhakaDay(new Date(query.from))
+    // -> Date parsing overflow in JS, or (for other endpoints)
+    // `${...}::date` in raw SQL -> Postgres 22007. { strict: true } rejects
+    // it at the DTO boundary instead.
+    const { accessToken } = await createVerifiedVendor(
+      app,
+      "dash-vendor-calendar-invalid-earnings@example.com",
+    );
+    const res = await request(app.getHttpServer())
+      .get("/v1/vendor/earnings?from=2026-02-30")
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(res.status).toBe(400);
   });
 
   // DEFECT 5 (period=week rolling-UTC-window bug) is deliberately NOT

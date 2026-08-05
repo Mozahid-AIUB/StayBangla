@@ -195,13 +195,22 @@ export class VendorDashboardService {
     // (if further in the past). The previous implementation counted every
     // CONFIRMED/CHECKED_IN booking ever made, all-time, with no date bound
     // at all — a monotonically growing number mislabelled "upcoming".
+    // lower(date_range)/upper(date_range) are `date` columns; ${dayStart}/
+    // ${dayEnd} are bound as `timestamptz`. Comparing `date >= timestamptz`
+    // implicitly promotes the `date` side to `timestamptz` at midnight in
+    // whatever timezone the *session* is running under — correct today
+    // only because this deployment's `SHOW timezone` happens to be UTC.
+    // Casting the date columns to timestamptz explicitly `AT TIME ZONE
+    // 'Asia/Dhaka'` makes the comparison correct regardless of the
+    // database session/server timezone, matching computeOccupancyRatePct's
+    // identical defense (and its comment) 15 lines above this method.
     const counts = await this.prisma.$queryRaw<
       { upcomingCheckIns: bigint; checkIns: bigint; checkOuts: bigint }[]
     >(Prisma.sql`
       SELECT
-        COUNT(*) FILTER (WHERE status = 'CONFIRMED' AND lower(date_range) >= ${dayStart}) AS "upcomingCheckIns",
-        COUNT(*) FILTER (WHERE lower(date_range) >= ${dayStart} AND lower(date_range) < ${dayEnd}) AS "checkIns",
-        COUNT(*) FILTER (WHERE upper(date_range) >= ${dayStart} AND upper(date_range) < ${dayEnd}) AS "checkOuts"
+        COUNT(*) FILTER (WHERE status = 'CONFIRMED' AND (lower(date_range)::timestamp AT TIME ZONE 'Asia/Dhaka') >= ${dayStart}) AS "upcomingCheckIns",
+        COUNT(*) FILTER (WHERE (lower(date_range)::timestamp AT TIME ZONE 'Asia/Dhaka') >= ${dayStart} AND (lower(date_range)::timestamp AT TIME ZONE 'Asia/Dhaka') < ${dayEnd}) AS "checkIns",
+        COUNT(*) FILTER (WHERE (upper(date_range)::timestamp AT TIME ZONE 'Asia/Dhaka') >= ${dayStart} AND (upper(date_range)::timestamp AT TIME ZONE 'Asia/Dhaka') < ${dayEnd}) AS "checkOuts"
       FROM bookings
       WHERE resource_owner_id = ${vendorId}
         AND status IN ('CONFIRMED', 'CHECKED_IN')
@@ -456,20 +465,28 @@ export class VendorDashboardService {
     }
 
     const now = new Date();
-    let gte: Date;
-    let lt: Date;
-    if (query.from && query.to) {
+    let gte: Date | undefined;
+    let lt: Date | undefined;
+    if (query.from || query.to) {
+      // A supplied from/to overrides `period` entirely (guarded above — the
+      // two are mutually exclusive, never combined) and is never silently
+      // dropped: either side may be given alone. This mirrors getBookings'
+      // one-sided daterange semantics (a bare `from` filters everything
+      // from that date forward; a bare `to` filters everything up to, but
+      // not including, that date) so the two endpoints behave the same way
+      // for a partial range instead of one rejecting/falling back and the
+      // other supporting it.
+      //
       // new Date("2026-07-30") parses as 2026-07-30T00:00:00Z (UTC
       // midnight), but that Dhaka calendar day actually began six hours
       // earlier at 2026-07-29T18:00:00Z. Routing through startOfDhakaDay
       // truncates in Asia/Dhaka instead, matching the "today"/"month"
       // branches below and admin-analytics.service.ts's revenueTrend
-      // filter. Keeps half-open [gte, lt) semantics: `to` is the start of
-      // the Dhaka day *after* the last included day would be wrong here —
-      // per the DTO/API contract `to` is itself the exclusive upper bound
-      // day, consistent with getBookings' daterange '[)' filter.
-      gte = startOfDhakaDay(new Date(query.from));
-      lt = startOfDhakaDay(new Date(query.to));
+      // filter. Keeps half-open [gte, lt) semantics: `to` is itself the
+      // exclusive upper bound day, consistent with getBookings' daterange
+      // '[)' filter.
+      gte = query.from ? startOfDhakaDay(new Date(query.from)) : undefined;
+      lt = query.to ? startOfDhakaDay(new Date(query.to)) : undefined;
     } else {
       const period = query.period ?? "month";
       if (period === "today") {

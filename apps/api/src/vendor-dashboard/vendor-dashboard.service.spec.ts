@@ -344,6 +344,44 @@ describe("VendorDashboardService", () => {
         jest.useRealTimers();
       }
     });
+
+    it("a lone `from` (no `to`) filters from that Dhaka day forward with no upper bound, instead of silently falling back to the current-month period (DEFECT 7)", async () => {
+      // The unfixed code only special-cases `query.from && query.to` —
+      // supplying just `from` falls through to the `else` branch and
+      // silently returns the current-month window, discarding the caller's
+      // filter with no error and no indication anything was ignored. This
+      // asserts entryDate.lt is left unset (no upper bound) rather than
+      // pinned to the current month's end, and entryDate.gte is the
+      // Dhaka-day start of the supplied `from` — neither of which the
+      // current-month fallback would produce.
+      prisma.user.findUnique.mockResolvedValue({
+        id: "vendor1",
+        vendorType: "HOTEL",
+      });
+      prisma.ledgerEntry.findMany.mockResolvedValue([]);
+      prisma.vendorLedgerEntry.findMany.mockResolvedValue([]);
+
+      await service.getEarnings("vendor1", { from: "2026-07-30" });
+
+      const [{ where }] = prisma.vendorLedgerEntry.findMany.mock.calls[0];
+      expect(where.entryDate.gte).toEqual(new Date("2026-07-29T18:00:00.000Z"));
+      expect(where.entryDate.lt).toBeUndefined();
+    });
+
+    it("a lone `to` (no `from`) filters up to that Dhaka day with no lower bound, instead of silently falling back to the current-month period (DEFECT 7)", async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: "vendor1",
+        vendorType: "HOTEL",
+      });
+      prisma.ledgerEntry.findMany.mockResolvedValue([]);
+      prisma.vendorLedgerEntry.findMany.mockResolvedValue([]);
+
+      await service.getEarnings("vendor1", { to: "2026-07-31" });
+
+      const [{ where }] = prisma.vendorLedgerEntry.findMany.mock.calls[0];
+      expect(where.entryDate.gte).toBeUndefined();
+      expect(where.entryDate.lt).toEqual(new Date("2026-07-30T18:00:00.000Z"));
+    });
   });
 
   describe("getSummary — BOTH vendorType", () => {
