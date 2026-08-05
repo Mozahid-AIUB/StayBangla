@@ -3,6 +3,7 @@ import { VendorDashboardController } from "./vendor-dashboard.controller";
 import { VendorDashboardService } from "./vendor-dashboard.service";
 import { VendorLedgerService } from "./vendor-ledger.service";
 import { BookingsService } from "../bookings/bookings.service";
+import { SuspensionGuard } from "../auth/guards/suspension.guard";
 
 describe("VendorDashboardController", () => {
   let controller: VendorDashboardController;
@@ -46,7 +47,13 @@ describe("VendorDashboardController", () => {
         { provide: VendorLedgerService, useValue: ledgerService },
         { provide: BookingsService, useValue: bookingsService },
       ],
-    }).compile();
+    })
+      // SuspensionGuard's own DB-read behavior has dedicated e2e coverage
+      // (test/admin-panel.e2e-spec.ts); it needs PrismaService this
+      // controller-only module doesn't wire.
+      .overrideGuard(SuspensionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     controller = moduleRef.get(VendorDashboardController);
   });
 

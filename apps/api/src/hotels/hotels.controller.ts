@@ -16,6 +16,7 @@ import {
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
+import { SuspensionGuard } from "../auth/guards/suspension.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { RequestUser } from "../auth/strategies/jwt-access.strategy";
@@ -69,7 +70,7 @@ export class HotelsController {
   @ApiResponse({ status: 403, description: "Caller does not own this hotel." })
   @ApiResponse({ status: 404, description: "Hotel not found." })
   @Post(":id/photos/presign")
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SuspensionGuard)
   @Roles("VENDOR")
   async presignPhoto(
     @CurrentUser() user: RequestUser,
@@ -91,7 +92,7 @@ export class HotelsController {
     description: "Hotel not found, or the object was never actually uploaded.",
   })
   @Post(":id/photos/confirm")
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SuspensionGuard)
   @Roles("VENDOR")
   async confirmPhoto(
     @CurrentUser() user: RequestUser,
@@ -113,7 +114,7 @@ export class HotelsController {
   @ApiResponse({ status: 403, description: "Caller does not own this hotel." })
   @ApiResponse({ status: 404, description: "Hotel or photo not found." })
   @Delete(":id/photos/:photoId")
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SuspensionGuard)
   @Roles("VENDOR")
   async deletePhoto(
     @CurrentUser() user: RequestUser,

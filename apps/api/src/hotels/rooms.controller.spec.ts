@@ -4,6 +4,7 @@ import { RoomsService } from "./rooms.service";
 import { HotelsService } from "./hotels.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
+import { SuspensionGuard } from "../auth/guards/suspension.guard";
 
 describe("RoomsController", () => {
   let controller: RoomsController;
@@ -35,6 +36,11 @@ describe("RoomsController", () => {
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
+      // SuspensionGuard's own DB-read behavior has dedicated e2e coverage
+      // (test/admin-panel.e2e-spec.ts); it needs PrismaService this
+      // controller-only module doesn't wire.
+      .overrideGuard(SuspensionGuard)
       .useValue({ canActivate: () => true })
       .compile();
     controller = moduleRef.get(RoomsController);

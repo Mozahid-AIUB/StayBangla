@@ -17,6 +17,7 @@ import {
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
+import { SuspensionGuard } from "../auth/guards/suspension.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { RequestUser } from "../auth/strategies/jwt-access.strategy";
@@ -90,7 +91,7 @@ export class VehiclesController {
   })
   @ApiResponse({ status: 404, description: "Vehicle not found." })
   @Patch(":id")
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SuspensionGuard)
   @Roles("VENDOR")
   async update(
     @CurrentUser() user: RequestUser,

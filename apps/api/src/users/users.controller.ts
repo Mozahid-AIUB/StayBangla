@@ -7,6 +7,7 @@ import {
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
+import { Roles } from "../auth/decorators/roles.decorator";
 import { PoliciesGuard } from "../casl/policies.guard";
 import { CheckPolicies } from "../casl/decorators/check-policies.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -70,6 +71,7 @@ export class UsersController {
   })
   @Post("me/resubmit")
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("VENDOR", "GUIDE")
   async resubmit(@CurrentUser() user: RequestUser): Promise<PublicUser> {
     const updated = await this.vendorVerificationService.resubmit(user.id);
     return toPublicUser(updated);

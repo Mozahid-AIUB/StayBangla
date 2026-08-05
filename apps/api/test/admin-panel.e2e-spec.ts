@@ -353,4 +353,93 @@ describe("Admin Panel (e2e)", () => {
     expect(res.body.totalVendors).toBeGreaterThanOrEqual(1);
     expect(res.body).toHaveProperty("monthlyRevenue");
   });
+
+  // SuspensionGuard e2e: proves a suspended vendor is rejected on a
+  // destructive write even though their access token is still valid and
+  // unexpired — the guard re-reads suspendedAt from the DB on every request
+  // rather than trusting the JWT claim, closing the ~15-minute window a
+  // JWT-only check would otherwise leave open. Ledger soft-delete and photo
+  // delete are the highest-value paths to prove this on: both destroy
+  // evidence a fraud suspension exists to preserve (an irrecoverable
+  // manual-ledger row, and an irrecoverable MinIO object) and had NO
+  // suspension check anywhere — controller or service — before this fix.
+  it("a suspended vendor cannot soft-delete a manual ledger entry with their still-valid access token", async () => {
+    const { accessToken: adminToken } = await createAdmin(
+      app,
+      "admin-e2e-admin10@example.com",
+    );
+    const { vendorId, accessToken: vendorToken } = await createVerifiedVendor(
+      app,
+      "admin-e2e-vendor11@example.com",
+    );
+    const { roomId } = await createHotelWithRoom(app, vendorToken);
+
+    const entry = await request(app.getHttpServer())
+      .post("/v1/vendor/ledger-entries")
+      .set("Authorization", `Bearer ${vendorToken}`)
+      .send({
+        roomId,
+        direction: "INCOME",
+        category: "OTHER",
+        amountMinor: 100000,
+        entryDate: "2026-10-01",
+      });
+    expect(entry.status).toBe(201);
+
+    await request(app.getHttpServer())
+      .post(`/v1/admin/vendors/${vendorId}/suspend`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "fraud" });
+
+    const deleteRes = await request(app.getHttpServer())
+      .delete(`/v1/vendor/ledger-entries/${entry.body.id}`)
+      .set("Authorization", `Bearer ${vendorToken}`);
+    expect(deleteRes.status).toBe(403);
+
+    // The entry must still exist — proves the rejection happened before the
+    // soft-delete, not that it silently no-opped.
+    const list = await request(app.getHttpServer())
+      .get("/v1/vendor/ledger-entries")
+      .set("Authorization", `Bearer ${vendorToken}`);
+    expect(
+      list.body.find((e: { id: string }) => e.id === entry.body.id),
+    ).toBeDefined();
+  });
+
+  it("a suspended vendor cannot delete a hotel photo with their still-valid access token", async () => {
+    const { accessToken: adminToken } = await createAdmin(
+      app,
+      "admin-e2e-admin11@example.com",
+    );
+    const { vendorId, accessToken: vendorToken } = await createVerifiedVendor(
+      app,
+      "admin-e2e-vendor12@example.com",
+    );
+    const { hotelId } = await createHotelWithRoom(app, vendorToken);
+
+    const presign = await request(app.getHttpServer())
+      .post(`/v1/hotels/${hotelId}/photos/presign`)
+      .set("Authorization", `Bearer ${vendorToken}`)
+      .send({ contentType: "image/jpeg" });
+    await fetch(presign.body.uploadUrl, {
+      method: "PUT",
+      body: Buffer.from("fake-jpeg-bytes"),
+      headers: { "Content-Type": "image/jpeg" },
+    });
+    const confirm = await request(app.getHttpServer())
+      .post(`/v1/hotels/${hotelId}/photos/confirm`)
+      .set("Authorization", `Bearer ${vendorToken}`)
+      .send({ objectKey: presign.body.objectKey, isPrimary: true });
+    expect(confirm.status).toBe(201);
+
+    await request(app.getHttpServer())
+      .post(`/v1/admin/vendors/${vendorId}/suspend`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "fraud" });
+
+    const deletePhoto = await request(app.getHttpServer())
+      .delete(`/v1/hotels/${hotelId}/photos/${confirm.body.id}`)
+      .set("Authorization", `Bearer ${vendorToken}`);
+    expect(deletePhoto.status).toBe(403);
+  });
 });
