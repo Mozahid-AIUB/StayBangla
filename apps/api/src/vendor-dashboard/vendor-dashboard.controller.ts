@@ -16,6 +16,7 @@ import {
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
+import { SuspensionGuard } from "../auth/guards/suspension.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { RequestUser } from "../auth/strategies/jwt-access.strategy";
@@ -114,6 +115,7 @@ export class VendorDashboardController {
     description: "Caller does not own the referenced room/vehicle.",
   })
   @Post("ledger-entries")
+  @UseGuards(SuspensionGuard)
   async createLedgerEntry(
     @CurrentUser() user: RequestUser,
     @Body() dto: CreateLedgerEntryDto,
@@ -137,6 +139,7 @@ export class VendorDashboardController {
   @ApiResponse({ status: 201, description: "Entry marked deleted." })
   @ApiResponse({ status: 403, description: "Caller does not own this entry." })
   @Delete("ledger-entries/:id")
+  @UseGuards(SuspensionGuard)
   async deleteLedgerEntry(
     @CurrentUser() user: RequestUser,
     @Param("id") id: string,
@@ -163,6 +166,7 @@ export class VendorDashboardController {
     description: "Dates overlap an existing booking or block.",
   })
   @Post("bookings/offline")
+  @UseGuards(SuspensionGuard)
   async createOfflineBooking(
     @CurrentUser() user: RequestUser,
     @Body() dto: CreateOfflineBookingDto,
@@ -181,6 +185,7 @@ export class VendorDashboardController {
       "Not found, not yours, or not an offline booking in a cancellable state.",
   })
   @Delete("bookings/offline/:id")
+  @UseGuards(SuspensionGuard)
   async cancelOfflineBooking(
     @CurrentUser() user: RequestUser,
     @Param("id") id: string,

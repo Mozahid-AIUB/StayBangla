@@ -5,7 +5,11 @@ import { AppModule } from "src/app.module";
 import { configureApp } from "src/bootstrap/configure-app";
 import { cleanDatabase, testPrisma } from "./helpers/test-db";
 import { registerAndLogin } from "./helpers/test-users";
-import { createAdmin, createVerifiedVendor } from "./helpers/test-fixtures";
+import {
+  createAdmin,
+  createVerifiedVendor,
+  createTraveler,
+} from "./helpers/test-fixtures";
 
 describe("Vendor approval (e2e)", () => {
   let app: INestApplication;
@@ -207,5 +211,69 @@ describe("Vendor approval (e2e)", () => {
     expect(JSON.stringify(reject.body)).not.toMatch(
       /passwordHash|password_hash|\$argon2/,
     );
+  });
+
+  // AUTH-5: POST /users/me/resubmit carried JwtAuthGuard + RolesGuard but no
+  // @Roles(...), and RolesGuard returns true when the metadata is absent —
+  // so the guard was decoration, not enforcement. Any TRAVELER could call it
+  // and inject a bogus row into the admin approval queue. Boots the real
+  // AppModule with NO overrideGuard — a controller spec that stubs
+  // canActivate() would stay green even with @Roles deleted, so it isn't
+  // real coverage of this gap (see staybangla-review skill, class 3).
+  it("a TRAVELER cannot call POST /users/me/resubmit (403, not silently accepted)", async () => {
+    const { accessToken: travelerToken } = await createTraveler(
+      app,
+      "resubmit-traveler@example.com",
+    );
+
+    const resubmit = await request(app.getHttpServer())
+      .post("/v1/users/me/resubmit")
+      .set("Authorization", `Bearer ${travelerToken}`);
+
+    expect(resubmit.status).toBe(403);
+  });
+
+  // The audit listed resubmit among the write paths reachable by a suspended
+  // user, but it was the one path the SuspensionGuard rollout missed — it
+  // received @Roles at the same time, which is likely why the omission went
+  // unnoticed. Without the guard, a vendor suspended for forged documents
+  // could flip verifiedStatus REJECTED -> PENDING and re-enter the admin
+  // approval queue, with nothing in that queue's row showing the suspension.
+  //
+  // Reuses the token issued BEFORE the suspension: that is what proves the
+  // guard re-reads the DB rather than trusting the JWT claim, which is the
+  // whole reason it exists (JwtAccessStrategy.validate never re-reads).
+  it("a suspended vendor cannot call POST /users/me/resubmit with a still-valid pre-suspension token", async () => {
+    const { accessToken: adminToken } = await createAdmin(
+      app,
+      "resubmit-suspend-admin@example.com",
+    );
+    const { vendorId, accessToken: vendorToken } = await createVerifiedVendor(
+      app,
+      "resubmit-suspend-vendor@example.com",
+    );
+    await testPrisma.user.update({
+      where: { id: vendorId },
+      data: { verifiedStatus: "REJECTED" },
+    });
+
+    const suspend = await request(app.getHttpServer())
+      .post(`/v1/admin/vendors/${vendorId}/suspend`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "forged trade licence" });
+    expect(suspend.status).toBe(201);
+
+    const resubmit = await request(app.getHttpServer())
+      .post("/v1/users/me/resubmit")
+      .set("Authorization", `Bearer ${vendorToken}`);
+
+    expect(resubmit.status).toBe(403);
+
+    // Distinguishes "guard blocked it" from "the call went through but
+    // no-opped": the vendor must still be REJECTED, not back in the queue.
+    const after = await testPrisma.user.findUniqueOrThrow({
+      where: { id: vendorId },
+    });
+    expect(after.verifiedStatus).toBe("REJECTED");
   });
 });

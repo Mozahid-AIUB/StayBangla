@@ -3,6 +3,7 @@ import { VehiclesController } from "./vehicles.controller";
 import { VehiclesService } from "./vehicles.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
+import { SuspensionGuard } from "../auth/guards/suspension.guard";
 
 describe("VehiclesController", () => {
   let controller: VehiclesController;
@@ -27,6 +28,13 @@ describe("VehiclesController", () => {
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
+      // This unit spec exercises controller methods directly, not guard
+      // enforcement — SuspensionGuard's own DB-read behavior has dedicated
+      // e2e coverage (test/admin-panel.e2e-spec.ts). It needs PrismaService
+      // this controller-only module doesn't wire, so it must be overridden
+      // like the other two guards above, not left to real DI resolution.
+      .overrideGuard(SuspensionGuard)
       .useValue({ canActivate: () => true })
       .compile();
     controller = moduleRef.get(VehiclesController);

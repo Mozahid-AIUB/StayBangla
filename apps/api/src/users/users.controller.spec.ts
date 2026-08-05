@@ -4,6 +4,7 @@ import { UsersService } from "./users.service";
 import { VendorVerificationService } from "../admin/vendor-verification.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
+import { SuspensionGuard } from "../auth/guards/suspension.guard";
 import { PoliciesGuard } from "../casl/policies.guard";
 import { CHECK_POLICIES_KEY } from "../casl/decorators/check-policies.decorator";
 import { CaslAbilityFactory } from "../casl/casl-ability.factory";
@@ -33,6 +34,14 @@ describe("UsersController", () => {
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(PoliciesGuard)
+      .useValue({ canActivate: () => true })
+      // This unit spec exercises controller methods directly, not guard
+      // enforcement — SuspensionGuard's own DB-read behavior has dedicated
+      // e2e coverage (test/vendor-approval.e2e-spec.ts asserts a suspended
+      // vendor gets 403 on resubmit using a pre-suspension token). It needs
+      // PrismaService this controller-only module doesn't wire, so it must be
+      // overridden like the three guards above, not left to real DI.
+      .overrideGuard(SuspensionGuard)
       .useValue({ canActivate: () => true })
       .compile();
     controller = moduleRef.get(UsersController);

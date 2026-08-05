@@ -192,6 +192,35 @@ export class BookingsService {
     return { gatewayUrl: session.gatewayUrl };
   }
 
+  // PAY-3 (payment-auth audit, 2026-08-05): this method deliberately does
+  // NOT check the resource owner's `suspendedAt`, unlike createBooking /
+  // createOfflineBooking / createBlock. This is a disclosed asymmetry, not
+  // an oversight.
+  //
+  // Why it can't just mirror the other checks: the traveler already paid in
+  // good faith by the time the IPN lands. Refusing to confirm here would
+  // take their money and give them nothing — worse than the fraud-vendor
+  // scenario it would guard against, and it undermines the no-refund policy
+  // gate elsewhere in this file. So confirming the booking and crediting the
+  // ledger is the correct behavior for the traveler's side of this
+  // transaction.
+  //
+  // Why it isn't fixed by flagging the row instead: there is currently no
+  // mechanism anywhere in this schema or the payout/earnings read paths
+  // (vendor-dashboard.service.ts, admin-overview.service.ts,
+  // admin-analytics.service.ts) to mark a ledger entry or booking as
+  // "credited but payout-withheld pending review." Building one is a real
+  // feature — a new column, updated aggregation queries, and an admin review
+  // surface — not a fix scoped to this file. SuspensionGuard cannot help
+  // either: it reads request.user.id, and the IPN webhook is unauthenticated
+  // with no user in the request.
+  //
+  // Recommendation for a follow-up change: add a payout-hold flag (e.g. on
+  // Booking or LedgerEntry) set whenever the resource owner is suspended at
+  // confirmation time, have the payout/earnings reads exclude held rows, and
+  // surface a review queue for admins. Until that exists, a vendor suspended
+  // for fraud after a traveler holds a booking will still receive a
+  // VENDOR_OWED ledger row when the IPN lands.
   async confirmIfValid(bookingId: string, valId: string): Promise<void> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
@@ -224,44 +253,66 @@ export class BookingsService {
     );
     const vendorOwedMinor = booking.totalAmountMinor - platformFeeMinor;
 
-    const result = await this.prisma.booking.updateMany({
-      where: { id: bookingId, status: "HELD" },
-      data: {
-        status: "CONFIRMED",
-        paymentStatus: "PAID",
-        gatewayValId: valId,
-        vendorOwedMinor,
-      },
+    const confirmed = await this.prisma.$transaction(async (tx) => {
+      // Guarded state transition: only a row still HELD gets flipped, so two
+      // concurrent confirmations (duplicate/racing IPN, or IPN racing
+      // reconciliation) can never both succeed. Read Committed (Postgres's
+      // and Prisma's default) is sufficient here — this is a single
+      // conditional UPDATE, not a read-then-write across statements, so
+      // there is no window for both transactions to see status: 'HELD' and
+      // both proceed. Postgres's row-level locking on UPDATE serializes the
+      // two: the second transaction's UPDATE blocks until the first commits,
+      // then re-evaluates the WHERE clause against the now-CONFIRMED row and
+      // matches zero rows.
+      const result = await tx.booking.updateMany({
+        where: { id: bookingId, status: "HELD" },
+        data: {
+          status: "CONFIRMED",
+          paymentStatus: "PAID",
+          gatewayValId: valId,
+          vendorOwedMinor,
+        },
+      });
+      if (result.count === 0) {
+        // Lost the race to another confirmation path (webhook vs. reconciliation
+        // firing near-simultaneously, or the hold expired) between our read and
+        // this update.
+        return false;
+      }
+
+      // Same transaction as the guarded update above: either both the state
+      // transition and the ledger rows land, or neither does. Without this,
+      // a process crash or dropped connection between the two statements
+      // leaves a CONFIRMED+PAID booking with zero ledger rows that nothing
+      // ever revisits (reconciliation only re-checks status: HELD).
+      await tx.ledgerEntry.createMany({
+        data: [
+          {
+            bookingId,
+            type: LedgerEntryType.GROSS_PAYMENT,
+            amountMinor: booking.totalAmountMinor,
+            ratePercentApplied: commissionRatePercent,
+          },
+          {
+            bookingId,
+            type: LedgerEntryType.PLATFORM_FEE,
+            amountMinor: platformFeeMinor,
+            ratePercentApplied: commissionRatePercent,
+          },
+          {
+            bookingId,
+            type: LedgerEntryType.VENDOR_OWED,
+            amountMinor: vendorOwedMinor,
+            ratePercentApplied: commissionRatePercent,
+          },
+        ],
+      });
+      return true;
     });
-    if (result.count === 0) {
-      // Lost the race to another confirmation path (webhook vs. reconciliation
-      // firing near-simultaneously, or the hold expired) between our read and
-      // this update.
+    if (!confirmed) {
       return;
     }
 
-    await this.prisma.ledgerEntry.createMany({
-      data: [
-        {
-          bookingId,
-          type: LedgerEntryType.GROSS_PAYMENT,
-          amountMinor: booking.totalAmountMinor,
-          ratePercentApplied: commissionRatePercent,
-        },
-        {
-          bookingId,
-          type: LedgerEntryType.PLATFORM_FEE,
-          amountMinor: platformFeeMinor,
-          ratePercentApplied: commissionRatePercent,
-        },
-        {
-          bookingId,
-          type: LedgerEntryType.VENDOR_OWED,
-          amountMinor: vendorOwedMinor,
-          ratePercentApplied: commissionRatePercent,
-        },
-      ],
-    });
     await this.expiryQueue.cancelExpiry(bookingId);
   }
 

@@ -7,6 +7,7 @@ import {
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
+import { SuspensionGuard } from "../auth/guards/suspension.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { RequestUser } from "../auth/strategies/jwt-access.strategy";
@@ -69,7 +70,7 @@ export class BookingsController {
   @ApiResponse({ status: 404, description: "Booking not found." })
   @ApiResponse({ status: 409, description: "Booking is not in HELD state." })
   @Post("bookings/:id/initiate-payment")
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SuspensionGuard)
   @Roles("TRAVELER")
   async initiatePayment(
     @CurrentUser() user: RequestUser,
@@ -110,7 +111,7 @@ export class BookingsController {
       "Booking not found, not yours, or not in a checkout-eligible state.",
   })
   @Post("bookings/:id/checkout")
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SuspensionGuard)
   @Roles("VENDOR")
   async checkout(
     @CurrentUser() user: RequestUser,
@@ -138,7 +139,7 @@ export class BookingsController {
     description: "Booking not found, not yours, or not cancellable.",
   })
   @Post("bookings/:id/cancel")
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SuspensionGuard)
   @Roles("TRAVELER")
   async cancel(
     @CurrentUser() user: RequestUser,

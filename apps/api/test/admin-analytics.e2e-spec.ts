@@ -337,17 +337,31 @@ describe("Admin Analytics (e2e)", () => {
       app,
       "analytics-e2e-vendor-overflow@example.com",
     );
-    const { roomId } = await createHotelWithRoom(app, vendorToken);
+    // Two distinct hotels/rooms for the same vendor, so each booking gets its
+    // own room_id and the gist exclusion constraint (room_id WITH =, date_range
+    // WITH &&) never sees an overlap even though the date ranges themselves
+    // coincide.
+    const { roomId: roomId1 } = await createHotelWithRoom(app, vendorToken);
+    const { roomId: roomId2 } = await createHotelWithRoom(app, vendorToken);
     const { accessToken: travelerToken } = await createTraveler(
       app,
       "analytics-e2e-traveler-overflow@example.com",
     );
-    const bookingRes = await request(app.getHttpServer())
+    const bookingRes1 = await request(app.getHttpServer())
       .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({
         bookableType: "ROOM",
-        bookableId: roomId,
+        bookableId: roomId1,
+        checkIn: "2026-12-20",
+        checkOut: "2026-12-21",
+      });
+    const bookingRes2 = await request(app.getHttpServer())
+      .post("/v1/bookings")
+      .set("Authorization", `Bearer ${travelerToken}`)
+      .send({
+        bookableType: "ROOM",
+        bookableId: roomId2,
         checkIn: "2026-12-20",
         checkOut: "2026-12-21",
       });
@@ -359,9 +373,14 @@ describe("Admin Analytics (e2e)", () => {
     // at the database level for this fixture; only a ::bigint cast (plus a
     // JS-side BigInt -> Number conversion, since $queryRaw would otherwise
     // hand back a BigInt that JSON.stringify cannot serialize) survives it.
+    // Production only ever writes one GROSS_PAYMENT row per booking (see
+    // bookings.service.ts's confirmIfValid), so this now spreads the two
+    // rows across two distinct bookings for the same vendor instead of
+    // double-writing one booking — matching how `ledger_entries` actually
+    // gets populated and respecting the UNIQUE (booking_id, type) constraint.
     await testPrisma.ledgerEntry.create({
       data: {
-        bookingId: bookingRes.body.id as string,
+        bookingId: bookingRes1.body.id as string,
         type: "GROSS_PAYMENT",
         amountMinor: 1500000000,
         ratePercentApplied: 10,
@@ -369,7 +388,7 @@ describe("Admin Analytics (e2e)", () => {
     });
     await testPrisma.ledgerEntry.create({
       data: {
-        bookingId: bookingRes.body.id as string,
+        bookingId: bookingRes2.body.id as string,
         type: "GROSS_PAYMENT",
         amountMinor: 1500000000,
         ratePercentApplied: 10,
@@ -451,17 +470,41 @@ describe("Admin Analytics (e2e)", () => {
       app,
       "analytics-e2e-vendor-weekly@example.com",
     );
-    const { roomId } = await createHotelWithRoom(app, vendorToken);
+    // Three distinct rooms so the three bookings below (needed because each
+    // GROSS_PAYMENT ledger row must belong to a different booking under the
+    // new UNIQUE (booking_id, type) constraint) never collide on the gist
+    // room-overlap exclusion, even though their date ranges coincide.
+    const { roomId: roomId1 } = await createHotelWithRoom(app, vendorToken);
+    const { roomId: roomId2 } = await createHotelWithRoom(app, vendorToken);
+    const { roomId: roomId3 } = await createHotelWithRoom(app, vendorToken);
     const { accessToken: travelerToken } = await createTraveler(
       app,
       "analytics-e2e-traveler-weekly@example.com",
     );
-    const bookingRes = await request(app.getHttpServer())
+    const bookingRes1 = await request(app.getHttpServer())
       .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({
         bookableType: "ROOM",
-        bookableId: roomId,
+        bookableId: roomId1,
+        checkIn: "2026-12-18",
+        checkOut: "2026-12-19",
+      });
+    const bookingRes2 = await request(app.getHttpServer())
+      .post("/v1/bookings")
+      .set("Authorization", `Bearer ${travelerToken}`)
+      .send({
+        bookableType: "ROOM",
+        bookableId: roomId2,
+        checkIn: "2026-12-18",
+        checkOut: "2026-12-19",
+      });
+    const bookingRes3 = await request(app.getHttpServer())
+      .post("/v1/bookings")
+      .set("Authorization", `Bearer ${travelerToken}`)
+      .send({
+        bookableType: "ROOM",
+        bookableId: roomId3,
         checkIn: "2026-12-18",
         checkOut: "2026-12-19",
       });
@@ -469,10 +512,13 @@ describe("Admin Analytics (e2e)", () => {
     // Monday 2026-07-27 and Thursday 2026-07-30 are both in the same Dhaka
     // week; Monday 2026-08-03 is the following Dhaka week. Real Postgres
     // round-trip proves the service's period=weekly branch actually invokes
-    // startOfDhakaWeek end-to-end (not just in a mocked unit test).
+    // startOfDhakaWeek end-to-end (not just in a mocked unit test). Each row
+    // sits on its own booking (production only ever writes one GROSS_PAYMENT
+    // row per booking) — the bucketing keys off the ledger row's createdAt,
+    // not the booking, so spreading across bookings does not disturb it.
     await testPrisma.ledgerEntry.create({
       data: {
-        bookingId: bookingRes.body.id as string,
+        bookingId: bookingRes1.body.id as string,
         type: "GROSS_PAYMENT",
         amountMinor: 11000,
         ratePercentApplied: 10,
@@ -481,7 +527,7 @@ describe("Admin Analytics (e2e)", () => {
     });
     await testPrisma.ledgerEntry.create({
       data: {
-        bookingId: bookingRes.body.id as string,
+        bookingId: bookingRes2.body.id as string,
         type: "GROSS_PAYMENT",
         amountMinor: 22000,
         ratePercentApplied: 10,
@@ -490,7 +536,7 @@ describe("Admin Analytics (e2e)", () => {
     });
     await testPrisma.ledgerEntry.create({
       data: {
-        bookingId: bookingRes.body.id as string,
+        bookingId: bookingRes3.body.id as string,
         type: "GROSS_PAYMENT",
         amountMinor: 55000,
         ratePercentApplied: 10,
@@ -526,24 +572,52 @@ describe("Admin Analytics (e2e)", () => {
       app,
       "analytics-e2e-vendor-monthly@example.com",
     );
-    const { roomId } = await createHotelWithRoom(app, vendorToken);
+    // Three distinct rooms so the three bookings below (needed because each
+    // GROSS_PAYMENT ledger row must belong to a different booking under the
+    // new UNIQUE (booking_id, type) constraint) never collide on the gist
+    // room-overlap exclusion, even though their date ranges coincide.
+    const { roomId: roomId1 } = await createHotelWithRoom(app, vendorToken);
+    const { roomId: roomId2 } = await createHotelWithRoom(app, vendorToken);
+    const { roomId: roomId3 } = await createHotelWithRoom(app, vendorToken);
     const { accessToken: travelerToken } = await createTraveler(
       app,
       "analytics-e2e-traveler-monthly@example.com",
     );
-    const bookingRes = await request(app.getHttpServer())
+    const bookingRes1 = await request(app.getHttpServer())
       .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({
         bookableType: "ROOM",
-        bookableId: roomId,
+        bookableId: roomId1,
+        checkIn: "2026-12-22",
+        checkOut: "2026-12-23",
+      });
+    const bookingRes2 = await request(app.getHttpServer())
+      .post("/v1/bookings")
+      .set("Authorization", `Bearer ${travelerToken}`)
+      .send({
+        bookableType: "ROOM",
+        bookableId: roomId2,
+        checkIn: "2026-12-22",
+        checkOut: "2026-12-23",
+      });
+    const bookingRes3 = await request(app.getHttpServer())
+      .post("/v1/bookings")
+      .set("Authorization", `Bearer ${travelerToken}`)
+      .send({
+        bookableType: "ROOM",
+        bookableId: roomId3,
         checkIn: "2026-12-22",
         checkOut: "2026-12-23",
       });
 
+    // Each row sits on its own booking (production only ever writes one
+    // GROSS_PAYMENT row per booking) — bucketing keys off the ledger row's
+    // createdAt, not the booking, so this does not disturb the Dhaka-month
+    // grouping under test.
     await testPrisma.ledgerEntry.create({
       data: {
-        bookingId: bookingRes.body.id as string,
+        bookingId: bookingRes1.body.id as string,
         type: "GROSS_PAYMENT",
         amountMinor: 7000,
         ratePercentApplied: 10,
@@ -552,7 +626,7 @@ describe("Admin Analytics (e2e)", () => {
     });
     await testPrisma.ledgerEntry.create({
       data: {
-        bookingId: bookingRes.body.id as string,
+        bookingId: bookingRes2.body.id as string,
         type: "GROSS_PAYMENT",
         amountMinor: 8000,
         ratePercentApplied: 10,
@@ -562,7 +636,7 @@ describe("Admin Analytics (e2e)", () => {
     // A different Dhaka month must NOT merge into the September bucket.
     await testPrisma.ledgerEntry.create({
       data: {
-        bookingId: bookingRes.body.id as string,
+        bookingId: bookingRes3.body.id as string,
         type: "GROSS_PAYMENT",
         amountMinor: 99000,
         ratePercentApplied: 10,
@@ -593,17 +667,31 @@ describe("Admin Analytics (e2e)", () => {
       app,
       "analytics-e2e-vendor-fromto@example.com",
     );
-    const { roomId } = await createHotelWithRoom(app, vendorToken);
+    // Two distinct rooms so the two bookings below (needed because each
+    // GROSS_PAYMENT ledger row must belong to a different booking under the
+    // new UNIQUE (booking_id, type) constraint) never collide on the gist
+    // room-overlap exclusion, even though their date ranges coincide.
+    const { roomId: roomId1 } = await createHotelWithRoom(app, vendorToken);
+    const { roomId: roomId2 } = await createHotelWithRoom(app, vendorToken);
     const { accessToken: travelerToken } = await createTraveler(
       app,
       "analytics-e2e-traveler-fromto@example.com",
     );
-    const bookingRes = await request(app.getHttpServer())
+    const bookingRes1 = await request(app.getHttpServer())
       .post("/v1/bookings")
       .set("Authorization", `Bearer ${travelerToken}`)
       .send({
         bookableType: "ROOM",
-        bookableId: roomId,
+        bookableId: roomId1,
+        checkIn: "2026-12-25",
+        checkOut: "2026-12-26",
+      });
+    const bookingRes2 = await request(app.getHttpServer())
+      .post("/v1/bookings")
+      .set("Authorization", `Bearer ${travelerToken}`)
+      .send({
+        bookableType: "ROOM",
+        bookableId: roomId2,
         checkIn: "2026-12-25",
         checkOut: "2026-12-26",
       });
@@ -619,9 +707,13 @@ describe("Admin Analytics (e2e)", () => {
     // naive UTC filter (gte 2026-07-30T00:00:00Z) would wrongly EXCLUDE.
     const includedInstant = new Date("2026-07-29T19:00:00.000Z"); // Dhaka 07-30 01:00
     const excludedInstant = new Date("2026-07-30T19:00:00.000Z"); // Dhaka 07-31 01:00 (next Dhaka day, correctly excluded either way)
+    // Each row sits on its own booking (production only ever writes one
+    // GROSS_PAYMENT row per booking) — the filter keys off the ledger row's
+    // createdAt, not the booking, so this does not disturb the boundary
+    // under test.
     await testPrisma.ledgerEntry.create({
       data: {
-        bookingId: bookingRes.body.id as string,
+        bookingId: bookingRes1.body.id as string,
         type: "GROSS_PAYMENT",
         amountMinor: 12345,
         ratePercentApplied: 10,
@@ -630,7 +722,7 @@ describe("Admin Analytics (e2e)", () => {
     });
     await testPrisma.ledgerEntry.create({
       data: {
-        bookingId: bookingRes.body.id as string,
+        bookingId: bookingRes2.body.id as string,
         type: "GROSS_PAYMENT",
         amountMinor: 99999,
         ratePercentApplied: 10,

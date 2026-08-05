@@ -533,6 +533,7 @@ describe("confirmIfValid", () => {
     };
     ledgerEntry: { createMany: jest.Mock };
     user: { findUnique: jest.Mock };
+    $transaction: jest.Mock;
   };
   let expiryQueue: { scheduleExpiry: jest.Mock; cancelExpiry: jest.Mock };
   let paymentProvider: {
@@ -560,7 +561,15 @@ describe("confirmIfValid", () => {
       },
       ledgerEntry: { createMany: jest.fn() },
       user: { findUnique: jest.fn() },
+      $transaction: jest.fn(),
     };
+    // Mirrors the offline-booking tests above: $transaction just invokes the
+    // callback with the same mock client standing in for `tx`, so existing
+    // assertions against prisma.booking.updateMany / prisma.ledgerEntry.createMany
+    // keep working unchanged now that both calls happen inside the callback.
+    prisma.$transaction.mockImplementation(
+      async (fn: (tx: unknown) => unknown) => fn(prisma),
+    );
     expiryQueue = { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() };
     paymentProvider = {
       createSession: jest.fn(),
@@ -572,6 +581,31 @@ describe("confirmIfValid", () => {
       paymentProvider as never,
       { get: jest.fn() } as never,
     );
+  });
+
+  it("runs the guarded update and the ledger write inside the same transaction client", async () => {
+    prisma.booking.findUnique.mockResolvedValue(heldBooking);
+    paymentProvider.validateTransaction.mockResolvedValue({
+      valid: true,
+      amountMinor: 500000,
+      currency: "BDT",
+      storeId: null,
+    });
+    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    prisma.user.findUnique.mockResolvedValue({ commissionRatePercent: 10 });
+
+    await service.confirmIfValid("b1", "val-123");
+
+    // Both writes must happen through prisma.$transaction's callback, not as
+    // separate top-level statements — that's what makes them atomic. Since
+    // our mock hands the callback the SAME `prisma` object as `tx`, this
+    // assertion only distinguishes "inside a transaction" from "outside one"
+    // in that it proves $transaction was actually invoked and awaited before
+    // confirmIfValid returned; it does not by itself prove real cross-process
+    // atomicity (see report for what remains unproven).
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.booking.updateMany).toHaveBeenCalled();
+    expect(prisma.ledgerEntry.createMany).toHaveBeenCalled();
   });
 
   it("confirms a booking when validation succeeds with matching amount and currency", async () => {

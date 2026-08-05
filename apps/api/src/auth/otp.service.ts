@@ -1,4 +1,4 @@
-import { createHash, randomInt } from "node:crypto";
+import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import {
   BadRequestException,
   GoneException,
@@ -22,6 +22,7 @@ export class OtpService {
   private readonly rateLimitPerIdentifierPerHour: number;
   private readonly rateLimitPerIpPerHour: number;
   private readonly pepper: string;
+  private readonly attemptsWindowSeconds: number;
 
   constructor(
     config: ConfigService,
@@ -44,6 +45,15 @@ export class OtpService {
       10,
     );
     this.pepper = config.get<string>("OTP_PEPPER", "");
+    // Bounds total wrong guesses per identifier over a rolling window rather
+    // than per-OTP: the counter is no longer cleared on re-request (see
+    // requestOtp below), so this TTL is what eventually gives an attacker a
+    // fresh set of attempts, not asking for a new code. One hour matches the
+    // identifier-level OTP request rate limit's own window.
+    this.attemptsWindowSeconds = config.get<number>(
+      "OTP_ATTEMPTS_WINDOW_SECONDS",
+      3600,
+    );
   }
 
   private tooManyRequests(message: string): HttpException {
@@ -54,6 +64,21 @@ export class OtpService {
     return createHash("sha256")
       .update(otp + this.pepper)
       .digest("hex");
+  }
+
+  /**
+   * Constant-time comparison of two equal-length hex digests. Both sides are
+   * peppered SHA-256 digests the attacker cannot steer (unlike comparing a
+   * raw OTP), so this is defence in depth rather than closing an exploitable
+   * timing channel today — but `!==` on hex strings short-circuits on the
+   * first differing character, which is the wrong habit to leave in place
+   * next to genuinely secret material.
+   */
+  private hashesMatch(a: string, b: string): boolean {
+    const bufA = Buffer.from(a, "hex");
+    const bufB = Buffer.from(b, "hex");
+    if (bufA.length !== bufB.length) return false;
+    return timingSafeEqual(bufA, bufB);
   }
 
   private generateOtp(): string {
@@ -100,7 +125,12 @@ export class OtpService {
       this.ttlSeconds,
     );
     await this.redis.set(cooldownKey, "1", "EX", this.resendCooldownSeconds);
-    await this.redis.del(`otp:attempts:${identifier}`);
+    // Deliberately NOT resetting otp:attempts:${identifier} here. It used to
+    // be deleted on every new OTP issue, which let an attacker who hit the
+    // 5-attempt cap simply request a fresh OTP to reset their own lockout —
+    // the cap must bound total guesses per identifier over a window, not
+    // per-OTP. The counter now gets its own TTL (see below) so it survives
+    // across re-requests within that window and only expires on its own.
 
     if (channel === "sms") {
       await this.smsProvider.send(identifier, `Your StayBangla OTP is ${otp}`);
@@ -133,8 +163,11 @@ export class OtpService {
       );
     }
 
-    if (storedHash !== this.hashOtp(otp)) {
-      await this.redis.incr(attemptsKey);
+    if (!this.hashesMatch(storedHash, this.hashOtp(otp))) {
+      const nextAttempts = await this.redis.incr(attemptsKey);
+      if (nextAttempts === 1) {
+        await this.redis.expire(attemptsKey, this.attemptsWindowSeconds);
+      }
       throw new BadRequestException("Invalid OTP (invalid)");
     }
 

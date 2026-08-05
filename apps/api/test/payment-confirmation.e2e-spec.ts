@@ -134,6 +134,88 @@ describe("Payment confirmation (e2e)", () => {
     expect(total).toBe(500000);
   });
 
+  it("IPN webhook confirms the booking when the validated storeId matches the configured store", async () => {
+    // Every other fixture in this file passes storeId: null, which takes the
+    // `validation.storeId !== null` early-exit in confirmIfValid and never
+    // actually compares against SSLCOMMERZ_STORE_ID. This test exercises the
+    // real comparison branch end-to-end.
+    //
+    // Read the configured id rather than hardcoding it: .env.test uses
+    // `test-store-id` but CI generates its own .env.test with
+    // `ci-test-store-id` (.github/workflows/ci.yml), so a literal here passes
+    // locally and fails in CI — which is exactly what happened.
+    const configuredStoreId = process.env.SSLCOMMERZ_STORE_ID;
+    expect(configuredStoreId).toBeTruthy();
+    const { bookingId, travelerToken } = await createHeldBooking();
+    fakeProvider.createSession.mockResolvedValue({
+      gatewayUrl: "https://sandbox.sslcommerz.com/pay/xyz",
+      tranId: "tran-e2e-store-match",
+    });
+    await request(app.getHttpServer())
+      .post(`/v1/bookings/${bookingId}/initiate-payment`)
+      .set("Authorization", `Bearer ${travelerToken}`);
+
+    fakeProvider.validateTransaction.mockResolvedValue({
+      valid: true,
+      amountMinor: 500000,
+      currency: "BDT",
+      storeId: configuredStoreId,
+      valId: "val-e2e-store-match",
+    });
+
+    const ipnRes = await request(app.getHttpServer())
+      .post("/payments/sslcommerz/ipn")
+      .send({
+        tran_id: "tran-e2e-store-match",
+        val_id: "val-e2e-store-match",
+        status: "VALID",
+      });
+    expect(ipnRes.status).toBe(201);
+
+    const statusRes = await request(app.getHttpServer())
+      .get(`/v1/bookings/${bookingId}/payment-status`)
+      .set("Authorization", `Bearer ${travelerToken}`);
+    expect(statusRes.body.paymentStatus).toBe("PAID");
+  });
+
+  it("IPN webhook does NOT confirm the booking when the validated storeId does not match the configured store", async () => {
+    const { bookingId, travelerToken } = await createHeldBooking();
+    fakeProvider.createSession.mockResolvedValue({
+      gatewayUrl: "https://sandbox.sslcommerz.com/pay/xyz",
+      tranId: "tran-e2e-store-mismatch",
+    });
+    await request(app.getHttpServer())
+      .post(`/v1/bookings/${bookingId}/initiate-payment`)
+      .set("Authorization", `Bearer ${travelerToken}`);
+
+    fakeProvider.validateTransaction.mockResolvedValue({
+      valid: true,
+      amountMinor: 500000,
+      currency: "BDT",
+      storeId: "some-other-store",
+      valId: "val-e2e-store-mismatch",
+    });
+
+    const ipnRes = await request(app.getHttpServer())
+      .post("/payments/sslcommerz/ipn")
+      .send({
+        tran_id: "tran-e2e-store-mismatch",
+        val_id: "val-e2e-store-mismatch",
+        status: "VALID",
+      });
+    expect(ipnRes.status).toBe(201);
+
+    const statusRes = await request(app.getHttpServer())
+      .get(`/v1/bookings/${bookingId}/payment-status`)
+      .set("Authorization", `Bearer ${travelerToken}`);
+    expect(statusRes.body.paymentStatus).toBe("PENDING");
+
+    const ledgerEntries = await testPrisma.ledgerEntry.findMany({
+      where: { bookingId },
+    });
+    expect(ledgerEntries).toHaveLength(0);
+  });
+
   it("IPN webhook does NOT confirm the booking when validation reports invalid", async () => {
     const { bookingId, travelerToken } = await createHeldBooking();
     fakeProvider.createSession.mockResolvedValue({
@@ -194,5 +276,41 @@ describe("Payment confirmation (e2e)", () => {
       where: { bookingId },
     });
     expect(ledgerEntries).toHaveLength(3); // not 6 — no duplicate ledger writes
+  });
+
+  it("the database itself rejects a second GROSS_PAYMENT row for the same booking (PAY-2)", async () => {
+    // Bypasses confirmIfValid's guarded updateMany entirely and writes
+    // directly against the real Postgres test database via testPrisma, to
+    // prove the (booking_id, type) unique constraint — not just the
+    // application-level guard — is what makes a duplicate impossible. If
+    // some future code path ever forgets to replicate the updateMany guard,
+    // this is the backstop that turns a silent double-credit into a hard
+    // database error instead.
+    const { bookingId } = await createHeldBooking();
+
+    await testPrisma.ledgerEntry.create({
+      data: {
+        bookingId,
+        type: "GROSS_PAYMENT",
+        amountMinor: 500000,
+        ratePercentApplied: 10,
+      },
+    });
+
+    await expect(
+      testPrisma.ledgerEntry.create({
+        data: {
+          bookingId,
+          type: "GROSS_PAYMENT",
+          amountMinor: 500000,
+          ratePercentApplied: 10,
+        },
+      }),
+    ).rejects.toThrow(/Unique constraint/);
+
+    const ledgerEntries = await testPrisma.ledgerEntry.findMany({
+      where: { bookingId },
+    });
+    expect(ledgerEntries).toHaveLength(1);
   });
 });

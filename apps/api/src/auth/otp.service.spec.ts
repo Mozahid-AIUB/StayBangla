@@ -12,8 +12,12 @@ function makeConfig(): ConfigService {
     OTP_RATE_LIMIT_PER_IDENTIFIER_PER_HOUR: 5,
     OTP_RATE_LIMIT_PER_IP_PER_HOUR: 10,
     OTP_PEPPER: "test-pepper",
+    OTP_ATTEMPTS_WINDOW_SECONDS: 3600,
   };
-  return { get: (key: string) => values[key] } as unknown as ConfigService;
+  return {
+    get: (key: string, defaultValue?: number | string) =>
+      values[key] ?? defaultValue,
+  } as unknown as ConfigService;
 }
 
 function makeRedisMock() {
@@ -145,6 +149,49 @@ describe("OtpService", () => {
       await expect(
         service.verifyOtp("+8801799999999", "123456"),
       ).rejects.toThrow(/expired/i);
+    });
+
+    it("does not reset the attempt counter when a new OTP is requested — the lockout survives a re-request", async () => {
+      const identifier = "+8801700000000";
+
+      await service.requestOtp("sms", identifier);
+      for (let i = 0; i < 5; i += 1) {
+        await service.verifyOtp(identifier, "000000").catch(() => undefined);
+      }
+      // At this point the identifier is locked out (5/5 wrong attempts).
+      expect(redis.__store.get(`otp:attempts:${identifier}`)).toBe("5");
+
+      // Attacker requests a fresh OTP, hoping to reset their own lockout.
+      redis.__store.delete(`otp:cooldown:${identifier}`);
+      await service.requestOtp("sms", identifier);
+
+      // The attempt counter must still be there — requesting a new OTP must
+      // not be a way to buy 5 more guesses.
+      expect(redis.__store.get(`otp:attempts:${identifier}`)).toBe("5");
+      await expect(service.verifyOtp(identifier, "000000")).rejects.toThrow(
+        /locked/i,
+      );
+    });
+
+    it("sets a TTL on the attempt counter the first time it is incremented, so the lockout eventually clears on its own", async () => {
+      const identifier = "+8801700000001";
+      await service.requestOtp("sms", identifier);
+
+      await service.verifyOtp(identifier, "000000").catch(() => undefined);
+      expect(redis.expire).toHaveBeenCalledWith(
+        `otp:attempts:${identifier}`,
+        3600,
+      );
+
+      redis.expire.mockClear();
+      await service.verifyOtp(identifier, "000000").catch(() => undefined);
+      // Only set once (on the first increment) — re-arming the TTL on every
+      // failed attempt would let a slow-and-steady attacker keep the window
+      // open indefinitely.
+      expect(redis.expire).not.toHaveBeenCalledWith(
+        `otp:attempts:${identifier}`,
+        3600,
+      );
     });
   });
 });
