@@ -42,6 +42,32 @@ export function endOfDhakaDay(date: Date): Date {
   );
 }
 
+export function startOfDhakaWeek(date: Date): Date {
+  const { year, month, day } = toDhakaParts(date);
+  // Date.UTC's day-of-week is timezone-agnostic for this purpose: (year, month, day)
+  // as a UTC calendar date has the same weekday as that same calendar date in any
+  // timezone, so getUTCDay() here safely tells us the Dhaka weekday (0=Sun..6=Sat).
+  const dhakaWeekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  const daysSinceMonday = dhakaWeekday === 0 ? 6 : dhakaWeekday - 1;
+  const monday = new Date(Date.UTC(year, month - 1, day - daysSinceMonday));
+  return dhakaMidnightUtc(
+    monday.getUTCFullYear(),
+    monday.getUTCMonth() + 1,
+    monday.getUTCDate(),
+  );
+}
+
+export function endOfDhakaWeek(date: Date): Date {
+  const start = startOfDhakaWeek(date);
+  const { year, month, day } = toDhakaParts(start);
+  const nextMonday = new Date(Date.UTC(year, month - 1, day + 7));
+  return dhakaMidnightUtc(
+    nextMonday.getUTCFullYear(),
+    nextMonday.getUTCMonth() + 1,
+    nextMonday.getUTCDate(),
+  );
+}
+
 export function startOfDhakaMonth(date: Date): Date {
   const { year, month } = toDhakaParts(date);
   return dhakaMidnightUtc(year, month, 1);

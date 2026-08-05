@@ -13,6 +13,8 @@ import { AdminBookingService } from "./admin-booking.service";
 import { AdminBookingController } from "./admin-booking.controller";
 import { TravelerSuspensionController } from "./traveler-suspension.controller";
 import { TravelerListController } from "./traveler-list.controller";
+import { AdminAnalyticsService } from "./admin-analytics.service";
+import { AdminAnalyticsController } from "./admin-analytics.controller";
 
 @Module({
   controllers: [
@@ -25,6 +27,7 @@ import { TravelerListController } from "./traveler-list.controller";
     AdminBookingController,
     TravelerSuspensionController,
     TravelerListController,
+    AdminAnalyticsController,
   ],
   providers: [
     VendorVerificationService,
@@ -32,6 +35,7 @@ import { TravelerListController } from "./traveler-list.controller";
     AdminAuditLogService,
     AdminOverviewService,
     AdminBookingService,
+    AdminAnalyticsService,
   ],
   exports: [VendorVerificationService],
 })

@@ -1,6 +1,8 @@
 import {
   startOfDhakaDay,
   endOfDhakaDay,
+  startOfDhakaWeek,
+  endOfDhakaWeek,
   startOfDhakaMonth,
   endOfDhakaMonth,
 } from "./dhaka-time";
@@ -29,6 +31,28 @@ describe("dhaka-time", () => {
       const result = endOfDhakaDay(input);
       // 2026-08-01T00:00:00 Dhaka == 2026-07-31T18:00:00Z
       expect(result.toISOString()).toBe("2026-07-31T18:00:00.000Z");
+    });
+  });
+
+  describe("startOfDhakaWeek / endOfDhakaWeek", () => {
+    it("returns the Monday 00:00 Dhaka-time start of the week containing the given instant", () => {
+      // 2026-07-30 is a Thursday in Asia/Dhaka
+      const thursday = new Date("2026-07-30T10:00:00Z");
+      const start = startOfDhakaWeek(thursday);
+      // Monday 2026-07-27 00:00 Dhaka (UTC+6) = 2026-07-26T18:00:00Z
+      expect(start.toISOString()).toBe("2026-07-26T18:00:00.000Z");
+    });
+
+    it("returns the exclusive end (next Monday 00:00 Dhaka-time)", () => {
+      const thursday = new Date("2026-07-30T10:00:00Z");
+      const end = endOfDhakaWeek(thursday);
+      expect(end.toISOString()).toBe("2026-08-02T18:00:00.000Z");
+    });
+
+    it("treats a Monday itself as the start of its own week", () => {
+      const monday = new Date("2026-07-27T05:00:00Z");
+      const start = startOfDhakaWeek(monday);
+      expect(start.toISOString()).toBe("2026-07-26T18:00:00.000Z");
     });
   });
 
