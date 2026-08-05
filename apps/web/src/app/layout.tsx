@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Noto_Sans_Bengali } from "next/font/google";
+import { Splash } from "@/components/splash";
 import "./globals.css";
 
 // Bengali leads: most user-facing copy is Bangla, and neither Geist nor any
@@ -40,7 +41,13 @@ export default function RootLayout({
       className={`${notoSansBengali.variable} ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="bg-background text-foreground flex min-h-full flex-col">
+        {/*
+          Rendered after children on purpose: the real page is the document's
+          content, and the splash is an overlay painted on top of it. Nothing
+          here gates what a crawler or a no-JS visitor sees.
+        */}
         {children}
+        <Splash />
       </body>
     </html>
   );
