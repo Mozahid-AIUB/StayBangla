@@ -232,4 +232,48 @@ describe("Vendor approval (e2e)", () => {
 
     expect(resubmit.status).toBe(403);
   });
+
+  // The audit listed resubmit among the write paths reachable by a suspended
+  // user, but it was the one path the SuspensionGuard rollout missed — it
+  // received @Roles at the same time, which is likely why the omission went
+  // unnoticed. Without the guard, a vendor suspended for forged documents
+  // could flip verifiedStatus REJECTED -> PENDING and re-enter the admin
+  // approval queue, with nothing in that queue's row showing the suspension.
+  //
+  // Reuses the token issued BEFORE the suspension: that is what proves the
+  // guard re-reads the DB rather than trusting the JWT claim, which is the
+  // whole reason it exists (JwtAccessStrategy.validate never re-reads).
+  it("a suspended vendor cannot call POST /users/me/resubmit with a still-valid pre-suspension token", async () => {
+    const { accessToken: adminToken } = await createAdmin(
+      app,
+      "resubmit-suspend-admin@example.com",
+    );
+    const { vendorId, accessToken: vendorToken } = await createVerifiedVendor(
+      app,
+      "resubmit-suspend-vendor@example.com",
+    );
+    await testPrisma.user.update({
+      where: { id: vendorId },
+      data: { verifiedStatus: "REJECTED" },
+    });
+
+    const suspend = await request(app.getHttpServer())
+      .post(`/v1/admin/vendors/${vendorId}/suspend`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "forged trade licence" });
+    expect(suspend.status).toBe(201);
+
+    const resubmit = await request(app.getHttpServer())
+      .post("/v1/users/me/resubmit")
+      .set("Authorization", `Bearer ${vendorToken}`);
+
+    expect(resubmit.status).toBe(403);
+
+    // Distinguishes "guard blocked it" from "the call went through but
+    // no-opped": the vendor must still be REJECTED, not back in the queue.
+    const after = await testPrisma.user.findUniqueOrThrow({
+      where: { id: vendorId },
+    });
+    expect(after.verifiedStatus).toBe("REJECTED");
+  });
 });

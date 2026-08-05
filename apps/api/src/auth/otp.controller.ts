@@ -94,7 +94,17 @@ export class OtpController {
   })
   @Post("verify")
   @Throttle({
-    default: { limit: 10, ttl: 60000 },
+    // 20/min, not 10: this decorator is read by BOTH the class-level
+    // IdentifierThrottlerGuard (keyed by identifier) and the global
+    // APP_GUARD ThrottlerGuard (keyed by IP). The IP bucket is shared across
+    // every e2e spec in a run and nothing clears it — cleanOtpKeys() globs
+    // `otp:*` while throttler keys are sha256 digests in a disjoint
+    // namespace — so a limit of 10 left the suite with zero headroom and any
+    // added verify call would surface as a 429 masquerading as flake. Still
+    // 5x tighter than the 100/min global default, and the real backstop
+    // against guessing is the per-identifier attempt counter below, not this
+    // per-minute HTTP limit.
+    default: { limit: 20, ttl: 60000 },
   })
   async verify(
     @Body() dto: OtpVerifyDto,

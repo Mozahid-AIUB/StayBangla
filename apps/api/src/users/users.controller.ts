@@ -7,6 +7,7 @@ import {
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
+import { SuspensionGuard } from "../auth/guards/suspension.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { PoliciesGuard } from "../casl/policies.guard";
 import { CheckPolicies } from "../casl/decorators/check-policies.decorator";
@@ -70,7 +71,7 @@ export class UsersController {
     description: "Only a REJECTED vendor can resubmit.",
   })
   @Post("me/resubmit")
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SuspensionGuard)
   @Roles("VENDOR", "GUIDE")
   async resubmit(@CurrentUser() user: RequestUser): Promise<PublicUser> {
     const updated = await this.vendorVerificationService.resubmit(user.id);
