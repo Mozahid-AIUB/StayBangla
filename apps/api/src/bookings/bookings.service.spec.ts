@@ -8,6 +8,17 @@ import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { BookingsService } from "./bookings.service";
 
+// validateDates() rejects a checkIn in the past relative to the real clock,
+// so test fixtures that assert past a plain "happy path" (createOfflineBooking
+// below) must compute their dates relative to "now" rather than hardcode a
+// literal that will eventually roll into the past and start failing for
+// reasons unrelated to the behavior under test.
+function futureDateStr(daysFromNow: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  return d.toISOString().slice(0, 10);
+}
+
 function makeRawRow(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id: "b1",
@@ -1192,6 +1203,9 @@ describe("createOfflineBooking", () => {
     );
   });
 
+  const checkIn = futureDateStr(30);
+  const checkOut = futureDateStr(32);
+
   it("inserts a CONFIRMED, source=OFFLINE booking and a linked WALK_IN_BOOKING ledger entry", async () => {
     prisma.room.findUnique.mockResolvedValue({
       id: "room1",
@@ -1210,8 +1224,8 @@ describe("createOfflineBooking", () => {
         roomId: "room1",
         vehicleId: null,
         resourceOwnerId: "vendor1",
-        checkIn: "2026-08-01",
-        checkOut: "2026-08-03",
+        checkIn,
+        checkOut,
         guestCount: null,
         totalAmountMinor: 5000,
         currency: "BDT",
@@ -1232,7 +1246,7 @@ describe("createOfflineBooking", () => {
       category: "WALK_IN_BOOKING",
       amountMinor: 5000,
       note: null,
-      entryDate: new Date("2026-08-01"),
+      entryDate: new Date(checkIn),
       deletedAt: null,
       createdAt: new Date(),
     });
@@ -1240,8 +1254,8 @@ describe("createOfflineBooking", () => {
     const result = await service.createOfflineBooking("vendor1", {
       bookableType: "ROOM",
       bookableId: "room1",
-      checkIn: "2026-08-01",
-      checkOut: "2026-08-03",
+      checkIn,
+      checkOut,
       amountMinor: 5000,
     });
 
@@ -1272,8 +1286,8 @@ describe("createOfflineBooking", () => {
       service.createOfflineBooking("vendor1", {
         bookableType: "ROOM",
         bookableId: "room1",
-        checkIn: "2026-08-01",
-        checkOut: "2026-08-03",
+        checkIn,
+        checkOut,
         amountMinor: 5000,
       }),
     ).rejects.toThrow(/do not own/i);
@@ -1303,8 +1317,8 @@ describe("createOfflineBooking", () => {
       service.createOfflineBooking("vendor1", {
         bookableType: "ROOM",
         bookableId: "room1",
-        checkIn: "2026-08-01",
-        checkOut: "2026-08-03",
+        checkIn,
+        checkOut,
         amountMinor: 5000,
       }),
     ).rejects.toThrow(ConflictException);
