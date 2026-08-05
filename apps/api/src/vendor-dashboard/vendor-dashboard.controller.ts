@@ -43,7 +43,7 @@ export class VendorDashboardController {
   @ApiResponse({
     status: 200,
     description:
-      "Monthly income, upcoming check-ins, active listings, occupancy/utilization rate, today's check-ins/outs, verification alert.",
+      "Monthly income, upcoming check-ins (CONFIRMED bookings with a check-in date today or later, Asia/Dhaka), active listings, occupancy/utilization rate, today's check-ins/outs, verification alert.",
   })
   @Get("dashboard/summary")
   async summary(@CurrentUser() user: RequestUser) {
