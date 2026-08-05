@@ -4,6 +4,7 @@ import { OtpService } from "./otp.service";
 import { TokenService } from "./token.service";
 import { UsersService } from "../users/users.service";
 import { ConfigService } from "@nestjs/config";
+import { IdentifierThrottlerGuard } from "../common/throttler/identifier-throttler.guard";
 
 describe("OtpController", () => {
   let controller: OtpController;
@@ -26,7 +27,15 @@ describe("OtpController", () => {
         { provide: UsersService, useValue: usersService },
         { provide: ConfigService, useValue: { get: () => "development" } },
       ],
-    }).compile();
+    })
+      // This unit spec exercises verify()'s business logic (account-type
+      // rejection, roles derivation), not rate limiting — that has its own
+      // dedicated e2e coverage in test/rate-limiting.e2e-spec.ts against the
+      // real AppModule. IdentifierThrottlerGuard needs THROTTLER:MODULE_OPTIONS
+      // / ThrottlerStorage providers this controller-only module doesn't wire.
+      .overrideGuard(IdentifierThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     controller = moduleRef.get(OtpController);
   });
 
@@ -69,6 +78,10 @@ describe("OtpController", () => {
     expect(usersService.create).toHaveBeenCalledWith(
       expect.objectContaining({ phone: "+8801700000000", role: "TRAVELER" }),
     );
+    expect(tokenService.issueTokenPair).toHaveBeenCalledWith({
+      id: "u1",
+      roles: ["TRAVELER"],
+    });
     expect(res.cookie).toHaveBeenCalledWith(
       "refreshToken",
       "rt",
@@ -107,12 +120,13 @@ describe("OtpController", () => {
     );
   });
 
-  it("verify() reuses an existing user instead of creating a duplicate", async () => {
+  it("verify() reuses an existing pure-TRAVELER user instead of creating a duplicate", async () => {
     otpService.verifyOtp.mockResolvedValue(true);
     usersService.findByIdentifier.mockResolvedValue({
       id: "existing1",
       phone: "+8801700000000",
       passwordHash: null,
+      roles: [{ role: "TRAVELER" }],
     });
     tokenService.issueTokenPair.mockResolvedValue({
       accessToken: "at",
@@ -126,5 +140,97 @@ describe("OtpController", () => {
 
     expect(usersService.create).not.toHaveBeenCalled();
     expect(result.user).toEqual(expect.objectContaining({ id: "existing1" }));
+    expect(tokenService.issueTokenPair).toHaveBeenCalledWith({
+      id: "existing1",
+      roles: ["TRAVELER"],
+    });
+  });
+
+  it("verify() rejects an existing TRAVELER account that also holds an additional role (GUIDE) rather than silently downgrading it to TRAVELER-only", async () => {
+    otpService.verifyOtp.mockResolvedValue(true);
+    usersService.findByIdentifier.mockResolvedValue({
+      id: "multi1",
+      email: "multi@example.com",
+      passwordHash: null,
+      roles: [{ role: "TRAVELER" }, { role: "GUIDE" }],
+    });
+
+    // Before the fix, this account would have been silently downgraded —
+    // issued a token with roles: ["TRAVELER"] hardcoded, discarding the
+    // GUIDE role entirely. The fix rejects any account holding a role other
+    // than TRAVELER outright, matching the same "must not be reachable via
+    // the passwordless flow" rule as a password-based account.
+    await expect(
+      controller.verify(
+        { identifier: "multi@example.com", otp: "123456" },
+        res as never,
+      ),
+    ).rejects.toThrow(/password login/i);
+
+    expect(tokenService.issueTokenPair).not.toHaveBeenCalled();
+  });
+
+  it("verify() derives roles from the user's actual roles rather than a hardcoded literal for a reused pure-TRAVELER account", async () => {
+    otpService.verifyOtp.mockResolvedValue(true);
+    usersService.findByIdentifier.mockResolvedValue({
+      id: "pure1",
+      email: "pure@example.com",
+      passwordHash: null,
+      roles: [{ role: "TRAVELER" }],
+    });
+    tokenService.issueTokenPair.mockResolvedValue({
+      accessToken: "at",
+      refreshToken: "rt",
+    });
+
+    await controller.verify(
+      { identifier: "pure@example.com", otp: "123456" },
+      res as never,
+    );
+
+    expect(tokenService.issueTokenPair).toHaveBeenCalledWith({
+      id: "pure1",
+      roles: ["TRAVELER"],
+    });
+  });
+
+  it("verify() rejects an existing account with a passwordHash (password-based account), even if its only role is TRAVELER", async () => {
+    otpService.verifyOtp.mockResolvedValue(true);
+    usersService.findByIdentifier.mockResolvedValue({
+      id: "pw1",
+      email: "haspassword@example.com",
+      passwordHash: "argon2id$...",
+      roles: [{ role: "TRAVELER" }],
+    });
+
+    await expect(
+      controller.verify(
+        { identifier: "haspassword@example.com", otp: "123456" },
+        res as never,
+      ),
+    ).rejects.toThrow(/password login/i);
+
+    expect(usersService.create).not.toHaveBeenCalled();
+    expect(tokenService.issueTokenPair).not.toHaveBeenCalled();
+  });
+
+  it("verify() rejects an existing VENDOR account (no password required to fail the check — role alone is disqualifying)", async () => {
+    otpService.verifyOtp.mockResolvedValue(true);
+    usersService.findByIdentifier.mockResolvedValue({
+      id: "vendor1",
+      email: "vendor@example.com",
+      passwordHash: "argon2id$...",
+      roles: [{ role: "VENDOR" }],
+    });
+
+    await expect(
+      controller.verify(
+        { identifier: "vendor@example.com", otp: "123456" },
+        res as never,
+      ),
+    ).rejects.toThrow(/password login/i);
+
+    expect(usersService.create).not.toHaveBeenCalled();
+    expect(tokenService.issueTokenPair).not.toHaveBeenCalled();
   });
 });

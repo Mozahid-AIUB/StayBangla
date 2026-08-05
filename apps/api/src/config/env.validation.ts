@@ -28,6 +28,10 @@ const envSchema = z.object({
     .int()
     .positive()
     .default(10),
+  // Lifetime of the otp:attempts:<identifier> lockout counter. It is no
+  // longer reset on OTP re-request (that was the attacker-resets-their-own-
+  // lockout bug), so this TTL is what eventually clears it.
+  OTP_ATTEMPTS_WINDOW_SECONDS: z.coerce.number().int().positive().default(3600),
   OTP_PEPPER: z.string().min(16),
 
   ARGON2_MEMORY_COST_KIB: z.coerce.number().int().positive().default(19456),

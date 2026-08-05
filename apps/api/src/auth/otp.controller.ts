@@ -1,4 +1,12 @@
-import { Body, Controller, Ip, Post, Res } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Ip,
+  Post,
+  Res,
+  UseGuards,
+} from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { ConfigService } from "@nestjs/config";
 import type { Response } from "express";
@@ -15,11 +23,13 @@ import { OtpService } from "./otp.service";
 import { TokenService } from "./token.service";
 import { UsersService } from "../users/users.service";
 import { toPublicUser, PublicUser } from "../users/to-public-user";
+import { IdentifierThrottlerGuard } from "../common/throttler/identifier-throttler.guard";
 
 const REFRESH_COOKIE = "refreshToken";
 
 @ApiTags("auth")
 @Controller("auth/otp")
+@UseGuards(IdentifierThrottlerGuard)
 export class OtpController {
   constructor(
     private readonly otpService: OtpService,
@@ -58,12 +68,34 @@ export class OtpController {
     description:
       "On success, creates a new TRAVELER account if the identifier has " +
       "never been seen before, then issues an access token (returned in " +
-      "the body) and a refresh token (set as an httpOnly cookie).",
+      "the body) and a refresh token (set as an httpOnly cookie). Only " +
+      "pure-TRAVELER accounts (no password set, no non-TRAVELER role) can " +
+      "authenticate through this passwordless flow — VENDOR/GUIDE/ADMIN " +
+      "accounts must use POST /auth/login.",
   })
   @ApiResponse({ status: 201, description: "OTP verified; tokens issued." })
   @ApiResponse({ status: 400, description: "Incorrect OTP." })
   @ApiResponse({ status: 410, description: "OTP expired or never requested." })
+  @ApiResponse({
+    status: 403,
+    description:
+      "This identifier belongs to a password-based account (VENDOR/GUIDE/" +
+      "ADMIN/SUPER_ADMIN) and cannot be used with the OTP flow.",
+  })
+  @ApiTooManyRequestsResponse({
+    description:
+      "Too many verify attempts for this identifier (10/min), independent " +
+      "of the caller's IP — closes the IP-rotation gap in OtpService's own " +
+      "per-identifier attempt lockout. Deliberately set above " +
+      "OTP_MAX_ATTEMPTS (5) so the HTTP-layer throttle does not mask the " +
+      "service-layer lockout's own 401/expired-window response; the " +
+      "service-layer lockout (bounded per identifier per hour) is the " +
+      "real backstop against guessing, not this per-minute HTTP limit.",
+  })
   @Post("verify")
+  @Throttle({
+    default: { limit: 10, ttl: 60000 },
+  })
   async verify(
     @Body() dto: OtpVerifyDto,
     @Res({ passthrough: true }) res: Response,
@@ -71,6 +103,25 @@ export class OtpController {
     await this.otpService.verifyOtp(dto.identifier, dto.otp);
 
     const existing = await this.usersService.findByIdentifier(dto.identifier);
+
+    // The caller has just proven control of this identifier's inbox/phone by
+    // receiving and re-entering the OTP, so telling them precisely why they
+    // were rejected does not open a fresh enumeration channel the way it
+    // would pre-authentication (see the timing oracle on POST /auth/login).
+    // A password-based account (non-null passwordHash) or a role other than
+    // TRAVELER must not be reachable through the passwordless flow.
+    if (existing) {
+      const roles = existing.roles.map((r) => r.role);
+      const isPureTraveler =
+        existing.passwordHash === null &&
+        roles.every((role) => role === Role.TRAVELER);
+      if (!isPureTraveler) {
+        throw new ForbiddenException(
+          "This account uses password login — use POST /auth/login instead",
+        );
+      }
+    }
+
     const user =
       existing ??
       (await this.usersService.create({
@@ -78,10 +129,20 @@ export class OtpController {
         role: Role.TRAVELER,
       }));
 
+    // Derive roles from the user's actual roles rather than hardcoding
+    // ["TRAVELER"], matching the shape CredentialsService.login() builds —
+    // otherwise a traveler holding an additional role would be silently
+    // downgraded by the OTP path. isPureTraveler above already guarantees
+    // every role here is TRAVELER for an existing user; a freshly created
+    // user has exactly one TRAVELER role.
+    const roles = existing
+      ? existing.roles.map((r) => r.role)
+      : [Role.TRAVELER];
+
     const { accessToken, refreshToken } =
       await this.tokenService.issueTokenPair({
         id: user.id,
-        roles: ["TRAVELER"],
+        roles,
       });
 
     const isProduction = this.config.get<string>("NODE_ENV") === "production";
