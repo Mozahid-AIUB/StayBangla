@@ -140,9 +140,11 @@ describe("VendorDashboardService", () => {
           photos: [{ id: "p1" }],
         },
       ]);
-      prisma.ledgerEntry.findMany.mockResolvedValue([]);
-      prisma.vendorLedgerEntry.findMany.mockResolvedValue([]);
-      prisma.booking.count.mockResolvedValue(0);
+      // getRoomListings/getVehicleListings batch bookingCount + earnings
+      // into two $queryRaw calls each (see getListingAggregates) instead of
+      // per-listing Prisma calls — both return [] here (no bookings/
+      // earnings), which getListingAggregates treats as "no rows -> 0".
+      prisma.$queryRaw.mockResolvedValue([]);
 
       const result = await service.getListings("vendor1");
 
@@ -150,7 +152,48 @@ describe("VendorDashboardService", () => {
         id: "room1",
         isActive: true,
         photoCount: 1,
+        earningsMinor: 0,
+        bookingCount: 0,
       });
+    });
+  });
+
+  describe("getListings — BOTH vendorType", () => {
+    it("returns both rooms and vehicles in one list for a BOTH vendor", async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: "vendor1",
+        vendorType: "BOTH",
+      });
+      prisma.room.findMany.mockResolvedValue([
+        {
+          id: "room1",
+          roomType: "DOUBLE",
+          isActive: true,
+          photos: [{ id: "p1" }],
+        },
+      ]);
+      prisma.vehicle.findMany.mockResolvedValue([
+        { id: "veh1", category: "JEEP", isActive: true },
+      ]);
+      prisma.$queryRaw.mockResolvedValue([]);
+
+      const result = await service.getListings("vendor1");
+
+      const ids = result.map((r) => r.id);
+      expect(ids).toContain("room1");
+      expect(ids).toContain("veh1");
+      expect(result).toHaveLength(2);
+    });
+
+    it("throws for a VENDOR-role user with a null vendorType instead of returning an empty vehicle-shaped list", async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: "vendor1",
+        vendorType: null,
+      });
+
+      await expect(service.getListings("vendor1")).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -241,6 +284,112 @@ describe("VendorDashboardService", () => {
       expect(result.online).toBe(3000);
       expect(result.offline).toBe(1000);
       expect(result.total).toBe(4000);
+    });
+
+    it("parses from/to as Dhaka calendar days, not UTC midnight (DEFECT 4)", async () => {
+      // new Date("2026-07-30") is 2026-07-30T00:00:00.000Z — six hours
+      // after the real start of the Dhaka calendar day 2026-07-30, which
+      // begins 2026-07-29T18:00:00.000Z. Asserting the exact gte/lt Date
+      // instants passed to vendorLedgerEntry.findMany discriminates a
+      // naive-UTC implementation (which would pass 2026-07-30T00:00:00Z)
+      // from the Dhaka-aware one (2026-07-29T18:00:00Z).
+      prisma.user.findUnique.mockResolvedValue({
+        id: "vendor1",
+        vendorType: "HOTEL",
+      });
+      prisma.ledgerEntry.findMany.mockResolvedValue([]);
+      prisma.vendorLedgerEntry.findMany.mockResolvedValue([]);
+
+      await service.getEarnings("vendor1", {
+        from: "2026-07-30",
+        to: "2026-07-31",
+      });
+
+      const [{ where }] = prisma.vendorLedgerEntry.findMany.mock.calls[0];
+      expect(where.entryDate.gte).toEqual(new Date("2026-07-29T18:00:00.000Z"));
+      expect(where.entryDate.lt).toEqual(new Date("2026-07-30T18:00:00.000Z"));
+    });
+
+    it("period=week uses the Dhaka week boundary, not a rolling 168h UTC window (DEFECT 5)", async () => {
+      // Fixed to the exact fixture from the review skill's own worked
+      // example: Sunday 2026-08-02T19:00:00Z is Monday 2026-08-03 01:00 in
+      // Dhaka (UTC+6) — already inside a NEW Dhaka week (Monday-anchored),
+      // while in UTC terms it is still Sunday, the LAST day of the
+      // previous week. A rolling-168h-UTC implementation computes
+      // gte = now - 7d exactly; a Dhaka-week implementation computes
+      // gte = the most recent Dhaka Monday 00:00, i.e.
+      // 2026-08-03T00:00:00 Dhaka = 2026-08-02T18:00:00Z. These two are
+      // different instants, so asserting the exact gte pins the fix and
+      // fails against the unfixed rolling-window code.
+      jest.useFakeTimers({ advanceTimers: false });
+      jest.setSystemTime(new Date("2026-08-02T19:00:00.000Z"));
+      try {
+        prisma.user.findUnique.mockResolvedValue({
+          id: "vendor1",
+          vendorType: "HOTEL",
+        });
+        prisma.ledgerEntry.findMany.mockResolvedValue([]);
+        prisma.vendorLedgerEntry.findMany.mockResolvedValue([]);
+
+        await service.getEarnings("vendor1", { period: "week" });
+
+        const [{ where }] = prisma.vendorLedgerEntry.findMany.mock.calls[0];
+        expect(where.entryDate.gte).toEqual(
+          new Date("2026-08-02T18:00:00.000Z"),
+        );
+        expect(where.entryDate.lt).toEqual(
+          new Date("2026-08-09T18:00:00.000Z"),
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
+
+  describe("getSummary — BOTH vendorType", () => {
+    it("sums rooms and vehicles into activeListings, and populates both rate fields, for a BOTH vendor", async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: "vendor1",
+        vendorType: "BOTH",
+        verifiedStatus: "VERIFIED",
+      });
+      prisma.room.findMany.mockResolvedValue([
+        { id: "room1", isActive: true },
+        { id: "room2", isActive: false },
+      ]);
+      prisma.vehicle.findMany.mockResolvedValue([
+        { id: "veh1", isActive: true },
+      ]);
+      prisma.booking.count.mockResolvedValue(0);
+      prisma.$queryRaw
+        .mockResolvedValueOnce([{ checkIns: BigInt(0), checkOuts: BigInt(0) }])
+        .mockResolvedValueOnce([{ bookedNights: BigInt(0) }])
+        .mockResolvedValueOnce([{ bookedNights: BigInt(0) }]);
+      prisma.ledgerEntry.aggregate.mockResolvedValue({
+        _sum: { amountMinor: null },
+      });
+      prisma.vendorLedgerEntry.aggregate.mockResolvedValue({
+        _sum: { amountMinor: null },
+      });
+
+      const result = await service.getSummary("vendor1");
+
+      // 1 active room + 1 active vehicle = 2, not just one side.
+      expect(result.activeListings).toBe(2);
+      expect(result).toHaveProperty("hotelOccupancyRatePct");
+      expect(result).toHaveProperty("vehicleUtilizationRatePct");
+    });
+
+    it("throws for a VENDOR-role user with a null (not-yet-onboarded) vendorType, rather than silently returning a vehicle-shaped empty response", async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: "vendor1",
+        vendorType: null,
+        verifiedStatus: "PENDING",
+      });
+
+      await expect(service.getSummary("vendor1")).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 

@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString } from "class-validator";
+import { IsIn, IsISO8601, IsOptional } from "class-validator";
 
 export class EarningsQueryDto {
   @IsOptional()
@@ -6,10 +6,10 @@ export class EarningsQueryDto {
   period?: "today" | "week" | "month";
 
   @IsOptional()
-  @IsString()
+  @IsISO8601()
   from?: string;
 
   @IsOptional()
-  @IsString()
+  @IsISO8601()
   to?: string;
 }

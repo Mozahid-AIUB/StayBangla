@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString } from "class-validator";
+import { IsIn, IsISO8601, IsOptional, IsString } from "class-validator";
 
 export class ListBookingsQueryDto {
   @IsOptional()
@@ -23,10 +23,10 @@ export class ListBookingsQueryDto {
   vehicleId?: string;
 
   @IsOptional()
-  @IsString()
+  @IsISO8601()
   from?: string;
 
   @IsOptional()
-  @IsString()
+  @IsISO8601()
   to?: string;
 }
