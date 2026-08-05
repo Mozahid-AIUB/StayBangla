@@ -55,9 +55,8 @@ model User {
   ownedHotels   Hotel[]
   ownedVehicles Vehicle[]
 
-  adminAuditLogsAsTarget AdminAuditLog[] @relation("AdminAuditTarget")
-  adminAuditLogsAsActor  AdminAuditLog[] @relation("AdminAuditActor")
-  vendorLedgerEntries    VendorLedgerEntry[]
+  adminAuditLogsAsActor AdminAuditLog[]     @relation("AdminAuditActor")
+  vendorLedgerEntries   VendorLedgerEntry[]
 
   @@map("users")
 }
@@ -250,19 +249,23 @@ enum AdminActionType {
   VENDOR_SUSPENDED
   VENDOR_UNSUSPENDED
   COMMISSION_RATE_CHANGED
+  BOOKING_FORCE_CANCELLED
 }
 
 model AdminAuditLog {
   id        String          @id @default(uuid())
   actorId   String          @map("actor_id")
+  /// Polymorphic identifier: a User.id for vendor-targeted actions
+  /// (VENDOR_*, COMMISSION_RATE_CHANGED), a Booking.id for
+  /// BOOKING_FORCE_CANCELLED. No DB-level FK because it can reference
+  /// either table depending on `action`.
   targetId  String          @map("target_id")
   action    AdminActionType
   reason    String?
   metadata  Json?
   createdAt DateTime        @default(now()) @map("created_at")
 
-  actor  User @relation("AdminAuditActor", fields: [actorId], references: [id])
-  target User @relation("AdminAuditTarget", fields: [targetId], references: [id])
+  actor User @relation("AdminAuditActor", fields: [actorId], references: [id])
 
   @@index([targetId])
   @@index([actorId])

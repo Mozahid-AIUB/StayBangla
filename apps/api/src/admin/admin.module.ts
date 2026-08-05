@@ -9,6 +9,8 @@ import { AdminAuditLogController } from "./admin-audit-log.controller";
 import { AdminOverviewService } from "./admin-overview.service";
 import { AdminOverviewController } from "./admin-overview.controller";
 import { VendorListController } from "./vendor-list.controller";
+import { AdminBookingService } from "./admin-booking.service";
+import { AdminBookingController } from "./admin-booking.controller";
 
 @Module({
   controllers: [
@@ -18,12 +20,14 @@ import { VendorListController } from "./vendor-list.controller";
     AdminAuditLogController,
     AdminOverviewController,
     VendorListController,
+    AdminBookingController,
   ],
   providers: [
     VendorVerificationService,
     VendorSuspensionService,
     AdminAuditLogService,
     AdminOverviewService,
+    AdminBookingService,
   ],
   exports: [VendorVerificationService],
 })
