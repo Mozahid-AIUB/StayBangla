@@ -54,6 +54,20 @@ describe("dhaka-time", () => {
       const start = startOfDhakaWeek(monday);
       expect(start.toISOString()).toBe("2026-07-26T18:00:00.000Z");
     });
+
+    it("derives the weekday from the Dhaka calendar date, not the UTC calendar date, for an instant in the 18:00Z-24:00Z window where they disagree", () => {
+      // 2026-08-02T19:00:00Z is Sunday in UTC, but 2026-08-03T01:00:00 in
+      // Asia/Dhaka (UTC+6) — already Monday. A hybrid implementation that
+      // derives the weekday from the UTC calendar date and only applies the
+      // -6h offset afterward would treat this as "Sunday" and compute the
+      // PREVIOUS Monday (2026-07-27) as the week start — a full week off.
+      // The correct Dhaka-calendar-date-first derivation must return the
+      // Monday of the week that actually contains Dhaka-local Monday
+      // 2026-08-03, i.e. 2026-08-03 00:00 Dhaka == 2026-08-02T18:00:00Z.
+      const sundayNightUtcMondayDhaka = new Date("2026-08-02T19:00:00Z");
+      const start = startOfDhakaWeek(sundayNightUtcMondayDhaka);
+      expect(start.toISOString()).toBe("2026-08-02T18:00:00.000Z");
+    });
   });
 
   describe("startOfDhakaMonth", () => {

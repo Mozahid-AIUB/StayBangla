@@ -66,9 +66,24 @@ export class AdminAnalyticsService {
     const period = filter.period ?? "daily";
     const where: Record<string, unknown> = {};
     if (filter.from || filter.to) {
+      // Bucket boundaries (bucketStartFor -> startOfDhakaDay/Week/Month) are
+      // computed in Asia/Dhaka. If the from/to filter truncated in UTC
+      // instead (a bare `new Date("2026-07-30")` is 2026-07-30T00:00:00Z,
+      // six hours before Dhaka midnight on that same calendar day), the
+      // filter window and the bucket boundaries would disagree: the first
+      // Dhaka day in range would lose its first six hours to the filter,
+      // and a spurious partial bucket would appear for the day before/after.
+      // Routing from/to through startOfDhakaDay makes the filter window
+      // align to the same Dhaka calendar-day boundaries the buckets
+      // themselves use. `to` keeps the brief's exclusive-upper-bound
+      // semantics (`lt`, not `lte`) — startOfDhakaDay(to) is the Dhaka
+      // midnight that begins the `to` calendar day, so "to=2026-07-31"
+      // means "up to but not including 2026-07-31", the same reading a
+      // half-open `[from, to)` range has anywhere else in this codebase
+      // (e.g. vendor-dashboard.service.ts's `daterange(..., '[)')`).
       where.createdAt = {
-        ...(filter.from ? { gte: new Date(filter.from) } : {}),
-        ...(filter.to ? { lt: new Date(filter.to) } : {}),
+        ...(filter.from ? { gte: startOfDhakaDay(new Date(filter.from)) } : {}),
+        ...(filter.to ? { lt: startOfDhakaDay(new Date(filter.to)) } : {}),
       };
     }
 
@@ -133,12 +148,28 @@ export class AdminAnalyticsService {
         ? Prisma.sql`"bookingCount" DESC`
         : Prisma.sql`"totalRevenueMinor" DESC`;
 
-    return this.prisma.$queryRaw<TopVendorRow[]>(Prisma.sql`
+    // SUM(le.amount_minor) over an `int` column returns Postgres `bigint`,
+    // which an ::int cast does not truncate — it raises "integer out of
+    // range" once a vendor's lifetime gross exceeds int32 max (~2.15 crore
+    // BDT in minor units). Casting to ::bigint instead avoids the overflow,
+    // but $queryRaw then hands back a JS BigInt, which JSON.stringify
+    // cannot serialize — so both raw columns are typed `bigint` here and
+    // converted with Number(...) below before the row leaves the service,
+    // the same pattern vendor-dashboard.service.ts uses for its raw
+    // COUNT(*)/SUM(...) columns (bookedNights, checkIns, checkOuts).
+    const rows = await this.prisma.$queryRaw<
+      {
+        vendorId: string;
+        vendorName: string | null;
+        totalRevenueMinor: bigint;
+        bookingCount: bigint;
+      }[]
+    >(Prisma.sql`
       SELECT
         u.id AS "vendorId",
         u.full_name AS "vendorName",
-        COALESCE(SUM(le.amount_minor) FILTER (WHERE le.type = 'GROSS_PAYMENT'), 0)::int AS "totalRevenueMinor",
-        COUNT(DISTINCT b.id)::int AS "bookingCount"
+        COALESCE(SUM(le.amount_minor) FILTER (WHERE le.type = 'GROSS_PAYMENT'), 0)::bigint AS "totalRevenueMinor",
+        COUNT(DISTINCT b.id)::bigint AS "bookingCount"
       FROM users u
       JOIN user_roles ur ON ur.user_id = u.id AND ur.role = 'VENDOR'
       LEFT JOIN bookings b ON b.resource_owner_id = u.id
@@ -147,12 +178,31 @@ export class AdminAnalyticsService {
       ORDER BY ${orderBy}
       LIMIT ${limit}
     `);
+
+    return rows.map((row) => ({
+      vendorId: row.vendorId,
+      vendorName: row.vendorName,
+      totalRevenueMinor: Number(row.totalRevenueMinor),
+      bookingCount: Number(row.bookingCount),
+    }));
   }
 
   async districtDistribution(): Promise<DistrictDistributionRow[]> {
+    // Filtered to isActive: true on both sides so the counts match what the
+    // controller's Swagger doc promises ("Active hotel/vehicle listing
+    // counts") — a deactivated hotel/vehicle should not inflate a
+    // district's figure.
     const [hotelRows, vehicleRows] = await Promise.all([
-      this.prisma.hotel.groupBy({ by: ["city"], _count: true }),
-      this.prisma.vehicle.groupBy({ by: ["city"], _count: true }),
+      this.prisma.hotel.groupBy({
+        by: ["city"],
+        where: { isActive: true },
+        _count: true,
+      }),
+      this.prisma.vehicle.groupBy({
+        by: ["city"],
+        where: { isActive: true },
+        _count: true,
+      }),
     ]);
 
     const byDistrict = new Map<string, DistrictDistributionRow>();
