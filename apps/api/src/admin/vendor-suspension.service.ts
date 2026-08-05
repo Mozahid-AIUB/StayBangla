@@ -1,5 +1,5 @@
 import { ConflictException, Injectable } from "@nestjs/common";
-import { User } from "@prisma/client";
+import { AdminActionType, User } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -10,6 +10,7 @@ export class VendorSuspensionService {
     adminId: string,
     vendorId: string,
     reason: string,
+    action: AdminActionType = "VENDOR_SUSPENDED",
   ): Promise<User> {
     const result = await this.prisma.user.updateMany({
       where: { id: vendorId, suspendedAt: null },
@@ -22,14 +23,18 @@ export class VendorSuspensionService {
       data: {
         targetId: vendorId,
         actorId: adminId,
-        action: "VENDOR_SUSPENDED",
+        action,
         reason,
       },
     });
     return this.prisma.user.findUniqueOrThrow({ where: { id: vendorId } });
   }
 
-  async unsuspend(adminId: string, vendorId: string): Promise<User> {
+  async unsuspend(
+    adminId: string,
+    vendorId: string,
+    action: AdminActionType = "VENDOR_UNSUSPENDED",
+  ): Promise<User> {
     const result = await this.prisma.user.updateMany({
       where: { id: vendorId, suspendedAt: { not: null } },
       data: { suspendedAt: null, suspensionReason: null },
@@ -41,7 +46,7 @@ export class VendorSuspensionService {
       data: {
         targetId: vendorId,
         actorId: adminId,
-        action: "VENDOR_UNSUSPENDED",
+        action,
         reason: undefined,
       },
     });

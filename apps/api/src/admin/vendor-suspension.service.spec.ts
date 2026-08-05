@@ -53,6 +53,31 @@ describe("VendorSuspensionService", () => {
       ).rejects.toThrow(ConflictException);
       expect(prisma.adminAuditLog.create).not.toHaveBeenCalled();
     });
+
+    it("writes the caller-supplied action label (e.g. TRAVELER_SUSPENDED) instead of the VENDOR_* default", async () => {
+      prisma.user.updateMany.mockResolvedValue({ count: 1 });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        id: "traveler1",
+        suspendedAt: new Date(),
+        suspensionReason: "abusive behavior",
+      });
+
+      await service.suspend(
+        "admin1",
+        "traveler1",
+        "abusive behavior",
+        "TRAVELER_SUSPENDED",
+      );
+
+      expect(prisma.adminAuditLog.create).toHaveBeenCalledWith({
+        data: {
+          targetId: "traveler1",
+          actorId: "admin1",
+          action: "TRAVELER_SUSPENDED",
+          reason: "abusive behavior",
+        },
+      });
+    });
   });
 
   describe("unsuspend", () => {
@@ -86,6 +111,26 @@ describe("VendorSuspensionService", () => {
       await expect(service.unsuspend("admin1", "vendor1")).rejects.toThrow(
         ConflictException,
       );
+    });
+
+    it("writes the caller-supplied action label (e.g. TRAVELER_UNSUSPENDED) instead of the VENDOR_* default", async () => {
+      prisma.user.updateMany.mockResolvedValue({ count: 1 });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        id: "traveler1",
+        suspendedAt: null,
+        suspensionReason: null,
+      });
+
+      await service.unsuspend("admin1", "traveler1", "TRAVELER_UNSUSPENDED");
+
+      expect(prisma.adminAuditLog.create).toHaveBeenCalledWith({
+        data: {
+          targetId: "traveler1",
+          actorId: "admin1",
+          action: "TRAVELER_UNSUSPENDED",
+          reason: undefined,
+        },
+      });
     });
   });
 });

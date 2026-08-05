@@ -71,6 +71,13 @@ export class BookingsService {
   ): Promise<BookingRecord> {
     this.validateDates(input.checkIn, input.checkOut);
 
+    const traveler = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (traveler?.suspendedAt) {
+      throw new ForbiddenException("Your account is suspended");
+    }
+
     let resourceOwnerId: string;
     let pricePerUnit: number;
     let currency: string;

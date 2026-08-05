@@ -43,6 +43,7 @@ describe("BookingsService.createBooking", () => {
   let prisma: {
     room: { findUnique: jest.Mock };
     vehicle: { findUnique: jest.Mock };
+    user: { findUnique: jest.Mock };
     $queryRaw: jest.Mock;
   };
   let service: BookingsService;
@@ -51,6 +52,7 @@ describe("BookingsService.createBooking", () => {
     prisma = {
       room: { findUnique: jest.fn() },
       vehicle: { findUnique: jest.fn() },
+      user: { findUnique: jest.fn() },
       $queryRaw: jest.fn(),
     };
     service = new BookingsService(
@@ -281,6 +283,33 @@ describe("BookingsService.createBooking", () => {
       service.createBooking("traveler1", {
         bookableType: "VEHICLE",
         bookableId: "veh1",
+        checkIn: "2026-09-01",
+        checkOut: "2026-09-03",
+      }),
+    ).rejects.toThrow(/suspended/i);
+  });
+
+  it("rejects a booking attempt when the traveler (not just the resource owner) is suspended", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: "traveler1",
+      suspendedAt: new Date(),
+    });
+    prisma.room.findUnique.mockResolvedValue({
+      id: "room1",
+      isActive: true,
+      capacity: 2,
+      pricePerNightMinor: 5000,
+      currency: "BDT",
+      hotel: {
+        ownerId: "vendor1",
+        owner: { verifiedStatus: "VERIFIED", suspendedAt: null },
+      },
+    });
+
+    await expect(
+      service.createBooking("traveler1", {
+        bookableType: "ROOM",
+        bookableId: "room1",
         checkIn: "2026-09-01",
         checkOut: "2026-09-03",
       }),

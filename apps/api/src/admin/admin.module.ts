@@ -11,6 +11,8 @@ import { AdminOverviewController } from "./admin-overview.controller";
 import { VendorListController } from "./vendor-list.controller";
 import { AdminBookingService } from "./admin-booking.service";
 import { AdminBookingController } from "./admin-booking.controller";
+import { TravelerSuspensionController } from "./traveler-suspension.controller";
+import { TravelerListController } from "./traveler-list.controller";
 
 @Module({
   controllers: [
@@ -21,6 +23,8 @@ import { AdminBookingController } from "./admin-booking.controller";
     AdminOverviewController,
     VendorListController,
     AdminBookingController,
+    TravelerSuspensionController,
+    TravelerListController,
   ],
   providers: [
     VendorVerificationService,
