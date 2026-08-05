@@ -345,6 +345,13 @@ export class BookingsService {
     callerId: string,
     input: CreateBlockInput,
   ): Promise<BookingRecord> {
+    const caller = await this.prisma.user.findUnique({
+      where: { id: callerId },
+    });
+    if (caller?.suspendedAt) {
+      throw new ForbiddenException("Your account is suspended");
+    }
+
     let resourceOwnerId: string;
 
     if (input.bookableType === "ROOM") {
@@ -411,6 +418,13 @@ export class BookingsService {
     vendorLedgerEntry: import("@prisma/client").VendorLedgerEntry;
   }> {
     this.validateDates(input.checkIn, input.checkOut);
+
+    const caller = await this.prisma.user.findUnique({
+      where: { id: callerId },
+    });
+    if (caller?.suspendedAt) {
+      throw new ForbiddenException("Your account is suspended");
+    }
 
     let resourceOwnerId: string;
     if (input.bookableType === "ROOM") {

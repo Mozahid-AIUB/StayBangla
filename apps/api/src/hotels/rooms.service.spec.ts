@@ -8,6 +8,7 @@ describe("RoomsService", () => {
     room: { create: jest.Mock; update: jest.Mock; findUnique: jest.Mock };
   };
   let hotelsService: { findByIdOrThrow: jest.Mock };
+  let usersService: { findById: jest.Mock };
   let service: RoomsService;
 
   beforeEach(() => {
@@ -15,9 +16,13 @@ describe("RoomsService", () => {
       room: { create: jest.fn(), update: jest.fn(), findUnique: jest.fn() },
     };
     hotelsService = { findByIdOrThrow: jest.fn() };
+    usersService = {
+      findById: jest.fn().mockResolvedValue({ suspendedAt: null }),
+    };
     service = new RoomsService(
       prisma as unknown as PrismaService,
       hotelsService as unknown as HotelsService,
+      usersService as never,
       {} as never,
     );
   });
@@ -62,6 +67,25 @@ describe("RoomsService", () => {
       ).rejects.toThrow(ForbiddenException);
       expect(prisma.room.create).not.toHaveBeenCalled();
     });
+
+    it("rejects room creation when the caller is suspended", async () => {
+      hotelsService.findByIdOrThrow.mockResolvedValue({
+        id: "h1",
+        ownerId: "v1",
+      });
+      usersService.findById.mockResolvedValue({ suspendedAt: new Date() });
+
+      await expect(
+        service.create("v1", "h1", {
+          roomType: "DOUBLE",
+          pricePerNightMinor: 500000,
+          capacity: 2,
+          hasAC: true,
+          bedType: "DOUBLE",
+        }),
+      ).rejects.toThrow(/suspended/i);
+      expect(prisma.room.create).not.toHaveBeenCalled();
+    });
   });
 
   describe("update", () => {
@@ -98,6 +122,20 @@ describe("RoomsService", () => {
       await expect(
         service.update("v1", "missing", { isActive: false }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it("rejects a room update when the caller is suspended", async () => {
+      prisma.room.findUnique.mockResolvedValue({ id: "r1", hotelId: "h1" });
+      hotelsService.findByIdOrThrow.mockResolvedValue({
+        id: "h1",
+        ownerId: "v1",
+      });
+      usersService.findById.mockResolvedValue({ suspendedAt: new Date() });
+
+      await expect(
+        service.update("v1", "r1", { pricePerNightMinor: 999999 }),
+      ).rejects.toThrow(/suspended/i);
+      expect(prisma.room.update).not.toHaveBeenCalled();
     });
   });
 });
@@ -139,6 +177,7 @@ describe("RoomsService photo methods", () => {
     service = new RoomsService(
       prisma as unknown as PrismaService,
       hotelsService as unknown as HotelsService,
+      {} as never,
       storagePort as never,
     );
   });

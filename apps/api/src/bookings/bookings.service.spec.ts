@@ -1020,6 +1020,7 @@ describe("BookingsService.createBlock", () => {
   let prisma: {
     room: { findUnique: jest.Mock };
     vehicle: { findUnique: jest.Mock };
+    user: { findUnique: jest.Mock };
     $queryRaw: jest.Mock;
   };
   let service: BookingsService;
@@ -1028,6 +1029,7 @@ describe("BookingsService.createBlock", () => {
     prisma = {
       room: { findUnique: jest.fn() },
       vehicle: { findUnique: jest.fn() },
+      user: { findUnique: jest.fn().mockResolvedValue({ suspendedAt: null }) },
       $queryRaw: jest.fn(),
     };
     service = new BookingsService(
@@ -1070,6 +1072,24 @@ describe("BookingsService.createBlock", () => {
     });
 
     expect(prisma.$queryRaw).toHaveBeenCalled();
+  });
+
+  it("rejects a block attempt when the caller is suspended", async () => {
+    prisma.user.findUnique.mockResolvedValue({ suspendedAt: new Date() });
+    prisma.room.findUnique.mockResolvedValue({
+      id: "r1",
+      isActive: true,
+      hotel: { ownerId: "v1" },
+    });
+
+    await expect(
+      service.createBlock("v1", {
+        bookableType: "ROOM",
+        bookableId: "r1",
+        startDate: "2026-09-01",
+        endDate: "2026-09-03",
+      }),
+    ).rejects.toThrow(/suspended/i);
   });
 
   it("translates an overlap with an existing booking into ConflictException", async () => {
@@ -1193,6 +1213,24 @@ describe("BookingsService.createBlock", () => {
 
       expect(prisma.$queryRaw).toHaveBeenCalled();
     });
+
+    it("rejects a block attempt on a vehicle when the caller is suspended", async () => {
+      prisma.user.findUnique.mockResolvedValue({ suspendedAt: new Date() });
+      prisma.vehicle.findUnique.mockResolvedValue({
+        id: "veh1",
+        isActive: true,
+        ownerId: "v1",
+      });
+
+      await expect(
+        service.createBlock("v1", {
+          bookableType: "VEHICLE",
+          bookableId: "veh1",
+          startDate: "2026-09-01",
+          endDate: "2026-09-03",
+        }),
+      ).rejects.toThrow(/suspended/i);
+    });
   });
 });
 
@@ -1201,6 +1239,7 @@ describe("createOfflineBooking", () => {
     $queryRaw: jest.Mock;
     room: { findUnique: jest.Mock };
     vehicle: { findUnique: jest.Mock };
+    user: { findUnique: jest.Mock };
     booking: {
       findUnique: jest.Mock;
       updateMany: jest.Mock;
@@ -1216,6 +1255,7 @@ describe("createOfflineBooking", () => {
       $queryRaw: jest.fn(),
       room: { findUnique: jest.fn() },
       vehicle: { findUnique: jest.fn() },
+      user: { findUnique: jest.fn().mockResolvedValue({ suspendedAt: null }) },
       booking: {
         findUnique: jest.fn(),
         updateMany: jest.fn(),
@@ -1320,6 +1360,26 @@ describe("createOfflineBooking", () => {
         amountMinor: 5000,
       }),
     ).rejects.toThrow(/do not own/i);
+  });
+
+  it("rejects an offline booking attempt when the caller is suspended", async () => {
+    prisma.user.findUnique.mockResolvedValue({ suspendedAt: new Date() });
+    prisma.room.findUnique.mockResolvedValue({
+      id: "room1",
+      hotelId: "hotel1",
+      isActive: true,
+      hotel: { ownerId: "vendor1" },
+    });
+
+    await expect(
+      service.createOfflineBooking("vendor1", {
+        bookableType: "ROOM",
+        bookableId: "room1",
+        checkIn,
+        checkOut,
+        amountMinor: 5000,
+      }),
+    ).rejects.toThrow(/suspended/i);
   });
 
   it("translates an exclusion-constraint violation into a 409 Conflict", async () => {

@@ -125,6 +125,92 @@ describe("Admin Panel (e2e)", () => {
     expect(booking.status).toBe(403);
   });
 
+  it("a suspended vendor cannot create an offline booking with their still-valid access token", async () => {
+    const { accessToken: adminToken } = await createAdmin(
+      app,
+      "admin-e2e-admin5@example.com",
+    );
+    const { vendorId, accessToken: vendorToken } = await createVerifiedVendor(
+      app,
+      "admin-e2e-vendor6@example.com",
+    );
+    const { roomId } = await createHotelWithRoom(app, vendorToken);
+
+    await request(app.getHttpServer())
+      .post(`/v1/admin/vendors/${vendorId}/suspend`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "fraud" });
+
+    const offlineBooking = await request(app.getHttpServer())
+      .post("/v1/vendor/bookings/offline")
+      .set("Authorization", `Bearer ${vendorToken}`)
+      .send({
+        bookableType: "ROOM",
+        bookableId: roomId,
+        checkIn: "2026-10-01",
+        checkOut: "2026-10-03",
+        amountMinor: 500000,
+      });
+    expect(offlineBooking.status).toBe(403);
+  });
+
+  it("a suspended vendor cannot create a date block with their still-valid access token", async () => {
+    const { accessToken: adminToken } = await createAdmin(
+      app,
+      "admin-e2e-admin6@example.com",
+    );
+    const { vendorId, accessToken: vendorToken } = await createVerifiedVendor(
+      app,
+      "admin-e2e-vendor7@example.com",
+    );
+    const { roomId } = await createHotelWithRoom(app, vendorToken);
+
+    await request(app.getHttpServer())
+      .post(`/v1/admin/vendors/${vendorId}/suspend`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "fraud" });
+
+    const block = await request(app.getHttpServer())
+      .post("/v1/vendor/blocks")
+      .set("Authorization", `Bearer ${vendorToken}`)
+      .send({
+        bookableType: "ROOM",
+        bookableId: roomId,
+        startDate: "2026-10-01",
+        endDate: "2026-10-03",
+      });
+    expect(block.status).toBe(403);
+  });
+
+  it("a suspended vendor cannot create a new room with their still-valid access token", async () => {
+    const { accessToken: adminToken } = await createAdmin(
+      app,
+      "admin-e2e-admin7@example.com",
+    );
+    const { vendorId, accessToken: vendorToken } = await createVerifiedVendor(
+      app,
+      "admin-e2e-vendor8@example.com",
+    );
+    const { hotelId } = await createHotelWithRoom(app, vendorToken);
+
+    await request(app.getHttpServer())
+      .post(`/v1/admin/vendors/${vendorId}/suspend`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "fraud" });
+
+    const newRoom = await request(app.getHttpServer())
+      .post(`/v1/hotels/${hotelId}/rooms`)
+      .set("Authorization", `Bearer ${vendorToken}`)
+      .send({
+        roomType: "DOUBLE",
+        pricePerNightMinor: 500000,
+        capacity: 2,
+        hasAC: true,
+        bedType: "DOUBLE",
+      });
+    expect(newRoom.status).toBe(403);
+  });
+
   it("unsuspending a vendor restores login and search visibility", async () => {
     const { accessToken: adminToken } = await createAdmin(
       app,
