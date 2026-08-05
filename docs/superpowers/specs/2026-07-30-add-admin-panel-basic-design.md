@@ -61,7 +61,6 @@ model AdminAuditLog {
   createdAt   DateTime        @default(now()) @map("created_at")
 
   actor  User @relation("AdminAuditActor", fields: [actorId], references: [id])
-  target User @relation("AdminAuditTarget", fields: [targetId], references: [id])
 
   @@index([targetId])
   @@index([actorId])
@@ -69,6 +68,8 @@ model AdminAuditLog {
   @@map("admin_audit_logs")
 }
 ```
+
+**As shipped, `targetId` is not a Prisma relation field and carries no DB-level FK.** The enterprise-scope expansion (Task 9) added `BOOKING_FORCE_CANCELLED`, whose natural `targetId` is a `Booking.id`, not a `User.id` — a single `target User @relation(...)` FK can't point at two different tables. `targetId` is instead a documented polymorphic identifier: a `User.id` for `VENDOR_*`/`TRAVELER_*`/`COMMISSION_RATE_CHANGED` actions, a `Booking.id` for `BOOKING_FORCE_CANCELLED`. This also suits an append-only audit table on its own terms, independent of the polymorphism problem — it should not FK to rows that may later be deleted, since a real FK would either block the delete or force `ON DELETE SET NULL`/`CASCADE` semantics that don't belong on an audit trail. This was reviewed and accepted as part of Task 9, not an oversight.
 
 - `actorId` is the admin who performed the action; for `VENDOR_RESUBMITTED` (the one self-service action that already existed — a vendor resubmitting their own rejected application), `actorId` equals `targetId`, matching the existing `VendorVerificationService.resubmit`'s documented convention ("self-service action; there is no admin actor for a resubmit").
 - `reason` is populated for `VENDOR_REJECTED`, `VENDOR_SUSPENDED` (both required by their DTOs), and optionally `VENDOR_UNSUSPENDED`; null for the rest.

@@ -47,15 +47,16 @@ model User {
   createdAt             DateTime       @default(now()) @map("created_at")
   updatedAt             DateTime       @updatedAt @map("updated_at")
   commissionRatePercent Int            @default(10) @map("commission_rate_percent")
+  suspendedAt           DateTime?      @map("suspended_at")
+  suspensionReason      String?        @map("suspension_reason")
 
   roles         UserRole[]
   refreshTokens RefreshToken[]
   ownedHotels   Hotel[]
   ownedVehicles Vehicle[]
 
-  verificationLogsAsVendor VendorVerificationLog[] @relation("VendorVerificationTarget")
-  verificationLogsAsAdmin  VendorVerificationLog[] @relation("VendorVerificationActor")
-  vendorLedgerEntries      VendorLedgerEntry[]
+  adminAuditLogsAsActor AdminAuditLog[]     @relation("AdminAuditActor")
+  vendorLedgerEntries   VendorLedgerEntry[]
 
   @@map("users")
 }
@@ -241,19 +242,37 @@ model Vehicle {
   @@map("vehicles")
 }
 
-model VendorVerificationLog {
-  id        String         @id @default(uuid())
-  vendorId  String         @map("vendor_id")
-  adminId   String         @map("admin_id")
-  action    VerifiedStatus
+enum AdminActionType {
+  VENDOR_APPROVED
+  VENDOR_REJECTED
+  VENDOR_RESUBMITTED
+  VENDOR_SUSPENDED
+  VENDOR_UNSUSPENDED
+  COMMISSION_RATE_CHANGED
+  BOOKING_FORCE_CANCELLED
+  TRAVELER_SUSPENDED
+  TRAVELER_UNSUSPENDED
+}
+
+model AdminAuditLog {
+  id        String          @id @default(uuid())
+  actorId   String          @map("actor_id")
+  /// Polymorphic identifier: a User.id for vendor-targeted actions
+  /// (VENDOR_*, COMMISSION_RATE_CHANGED), a Booking.id for
+  /// BOOKING_FORCE_CANCELLED. No DB-level FK because it can reference
+  /// either table depending on `action`.
+  targetId  String          @map("target_id")
+  action    AdminActionType
   reason    String?
-  createdAt DateTime       @default(now()) @map("created_at")
+  metadata  Json?
+  createdAt DateTime        @default(now()) @map("created_at")
 
-  vendor User @relation("VendorVerificationTarget", fields: [vendorId], references: [id])
-  admin  User @relation("VendorVerificationActor", fields: [adminId], references: [id])
+  actor User @relation("AdminAuditActor", fields: [actorId], references: [id])
 
-  @@index([vendorId])
-  @@map("vendor_verification_logs")
+  @@index([targetId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
 }
 
 model HotelPhoto {

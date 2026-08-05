@@ -36,7 +36,7 @@ describe("Vendor approval (e2e)", () => {
     await registerAndLogin(app, "pending-vendor@example.com");
 
     const res = await request(app.getHttpServer())
-      .get("/v1/admin/vendors/pending")
+      .get("/v1/admin/vendors?status=PENDING")
       .set("Authorization", `Bearer ${adminToken}`);
 
     expect(res.status).toBe(200);
@@ -100,11 +100,11 @@ describe("Vendor approval (e2e)", () => {
     expect(reject.body.verifiedStatus).toBe("REJECTED");
 
     const history = await request(app.getHttpServer())
-      .get(`/v1/admin/vendors/${me.body.id}/history`)
+      .get(`/v1/admin/audit-log?vendorId=${me.body.id}`)
       .set("Authorization", `Bearer ${adminToken}`);
-    expect(history.body).toHaveLength(1);
-    expect(history.body[0].reason).toBe("NID document unclear");
-    expect(history.body[0].action).toBe("REJECTED");
+    expect(history.body.items).toHaveLength(1);
+    expect(history.body.items[0].reason).toBe("NID document unclear");
+    expect(history.body.items[0].action).toBe("VENDOR_REJECTED");
   });
 
   it("a rejected vendor can resubmit and becomes PENDING again", async () => {
@@ -133,13 +133,13 @@ describe("Vendor approval (e2e)", () => {
     expect(resubmit.body.verifiedStatus).toBe("PENDING");
   });
 
-  it("a non-admin cannot access /admin/vendors/pending", async () => {
+  it("a non-admin cannot access /admin/vendors?status=PENDING", async () => {
     const { accessToken: vendorToken } = await registerAndLogin(
       app,
       "sneaky-vendor@example.com",
     );
     const res = await request(app.getHttpServer())
-      .get("/v1/admin/vendors/pending")
+      .get("/v1/admin/vendors?status=PENDING")
       .set("Authorization", `Bearer ${vendorToken}`);
     expect(res.status).toBe(403);
   });
@@ -169,7 +169,7 @@ describe("Vendor approval (e2e)", () => {
     expect(secondReject.status).toBe(409);
   });
 
-  it("never leaks passwordHash in listPending/approve/reject responses", async () => {
+  it("never leaks passwordHash in vendor list/approve/reject responses", async () => {
     const { accessToken: adminToken } = await createAdmin(
       app,
       "leak-check-admin@example.com",
@@ -187,7 +187,7 @@ describe("Vendor approval (e2e)", () => {
     });
 
     const pending = await request(app.getHttpServer())
-      .get("/v1/admin/vendors/pending")
+      .get("/v1/admin/vendors?status=PENDING")
       .set("Authorization", `Bearer ${adminToken}`);
     expect(JSON.stringify(pending.body)).not.toMatch(
       /passwordHash|password_hash|\$argon2/,

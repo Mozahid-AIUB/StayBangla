@@ -4,13 +4,13 @@
 
 **Goal:** Give an ADMIN/SUPER_ADMIN full platform control: suspend/unsuspend vendors AND travelers (blocking login, new bookings, new listings, and search visibility, without touching existing confirmed bookings), a unified audit log covering every admin action, a platform overview, a filterable vendor list and a filterable traveler list, admin-level booking visibility/force-cancel, and an operational analytics dashboard (revenue trend, booking-status breakdown, top vendors, district distribution).
 
-**Architecture:** Extends the existing `AdminModule` with new controllers/services following the exact patterns already established by `VendorVerificationController`/`VendorVerificationService`. `VendorVerificationLog` is retired in favor of a new polymorphic `AdminAuditLog` table; every existing writer of the old table is updated to write the new one instead of running side-by-side. Suspension enforcement is added as small, targeted checks inside already-existing services (`CredentialsService`, `TokenService`'s refresh flow, `BookingsService`, `HotelsService`/`VehiclesService`) rather than a new cross-cutting guard, since each of those services already has its own verification-style check this can sit beside. `VendorSuspensionService` is reused verbatim for traveler suspension (its methods operate on any `User.id`, with no vendor-specific logic) — only the route prefix and Swagger docs differ, via a thin `TravelerSuspensionController`. Booking control and analytics are platform-wide, unscoped reads/writes over `Booking`/`LedgerEntry`, reusing the `$queryRaw`/`Prisma.sql` conditional-fragment idiom already established in `vendor-dashboard.service.ts` (required wherever `Booking.dateRange` — an `Unsupported("daterange")` Prisma type — needs `checkIn`/`checkOut` extracted) and the `startOfDhakaDay`/`endOfDhakaMonth`-style helpers in `apps/api/src/common/date/dhaka-time.ts` for any time-bucketed aggregation (extended with new `startOfDhakaWeek`/`endOfDhakaWeek` helpers, following the identical existing pattern).
+**Architecture:** Extends the existing `AdminModule` with new controllers/services following the exact patterns already established by `VendorVerificationController`/`VendorVerificationService`. `VendorVerificationLog` is retired in favor of a new polymorphic `AdminAuditLog` table; every existing writer of the old table is updated to write the new one instead of running side-by-side. Suspension enforcement is added as small, targeted checks inside already-existing services (`CredentialsService`, `TokenService`'s refresh flow, `BookingsService`, `HotelsService`/`VehiclesService`) rather than a new cross-cutting guard, since each of those services already has its own verification-style check this can sit beside. `VendorSuspensionService` is reused for traveler suspension (its methods operate on any `User.id`, with no vendor-specific logic) — as shipped, `suspend`/`unsuspend` gained an optional trailing `action: AdminActionType` parameter (defaulting to the original `VENDOR_SUSPENDED`/`VENDOR_UNSUSPENDED` literals) rather than being reused byte-for-byte, because a hardcoded `VENDOR_*` label would have permanently mislabelled every traveler suspension in the unified audit log; `TRAVELER_SUSPENDED`/`TRAVELER_UNSUSPENDED` were added to `AdminActionType` and `TravelerSuspensionController` passes them explicitly. Only the route prefix, Swagger docs, and that one explicit argument differ from the vendor controller. Booking control and analytics are platform-wide, unscoped reads/writes over `Booking`/`LedgerEntry`, reusing the `$queryRaw`/`Prisma.sql` conditional-fragment idiom already established in `vendor-dashboard.service.ts` (required wherever `Booking.dateRange` — an `Unsupported("daterange")` Prisma type — needs `checkIn`/`checkOut` extracted) and the `startOfDhakaDay`/`endOfDhakaMonth`-style helpers in `apps/api/src/common/date/dhaka-time.ts` for any time-bucketed aggregation (extended with new `startOfDhakaWeek`/`endOfDhakaWeek` helpers, following the identical existing pattern).
 
 **Scope decisions (confirmed with the user):**
 
 1. **Analytics stays light/operational, not deep.** Per the user's explicit choice, this plan adds _operational_ platform-wide analytics (revenue trend, booking-status breakdown, top vendors, district distribution) but leaves deeper per-vendor payout/settlement analytics for the future `add-earnings-analytics-dashboard` (ROADMAP 2.3) — avoiding scope duplication.
 2. **Admin force-cancel never triggers a refund.** Matching real-world platform convention (Stripe/Airbnb-style: a support/ops action changes booking state, but money movement is always a separate, deliberate step) and this codebase's existing no-refund-on-CONFIRMED+PAID policy, admin force-cancel only changes `Booking.status` — it never touches `paymentStatus` or any refund path, since no refund API exists in this codebase at all yet.
-3. **Traveler suspension reuses the exact same mechanism as vendor suspension** (`User.suspendedAt`/`suspensionReason`) — one suspension mechanism for both roles, differing only in which capability-checks enforce it (traveler: login + new-booking-creation; vendor: login + new-booking-acceptance + new-listing + search-visibility).
+3. **Traveler suspension reuses the exact same underlying mechanism as vendor suspension** (`User.suspendedAt`/`suspensionReason`, and the same `VendorSuspensionService.suspend`/`unsuspend` methods) — one suspension mechanism for both roles, differing in which capability-checks enforce it (traveler: login + new-booking-creation; vendor: login + new-booking-acceptance + new-listing + search-visibility) and, as shipped, in the `AdminActionType` label the audit log records: `suspend`/`unsuspend` take an optional trailing `action` parameter (default `VENDOR_SUSPENDED`/`VENDOR_UNSUSPENDED`) so `TravelerSuspensionController` can pass `TRAVELER_SUSPENDED`/`TRAVELER_UNSUSPENDED` instead — a hardcoded `VENDOR_*` literal would have permanently mislabelled every traveler suspension in the unified audit log. This was an explicit ruling from the project owner during the pre-flight scan, not the plan's original "verbatim reuse" design.
 
 **Tech Stack:** NestJS 11, Prisma 6, PostgreSQL 16. No new npm dependency.
 
@@ -25,7 +25,7 @@
 - Every task ends green on `pnpm --filter @staybangla/api run test:unit` and/or `test:e2e` before moving to the next task.
 - Any query touching `Booking.checkIn`/`checkOut` must use `$queryRaw`/`Prisma.sql` with `lower(date_range)::text`/`upper(date_range)::text` — Prisma Client cannot select the `Unsupported("daterange")` column at all.
 - Admin force-cancel never writes to `paymentStatus` and never triggers any refund — it is a pure booking-status/ops action (see scope decision 2 above).
-- Traveler suspension reuses `VendorSuspensionService.suspend`/`unsuspend` verbatim — no new suspend/unsuspend service logic is written for travelers.
+- Traveler suspension reuses `VendorSuspensionService.suspend`/`unsuspend` — no new suspend/unsuspend service is written for travelers, but (per the project owner's pre-flight-scan ruling) both methods gained an optional trailing `action: AdminActionType` parameter, defaulting to the original `VENDOR_SUSPENDED`/`VENDOR_UNSUSPENDED` literals, so `TravelerSuspensionController` can pass `TRAVELER_SUSPENDED`/`TRAVELER_UNSUSPENDED` and avoid mislabelling traveler suspensions as vendor ones in the audit log.
 - Deep per-vendor payout/settlement analytics, automated payout calculation, and fraud-pattern detection are explicitly out of scope here — reserved for `add-earnings-analytics-dashboard` (ROADMAP 2.3) and `add-fraud-detection-analytics` (ROADMAP 3.5).
 
 ---
@@ -93,7 +93,7 @@ apps/api/
 
 **Interfaces:**
 
-- Produces: `User.suspendedAt`, `User.suspensionReason` fields; `AdminActionType` enum (`VENDOR_APPROVED | VENDOR_REJECTED | VENDOR_RESUBMITTED | VENDOR_SUSPENDED | VENDOR_UNSUSPENDED | COMMISSION_RATE_CHANGED`); `AdminAuditLog` model (`id, actorId, targetId, action, reason, metadata, createdAt`). Every later task's Prisma Client calls (`this.prisma.adminAuditLog.*`, `this.prisma.user.*` with `suspendedAt`) depend on these exact names. `VendorVerificationLog` model and its two back-relations on `User` are removed.
+- Produces: `User.suspendedAt`, `User.suspensionReason` fields; `AdminActionType` enum (`VENDOR_APPROVED | VENDOR_REJECTED | VENDOR_RESUBMITTED | VENDOR_SUSPENDED | VENDOR_UNSUSPENDED | COMMISSION_RATE_CHANGED`, later extended by Task 9/10 with `BOOKING_FORCE_CANCELLED`/`TRAVELER_SUSPENDED`/`TRAVELER_UNSUSPENDED`); `AdminAuditLog` model (`id, actorId, targetId, action, reason, metadata, createdAt`) — `targetId` is a polymorphic identifier with **no DB-level FK** (see below), not a Prisma relation field. Every later task's Prisma Client calls (`this.prisma.adminAuditLog.*`, `this.prisma.user.*` with `suspendedAt`) depend on these exact names. `VendorVerificationLog` model and both of its back-relations on `User` are removed; only one new back-relation is added (`adminAuditLogsAsActor`) — there is no `adminAuditLogsAsTarget`, since `targetId` is not a foreign key (see Step 1).
 
 - [ ] **Step 1: Add the schema changes**
 
@@ -114,9 +114,10 @@ Replace `User`'s two `VendorVerificationLog` back-relations:
 with:
 
 ```prisma
-  adminAuditLogsAsTarget AdminAuditLog[] @relation("AdminAuditTarget")
   adminAuditLogsAsActor  AdminAuditLog[] @relation("AdminAuditActor")
 ```
+
+**As shipped, this is a single back-relation, not two.** `targetId` on `AdminAuditLog` is a polymorphic identifier — a `User.id` for `VENDOR_*`/`TRAVELER_*`/`COMMISSION_RATE_CHANGED` actions, but a `Booking.id` for `BOOKING_FORCE_CANCELLED` (added in Task 9) — so it cannot be a Prisma relation field to `User` at all; there is no `target User @relation(...)` and no `adminAuditLogsAsTarget` back-relation. See the note under Step 1's `AdminAuditLog` model below for why.
 
 Delete the entire `VendorVerificationLog` model block (it currently reads):
 
@@ -159,7 +160,6 @@ model AdminAuditLog {
   createdAt DateTime        @default(now()) @map("created_at")
 
   actor  User @relation("AdminAuditActor", fields: [actorId], references: [id])
-  target User @relation("AdminAuditTarget", fields: [targetId], references: [id])
 
   @@index([targetId])
   @@index([actorId])
@@ -167,6 +167,8 @@ model AdminAuditLog {
   @@map("admin_audit_logs")
 }
 ```
+
+**As shipped, `targetId` has no `target User @relation(...)` field and no DB-level FK.** This was forced by Task 9: `BOOKING_FORCE_CANCELLED` needs `targetId` to hold a `Booking.id`, not a `User.id`, so a single `references: [id]` FK to `User` would either reject every force-cancel audit write or require a second nullable target column — both worse than the alternative. The column is documented (via a Prisma triple-slash comment on the field, in the real schema) as a polymorphic identifier: a `User.id` for `VENDOR_*`/`TRAVELER_*`/`COMMISSION_RATE_CHANGED` actions, a `Booking.id` for `BOOKING_FORCE_CANCELLED`. This also fits an append-only audit table better on its own terms — it should not FK to rows that may later be deleted, since that would either block the delete or force `ON DELETE SET NULL`/`CASCADE` semantics that don't belong on an audit trail. This was reviewed and accepted during Task 9; it is not a bug.
 
 - [ ] **Step 2: Generate the migration SQL without applying (non-interactive shell — `prisma migrate dev` requires a TTY unavailable here)**
 
@@ -2289,7 +2291,7 @@ Read `apps/api/test/helpers/test-db.ts` in full first — its current `cleanData
 await testPrisma.adminAuditLog.deleteMany();
 ```
 
-Replace the existing `await testPrisma.vendorVerificationLog.deleteMany();` line with this one, in the same position (before `ledgerEntry.deleteMany()`) — `AdminAuditLog` has FKs to `User` (`actorId`, `targetId`) with the default `ON DELETE` behavior (Prisma's default is `Restrict` for required relations), so it must be deleted before `user.deleteMany()`, same constraint the old line satisfied.
+Replace the existing `await testPrisma.vendorVerificationLog.deleteMany();` line with this one, in the same position (before `ledgerEntry.deleteMany()`) — `AdminAuditLog` has an FK to `User` on `actorId` (as shipped, `targetId` is a polymorphic identifier with no FK, see Task 1's Step 1 note) with the default `ON DELETE` behavior (Prisma's default is `Restrict` for required relations), so it must be deleted before `user.deleteMany()`, same constraint the old line satisfied.
 
 - [ ] **Step 2: Write the e2e spec**
 
@@ -3314,7 +3316,7 @@ git commit -m "feat(api): add admin platform-wide booking list and force-cancel"
 
 ---
 
-## Task 10: Traveler control — reuses `VendorSuspensionService`
+## Task 10: Traveler control — reuses `VendorSuspensionService` (with an added `action` parameter)
 
 **Files:**
 
@@ -3330,7 +3332,7 @@ git commit -m "feat(api): add admin platform-wide booking list and force-cancel"
 
 **Interfaces:**
 
-- Consumes: `VendorSuspensionService.suspend`/`unsuspend` (Task 4, reused verbatim — no new suspend/unsuspend logic), `toPublicUser`/`PublicUser` (existing), `createAdmin`/`createTraveler` (existing e2e fixtures).
+- Consumes: `VendorSuspensionService.suspend`/`unsuspend` (Task 4 — as shipped, both gained an optional trailing `action: AdminActionType` parameter, defaulting to `VENDOR_SUSPENDED`/`VENDOR_UNSUSPENDED`, so `TravelerSuspensionController` passes `TRAVELER_SUSPENDED`/`TRAVELER_UNSUSPENDED` explicitly instead of the audit log mislabelling every traveler suspension as a vendor one — a ruling from the project owner during the pre-flight scan, not new suspend/unsuspend service logic), `toPublicUser`/`PublicUser` (existing), `createAdmin`/`createTraveler` (existing e2e fixtures).
 - Produces: `TravelerListController.list(query): Promise<PublicUser[]>` — no later task depends on this.
 
 - [ ] **Step 1: DTO**

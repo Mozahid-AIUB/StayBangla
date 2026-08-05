@@ -58,6 +58,9 @@ export class HotelsService {
     if (!owner || owner.verifiedStatus !== "VERIFIED") {
       throw new ForbiddenException("Only verified vendors can create listings");
     }
+    if (owner.suspendedAt !== null) {
+      throw new ForbiddenException("Your account is suspended");
+    }
   }
 
   async create(ownerId: string, input: CreateHotelInput): Promise<Hotel> {
@@ -96,6 +99,7 @@ export class HotelsService {
       FROM rooms r
       JOIN hotels h ON h.id = r.hotel_id
       WHERE r.is_active = true AND h.is_active = true ${cityFilter}
+        AND h.owner_id NOT IN (SELECT id FROM users WHERE suspended_at IS NOT NULL)
         AND NOT EXISTS (
           SELECT 1 FROM bookings b
           WHERE b.room_id = r.id

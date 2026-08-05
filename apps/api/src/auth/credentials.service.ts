@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -53,6 +54,12 @@ export class CredentialsService {
     );
     if (!valid) {
       throw new UnauthorizedException("Invalid credentials");
+    }
+
+    if (user.suspendedAt !== null) {
+      throw new ForbiddenException(
+        "This account is suspended and cannot log in",
+      );
     }
 
     const roles = user.roles.map((r) => r.role);

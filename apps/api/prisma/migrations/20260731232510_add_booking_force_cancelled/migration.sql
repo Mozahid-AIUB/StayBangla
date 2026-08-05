@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "AdminActionType" ADD VALUE 'BOOKING_FORCE_CANCELLED';
+

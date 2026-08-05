@@ -23,6 +23,7 @@ describe("HotelsService", () => {
       usersService.findById.mockResolvedValue({
         id: "v1",
         verifiedStatus: "VERIFIED",
+        suspendedAt: null,
       });
       prisma.hotel.create.mockResolvedValue({
         id: "h1",
@@ -74,6 +75,23 @@ describe("HotelsService", () => {
           checkOutTime: "12:00",
         }),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("rejects hotel creation when the caller is suspended", async () => {
+      usersService.findById.mockResolvedValue({
+        verifiedStatus: "VERIFIED",
+        suspendedAt: new Date(),
+      });
+
+      await expect(
+        service.create("vendor1", {
+          name: "Test Hotel",
+          city: "DHAKA",
+          address: "123 Road",
+          checkInTime: "14:00",
+          checkOutTime: "11:00",
+        }),
+      ).rejects.toThrow(/suspended/i);
     });
   });
 
@@ -162,6 +180,19 @@ describe("HotelsService", () => {
       expect(
         (prisma as unknown as { $queryRaw: jest.Mock }).$queryRaw,
       ).toHaveBeenCalled();
+    });
+
+    it("excludes suspended owners' rooms from the availability query", async () => {
+      (prisma as unknown as { $queryRaw: jest.Mock }).$queryRaw = jest
+        .fn()
+        .mockResolvedValue([]);
+
+      await service.searchAvailableRooms("2026-09-01", "2026-09-03");
+
+      const [sqlObject] = (prisma as unknown as { $queryRaw: jest.Mock })
+        .$queryRaw.mock.calls[0];
+      const rendered = sqlObject.strings.join("");
+      expect(rendered).toContain("suspended_at");
     });
   });
 });

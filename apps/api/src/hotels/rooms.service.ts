@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { BedType, Room, RoomPhoto, RoomType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { HotelsService } from "./hotels.service";
+import { UsersService } from "../users/users.service";
 import { StoragePort } from "../common/storage/storage.port";
 
 export interface CreateRoomInput {
@@ -28,8 +29,16 @@ export class RoomsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly hotelsService: HotelsService,
+    private readonly usersService: UsersService,
     private readonly storagePort: StoragePort,
   ) {}
+
+  private async assertNotSuspended(callerId: string): Promise<void> {
+    const owner = await this.usersService.findById(callerId);
+    if (owner?.suspendedAt) {
+      throw new ForbiddenException("Your account is suspended");
+    }
+  }
 
   async create(
     callerId: string,
@@ -40,6 +49,7 @@ export class RoomsService {
     if (hotel.ownerId !== callerId) {
       throw new ForbiddenException("You do not own this hotel");
     }
+    await this.assertNotSuspended(callerId);
     return this.prisma.room.create({ data: { hotelId, ...input } });
   }
 
@@ -55,6 +65,7 @@ export class RoomsService {
     if (hotel.ownerId !== callerId) {
       throw new ForbiddenException("You do not own this hotel");
     }
+    await this.assertNotSuspended(callerId);
     return this.prisma.room.update({ where: { id: roomId }, data: input });
   }
 

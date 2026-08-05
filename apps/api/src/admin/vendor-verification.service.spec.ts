@@ -10,7 +10,7 @@ describe("VendorVerificationService", () => {
       findUniqueOrThrow: jest.Mock;
       findUnique: jest.Mock;
     };
-    vendorVerificationLog: { create: jest.Mock; findMany: jest.Mock };
+    adminAuditLog: { create: jest.Mock; findMany: jest.Mock };
   };
   let service: VendorVerificationService;
 
@@ -22,7 +22,7 @@ describe("VendorVerificationService", () => {
         findUniqueOrThrow: jest.fn(),
         findUnique: jest.fn(),
       },
-      vendorVerificationLog: { create: jest.fn(), findMany: jest.fn() },
+      adminAuditLog: { create: jest.fn(), findMany: jest.fn() },
     };
     service = new VendorVerificationService(prisma as unknown as PrismaService);
   });
@@ -54,11 +54,11 @@ describe("VendorVerificationService", () => {
         where: { id: "v1", verifiedStatus: "PENDING" },
         data: { verifiedStatus: "VERIFIED" },
       });
-      expect(prisma.vendorVerificationLog.create).toHaveBeenCalledWith({
+      expect(prisma.adminAuditLog.create).toHaveBeenCalledWith({
         data: {
-          vendorId: "v1",
-          adminId: "admin1",
-          action: "VERIFIED",
+          targetId: "v1",
+          actorId: "admin1",
+          action: "VENDOR_APPROVED",
           reason: undefined,
         },
       });
@@ -70,7 +70,7 @@ describe("VendorVerificationService", () => {
       await expect(service.approve("admin1", "v1")).rejects.toThrow(
         ConflictException,
       );
-      expect(prisma.vendorVerificationLog.create).not.toHaveBeenCalled();
+      expect(prisma.adminAuditLog.create).not.toHaveBeenCalled();
     });
   });
 
@@ -92,11 +92,11 @@ describe("VendorVerificationService", () => {
         where: { id: "v1", verifiedStatus: "PENDING" },
         data: { verifiedStatus: "REJECTED" },
       });
-      expect(prisma.vendorVerificationLog.create).toHaveBeenCalledWith({
+      expect(prisma.adminAuditLog.create).toHaveBeenCalledWith({
         data: {
-          vendorId: "v1",
-          adminId: "admin1",
-          action: "REJECTED",
+          targetId: "v1",
+          actorId: "admin1",
+          action: "VENDOR_REJECTED",
           reason: "NID document unclear",
         },
       });
@@ -108,18 +108,6 @@ describe("VendorVerificationService", () => {
       await expect(service.reject("admin1", "v1", "reason")).rejects.toThrow(
         ConflictException,
       );
-    });
-  });
-
-  describe("getHistory", () => {
-    it("returns the log rows for a vendor, newest first", async () => {
-      prisma.vendorVerificationLog.findMany.mockResolvedValue([{ id: "log1" }]);
-      const result = await service.getHistory("v1");
-      expect(prisma.vendorVerificationLog.findMany).toHaveBeenCalledWith({
-        where: { vendorId: "v1" },
-        orderBy: { createdAt: "desc" },
-      });
-      expect(result).toHaveLength(1);
     });
   });
 
@@ -171,7 +159,7 @@ describe("VendorVerificationService", () => {
       );
     });
 
-    it("writes a VendorVerificationLog entry when a genuine REJECTED->PENDING resubmit occurs", async () => {
+    it("writes an AdminAuditLog entry when a genuine REJECTED->PENDING resubmit occurs", async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: "v1",
         verifiedStatus: "REJECTED",
@@ -184,11 +172,11 @@ describe("VendorVerificationService", () => {
 
       await service.resubmit("v1");
 
-      expect(prisma.vendorVerificationLog.create).toHaveBeenCalledWith({
+      expect(prisma.adminAuditLog.create).toHaveBeenCalledWith({
         data: {
-          vendorId: "v1",
-          adminId: "v1",
-          action: "PENDING",
+          targetId: "v1",
+          actorId: "v1",
+          action: "VENDOR_RESUBMITTED",
           reason: undefined,
         },
       });
@@ -202,7 +190,7 @@ describe("VendorVerificationService", () => {
 
       await service.resubmit("v1");
 
-      expect(prisma.vendorVerificationLog.create).not.toHaveBeenCalled();
+      expect(prisma.adminAuditLog.create).not.toHaveBeenCalled();
     });
 
     it("does not write a log entry when the resubmit's guarded update loses a race (count 0)", async () => {
@@ -218,7 +206,7 @@ describe("VendorVerificationService", () => {
 
       await service.resubmit("v1");
 
-      expect(prisma.vendorVerificationLog.create).not.toHaveBeenCalled();
+      expect(prisma.adminAuditLog.create).not.toHaveBeenCalled();
     });
   });
 });

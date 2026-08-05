@@ -71,6 +71,13 @@ export class BookingsService {
   ): Promise<BookingRecord> {
     this.validateDates(input.checkIn, input.checkOut);
 
+    const traveler = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (traveler?.suspendedAt) {
+      throw new ForbiddenException("Your account is suspended");
+    }
+
     let resourceOwnerId: string;
     let pricePerUnit: number;
     let currency: string;
@@ -87,6 +94,9 @@ export class BookingsService {
       }
       if (room.hotel.owner.verifiedStatus !== "VERIFIED") {
         throw new ForbiddenException("This listing's owner is not verified");
+      }
+      if (room.hotel.owner.suspendedAt !== null) {
+        throw new ForbiddenException("This listing's owner is suspended");
       }
       resourceOwnerId = room.hotel.ownerId;
       pricePerUnit = room.pricePerNightMinor;
@@ -105,6 +115,9 @@ export class BookingsService {
       }
       if (vehicle.owner.verifiedStatus !== "VERIFIED") {
         throw new ForbiddenException("This listing's owner is not verified");
+      }
+      if (vehicle.owner.suspendedAt !== null) {
+        throw new ForbiddenException("This listing's owner is suspended");
       }
       resourceOwnerId = vehicle.ownerId;
       pricePerUnit = vehicle.pricePerDayMinor;
@@ -332,6 +345,13 @@ export class BookingsService {
     callerId: string,
     input: CreateBlockInput,
   ): Promise<BookingRecord> {
+    const caller = await this.prisma.user.findUnique({
+      where: { id: callerId },
+    });
+    if (caller?.suspendedAt) {
+      throw new ForbiddenException("Your account is suspended");
+    }
+
     let resourceOwnerId: string;
 
     if (input.bookableType === "ROOM") {
@@ -398,6 +418,13 @@ export class BookingsService {
     vendorLedgerEntry: import("@prisma/client").VendorLedgerEntry;
   }> {
     this.validateDates(input.checkIn, input.checkOut);
+
+    const caller = await this.prisma.user.findUnique({
+      where: { id: callerId },
+    });
+    if (caller?.suspendedAt) {
+      throw new ForbiddenException("Your account is suspended");
+    }
 
     let resourceOwnerId: string;
     if (input.bookableType === "ROOM") {

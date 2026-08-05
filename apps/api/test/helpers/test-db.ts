@@ -30,12 +30,13 @@ async function clearThrottlerKeys(): Promise<void> {
 }
 
 export async function cleanDatabase(): Promise<void> {
-  // Photos FK-constrain to their parent hotel/room; verification logs FK-constrain
-  // to two User rows (vendor + admin) — all must be cleared before their referenced
-  // parent rows below.
+  // Photos FK-constrain to their parent hotel/room; audit logs FK-constrain
+  // to a User row (actor only — target has no DB-level FK since it can be a
+  // Booking too) — all must be cleared before their referenced parent rows
+  // below.
   await testPrisma.hotelPhoto.deleteMany();
   await testPrisma.roomPhoto.deleteMany();
-  await testPrisma.vendorVerificationLog.deleteMany();
+  await testPrisma.adminAuditLog.deleteMany();
   // LedgerEntry has a real Prisma @relation FK to Booking, so it must be
   // cleared before Booking rows are deleted.
   await testPrisma.ledgerEntry.deleteMany();

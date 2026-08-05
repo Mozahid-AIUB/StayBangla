@@ -114,6 +114,30 @@ describe("CredentialsController", () => {
     expect(result).toEqual({ accessToken: "at3" });
   });
 
+  it("refresh() rejects when the token's user is suspended, via the loadSubject callback passed to rotateRefreshToken", async () => {
+    usersService.findById.mockResolvedValue({
+      id: "vendor1",
+      suspendedAt: new Date(),
+      roles: [{ role: "VENDOR" }],
+    });
+    tokenService.rotateRefreshToken.mockImplementation(
+      async (
+        _token: string,
+        loadSubject: (userId: string) => Promise<unknown>,
+      ) => {
+        await loadSubject("vendor1");
+        throw new Error("unreachable — loadSubject should have thrown first");
+      },
+    );
+
+    await expect(
+      controller.refresh(
+        { cookies: { refreshToken: "some-token" } } as never,
+        { cookie: jest.fn() } as never,
+      ),
+    ).rejects.toThrow(/suspended/i);
+  });
+
   it("logout() revokes the token family and clears the cookie", async () => {
     await controller.logout(
       { cookies: { refreshToken: "rt" } } as never,
