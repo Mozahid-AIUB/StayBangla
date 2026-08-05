@@ -339,6 +339,7 @@ model LedgerEntry {
 
   booking Booking @relation(fields: [bookingId], references: [id])
 
+  @@unique([bookingId, type])
   @@index([bookingId])
   @@map("ledger_entries")
 }
