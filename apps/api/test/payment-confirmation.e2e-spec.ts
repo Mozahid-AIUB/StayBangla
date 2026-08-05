@@ -138,8 +138,14 @@ describe("Payment confirmation (e2e)", () => {
     // Every other fixture in this file passes storeId: null, which takes the
     // `validation.storeId !== null` early-exit in confirmIfValid and never
     // actually compares against SSLCOMMERZ_STORE_ID. This test exercises the
-    // real comparison branch end-to-end using the store id configured for
-    // the test environment (apps/api/.env.test: SSLCOMMERZ_STORE_ID=test-store-id).
+    // real comparison branch end-to-end.
+    //
+    // Read the configured id rather than hardcoding it: .env.test uses
+    // `test-store-id` but CI generates its own .env.test with
+    // `ci-test-store-id` (.github/workflows/ci.yml), so a literal here passes
+    // locally and fails in CI — which is exactly what happened.
+    const configuredStoreId = process.env.SSLCOMMERZ_STORE_ID;
+    expect(configuredStoreId).toBeTruthy();
     const { bookingId, travelerToken } = await createHeldBooking();
     fakeProvider.createSession.mockResolvedValue({
       gatewayUrl: "https://sandbox.sslcommerz.com/pay/xyz",
@@ -153,7 +159,7 @@ describe("Payment confirmation (e2e)", () => {
       valid: true,
       amountMinor: 500000,
       currency: "BDT",
-      storeId: "test-store-id",
+      storeId: configuredStoreId,
       valId: "val-e2e-store-match",
     });
 
