@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import { District } from "@staybangla/shared-types";
-import { DISTRICTS, FEATURED_DISTRICT_ORDER } from "@/lib/districts";
+import { DISTRICTS, ALL_DISTRICTS_IN_ORDER } from "@/lib/districts";
 import { COPY, t } from "@/lib/copy";
 import { useLang } from "@/lib/lang-context";
 
@@ -51,7 +51,7 @@ export function SearchForm() {
             className="border-border focus:border-primary focus:ring-primary/30 h-12 rounded-lg border bg-transparent px-3 text-base focus:ring-2 focus:outline-none"
           >
             <option value="">{t(COPY.search.anywhere, lang)}</option>
-            {FEATURED_DISTRICT_ORDER.map((d) => (
+            {ALL_DISTRICTS_IN_ORDER.map((d) => (
               <option key={d} value={d}>
                 {t(DISTRICTS[d].name, lang)}
               </option>

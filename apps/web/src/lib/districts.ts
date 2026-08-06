@@ -1,4 +1,15 @@
 import { District } from "@staybangla/shared-types";
+import type { Month } from "./season";
+
+/**
+ * The landscape a district is, which decides the tone its card is painted in.
+ *
+ * Not a decorative palette: three hill districts share one tone because they
+ * are one landscape, and a visitor scanning the grid should be able to see
+ * that without reading a word.
+ */
+export type Terrain =
+  "sea" | "island" | "hill" | "tea" | "forest" | "river" | "city";
 
 export interface DistrictInfo {
   /** Both languages: the site defaults to English but most of the audience
@@ -6,6 +17,17 @@ export interface DistrictInfo {
   name: { en: string; bn: string };
   /** One line on why you would go. Kept short — these are cards, not copy. */
   blurb: { en: string; bn: string };
+  /**
+   * The months the trip is actually worth making.
+   *
+   * Load-bearing, not a tag. Saint Martin has no ferry outside winter, the
+   * Sundarbans in monsoon is a wet boat ride past nothing, and Sylhet's swamp
+   * forest is a dry patch of trees until the water rises. Getting this wrong
+   * costs a visitor their trip, so each set is the real season rather than a
+   * blanket "winter is nice".
+   */
+  season: readonly Month[];
+  terrain: Terrain;
 }
 
 /**
@@ -17,52 +39,82 @@ export const DISTRICTS: Record<District, DistrictInfo> = {
   [District.COXS_BAZAR]: {
     name: { en: "Cox's Bazar", bn: "কক্সবাজার" },
     blurb: {
-      en: "The world's longest beach",
-      bn: "বিশ্বের দীর্ঘতম সমুদ্রসৈকত",
+      // Not "the world's longest beach" — every listing site says it, so it
+      // has stopped meaning anything. The number still does.
+      en: "A hundred and twenty kilometres of unbroken sand.",
+      bn: "একশো কুড়ি কিলোমিটার অবিচ্ছিন্ন বালি।",
     },
+    season: [11, 12, 1, 2, 3],
+    terrain: "sea",
   },
   [District.SAINT_MARTIN]: {
     name: { en: "Saint Martin", bn: "সেন্ট মার্টিন" },
-    blurb: { en: "The only coral island", bn: "দেশের একমাত্র প্রবাল দ্বীপ" },
+    blurb: {
+      en: "Coral and clear water. Boats run in winter only.",
+      bn: "প্রবাল আর স্বচ্ছ জল। জাহাজ চলে শুধু শীতে।",
+    },
+    season: [11, 12, 1, 2],
+    terrain: "island",
   },
   [District.RANGAMATI]: {
     name: { en: "Rangamati", bn: "রাঙামাটি" },
     blurb: {
-      en: "Kaptai lake, Sajek cloud",
-      bn: "কাপ্তাই হ্রদ আর সাজেকের মেঘ",
+      en: "Sajek, where the cloud sits below the road.",
+      bn: "সাজেক — মেঘ থাকে রাস্তার নিচে।",
     },
+    // Two spells, and both are real: the monsoon is when Sajek is above the
+    // cloud, winter is when the lake and the hill roads are at their best.
+    season: [7, 8, 9, 11, 12, 1, 2],
+    terrain: "hill",
   },
   [District.BANDARBAN]: {
     name: { en: "Bandarban", bn: "বান্দরবান" },
     blurb: {
-      en: "Nilgiri, Nafakhum, hill roads",
-      bn: "নীলগিরি, নাফাখুম, পাহাড়ি পথ",
+      en: "Nilgiri at dawn, Nafakhum after the rains.",
+      bn: "ভোরের নীলগিরি, বৃষ্টির পরের নাফাখুম।",
     },
+    season: [10, 11, 12, 1, 2, 3],
+    terrain: "hill",
   },
   [District.KHAGRACHARI]: {
     name: { en: "Khagrachari", bn: "খাগড়াছড়ি" },
-    blurb: { en: "Caves and waterfalls", bn: "আলুটিলা গুহা আর ঝরনার দেশ" },
+    blurb: {
+      en: "Alutila cave, walked by torchlight.",
+      bn: "আলুটিলা গুহা — মশাল হাতে হেঁটে।",
+    },
+    season: [10, 11, 12, 1, 2],
+    terrain: "hill",
   },
   [District.SREEMANGAL]: {
     name: { en: "Sreemangal", bn: "শ্রীমঙ্গল" },
     blurb: {
-      en: "Tea country, green terraces",
-      bn: "চায়ের রাজধানী, সবুজ বাগান",
+      // The seven-layer tea is Sreemangal's and nowhere else's — the kind of
+      // detail only someone who has been there writes.
+      en: "Seven layers of tea in one glass.",
+      bn: "এক গ্লাসে সাত রঙা চা।",
     },
+    season: [9, 10, 11, 12, 1, 2],
+    terrain: "tea",
   },
   [District.SUNDARBANS]: {
     name: { en: "Sundarbans", bn: "সুন্দরবন" },
     blurb: {
-      en: "Home of the Royal Bengal tiger",
-      bn: "রয়েল বেঙ্গল টাইগারের বাড়ি",
+      en: "Mangrove, tide, and the tiger you probably won't see.",
+      bn: "ম্যানগ্রোভ, জোয়ার — আর যে বাঘ সহজে দেখা দেয় না।",
     },
+    season: [11, 12, 1, 2],
+    terrain: "forest",
   },
   [District.SYLHET]: {
     name: { en: "Sylhet", bn: "সিলেট" },
     blurb: {
-      en: "Jaflong, Ratargul, haor water",
-      bn: "জাফলং, রাতারগুল, হাওরের জল",
+      en: "Ratargul is a forest you enter by boat.",
+      bn: "রাতারগুল — যে বনে ঢুকতে হয় নৌকায়।",
     },
+    // The one district where the monsoon is the season: the swamp forest and
+    // the haors need high water. Jaflong wants the dry months instead.
+    season: [6, 7, 8, 9, 11, 12, 1],
+    terrain: "river",
   },
   [District.CHATTOGRAM]: {
     name: { en: "Chattogram", bn: "চট্টগ্রাম" },
@@ -70,14 +122,20 @@ export const DISTRICTS: Record<District, DistrictInfo> = {
       en: "Port city of hills and sea",
       bn: "পাহাড় আর সমুদ্রের বন্দরনগরী",
     },
+    season: [11, 12, 1, 2],
+    terrain: "city",
   },
   [District.DHAKA]: {
     name: { en: "Dhaka", bn: "ঢাকা" },
     blurb: { en: "Four centuries a capital", bn: "চারশো বছরের রাজধানী" },
+    season: [11, 12, 1, 2],
+    terrain: "city",
   },
   [District.KHULNA]: {
     name: { en: "Khulna", bn: "খুলনা" },
     blurb: { en: "Gateway to the Sundarbans", bn: "সুন্দরবনের প্রবেশদ্বার" },
+    season: [11, 12, 1, 2],
+    terrain: "city",
   },
   [District.BARISHAL]: {
     name: { en: "Barishal", bn: "বরিশাল" },
@@ -85,6 +143,10 @@ export const DISTRICTS: Record<District, DistrictInfo> = {
       en: "River city, floating guava market",
       bn: "নদীর শহর, ভাসমান পেয়ারা বাজার",
     },
+    // The guava market is the reason to go, and it is a monsoon market — the
+    // usual winter answer would send someone to an empty canal.
+    season: [7, 8, 9],
+    terrain: "river",
   },
   [District.RAJSHAHI]: {
     name: { en: "Rajshahi", bn: "রাজশাহী" },
@@ -92,10 +154,15 @@ export const DISTRICTS: Record<District, DistrictInfo> = {
       en: "Mangoes, silk, Puthia temples",
       bn: "আম, রেশম আর পুঠিয়ার মন্দির",
     },
+    // Mango season, not winter.
+    season: [5, 6, 7],
+    terrain: "city",
   },
   [District.RANGPUR]: {
     name: { en: "Rangpur", bn: "রংপুর" },
     blurb: { en: "Tajhat palace", bn: "তাজহাট জমিদারবাড়ি" },
+    season: [11, 12, 1, 2],
+    terrain: "city",
   },
   [District.MYMENSINGH]: {
     name: { en: "Mymensingh", bn: "ময়মনসিংহ" },
@@ -103,10 +170,16 @@ export const DISTRICTS: Record<District, DistrictInfo> = {
       en: "Brahmaputra bank, Garo hills",
       bn: "ব্রহ্মপুত্রের পাড়, গারো পাহাড়",
     },
+    season: [10, 11, 12, 1, 2],
+    terrain: "hill",
   },
   [District.JESSORE]: {
     name: { en: "Jessore", bn: "যশোর" },
     blurb: { en: "Godkhali, kingdom of flowers", bn: "ফুলের রাজ্য গদখালী" },
+    // The flower fields peak around winter, which is also when Godkhali
+    // supplies the rest of the country.
+    season: [12, 1, 2],
+    terrain: "city",
   },
 };
 
@@ -115,16 +188,16 @@ export const DISTRICTS: Record<District, DistrictInfo> = {
  * comes here for first, cities after. Deliberately hand-ordered rather than
  * enum order, which is arbitrary.
  *
- * The `satisfies` clause is what makes an omission a build error: the tuple
- * must contain every District, so adding one to the enum without ordering it
- * here fails `pnpm typecheck` instead of silently dropping a card.
+ * The completeness check below is what makes an omission a build error: the
+ * tuple must contain every District, so adding one to the enum without
+ * ordering it here fails `pnpm typecheck` instead of silently dropping a card.
  */
 const DISTRICT_ORDER = [
   District.COXS_BAZAR,
-  District.SAINT_MARTIN,
   District.RANGAMATI,
-  District.BANDARBAN,
+  District.SAINT_MARTIN,
   District.SREEMANGAL,
+  District.BANDARBAN,
   District.SUNDARBANS,
   District.SYLHET,
   District.KHAGRACHARI,
@@ -145,4 +218,43 @@ type _AllDistrictsOrdered = District extends (typeof DISTRICT_ORDER)[number]
 const _districtOrderIsComplete: _AllDistrictsOrdered = true;
 void _districtOrderIsComplete;
 
-export const FEATURED_DISTRICT_ORDER: readonly District[] = DISTRICT_ORDER;
+/**
+ * All sixteen, in display order — the search dropdown's list.
+ *
+ * Named apart from FEATURED_DISTRICTS below on purpose: the two were briefly
+ * one export whose name said "featured" while its contents said "all", which
+ * is exactly the kind of thing that ends up rendering sixteen cards where
+ * eight were meant.
+ */
+export const ALL_DISTRICTS_IN_ORDER: readonly District[] = DISTRICT_ORDER;
+
+/**
+ * The eight given a card of their own — the places people travel *to*, rather
+ * than the cities they travel through.
+ *
+ * A magazine does not give every entry the same column inches, and neither
+ * does this grid. The rest keep their names and their season data; they simply
+ * do not get a photograph's worth of space on the front page.
+ */
+export const FEATURED_DISTRICTS = [
+  District.COXS_BAZAR,
+  District.RANGAMATI,
+  District.SAINT_MARTIN,
+  District.SREEMANGAL,
+  District.BANDARBAN,
+  District.SUNDARBANS,
+  District.SYLHET,
+  District.KHAGRACHARI,
+] as const;
+
+/**
+ * Everything else, derived rather than listed.
+ *
+ * Two hand-written lists would let a district fall between them and vanish
+ * from the page without failing anything. Subtracting from the ordered list
+ * means a newly added district lands here automatically — visible and plain,
+ * which is the right way to be wrong.
+ */
+export const REMAINING_DISTRICTS: readonly District[] = DISTRICT_ORDER.filter(
+  (district) => !(FEATURED_DISTRICTS as readonly District[]).includes(district),
+);

@@ -45,11 +45,39 @@ export const COPY = {
   },
 
   districts: {
-    heading: { en: "Where to?", bn: "কোথায় যাবেন?" },
+    // "and when" is not a flourish — it names what the section actually
+    // carries. Every card answers both halves.
+    heading: { en: "Where to, and when", bn: "কোথায়, আর কখন" },
     sub: {
-      en: "Sixteen districts — hills, sea, forest, and city.",
-      bn: "ষোলো জেলা — পাহাড়, সমুদ্র, বন আর শহর।",
+      en: "The season decides more than the place does. Saint Martin has no boats outside winter; Sylhet's swamp forest only exists when the water is high.",
+      bn: "জায়গার চেয়ে ঋতুই বেশি ঠিক করে দেয়। শীত ছাড়া সেন্ট মার্টিনে জাহাজ চলে না, আর জল না বাড়লে রাতারগুল বনই নয়।",
     },
+    restHeading: { en: "Cities and elsewhere", bn: "শহর আর বাকি সব" },
+  },
+
+  season: {
+    /** Prefix on each card's season line. */
+    best: { en: "Best", bn: "সেরা সময়" },
+    yearRound: { en: "Year round", bn: "সারা বছর" },
+    /**
+     * Short month names, January first — indexed by month number minus one in
+     * formatSeason(). Abbreviated because they sit inside a card, not a
+     * sentence.
+     */
+    months: [
+      { en: "Jan", bn: "জানু" },
+      { en: "Feb", bn: "ফেব্রু" },
+      { en: "Mar", bn: "মার্চ" },
+      { en: "Apr", bn: "এপ্রিল" },
+      { en: "May", bn: "মে" },
+      { en: "Jun", bn: "জুন" },
+      { en: "Jul", bn: "জুলাই" },
+      { en: "Aug", bn: "আগস্ট" },
+      { en: "Sep", bn: "সেপ্টে" },
+      { en: "Oct", bn: "অক্টো" },
+      { en: "Nov", bn: "নভে" },
+      { en: "Dec", bn: "ডিসে" },
+    ],
   },
 
   why: {
