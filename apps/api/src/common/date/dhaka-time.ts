@@ -32,6 +32,25 @@ export function startOfDhakaDay(date: Date): Date {
   return dhakaMidnightUtc(year, month, day);
 }
 
+/**
+ * The calendar date it is right now in Bangladesh, as "YYYY-MM-DD".
+ *
+ * For comparing against a date the caller sent as a plain calendar date, where
+ * turning either side into a Date is what goes wrong. `new Date("2026-08-06")`
+ * is UTC midnight, and `new Date()` with `setHours(0,0,0,0)` is midnight in
+ * whatever timezone the container happens to run in — so a comparison between
+ * them is answering a question about two different days, and the answer changes
+ * if someone sets TZ on the deployment.
+ *
+ * ISO date strings compare correctly with `<` and `>`, so callers can leave
+ * both sides as strings and never construct a Date at all.
+ */
+export function dhakaCalendarDate(date: Date = new Date()): string {
+  const { year, month, day } = toDhakaParts(date);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${year}-${pad(month)}-${pad(day)}`;
+}
+
 export function endOfDhakaDay(date: Date): Date {
   const { year, month, day } = toDhakaParts(date);
   const nextDay = new Date(Date.UTC(year, month - 1, day + 1));

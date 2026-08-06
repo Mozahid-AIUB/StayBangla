@@ -8,6 +8,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { LedgerEntryType, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { dhakaCalendarDate } from "../common/date/dhaka-time";
 import { PaymentProviderPort } from "../common/payments/payment-provider.port";
 import { BookingExpiryQueueService } from "./queue/booking-expiry-queue.service";
 import { BookingRecord, CreateOfflineBookingInput } from "./bookings.types";
@@ -29,6 +30,36 @@ export interface CreateBlockInput {
 
 const EXCLUSION_VIOLATION_SQLSTATE = "23P01";
 
+/**
+ * Longest bookable or blockable range.
+ *
+ * There was no upper bound at all, and `nights` comes straight from the
+ * request. Two things followed from that. A caller could hold a room for a
+ * decade — the exclusion constraint on `date_range` then refuses every other
+ * booking for that room, so one request denies the vendor their inventory. And
+ * `nights * pricePerNightMinor` is written into an int4 column, so a long
+ * enough range raises `22003 integer out of range` inside the INSERT: a 500
+ * where the answer is plainly "no".
+ *
+ * A year is past any real stay while still leaving a vendor room to block a
+ * seasonal closure.
+ */
+const MAX_NIGHTS = 365;
+
+/** int4, the width of every `*_amount_minor` column. */
+const INT32_MAX = 2_147_483_647;
+
+/**
+ * Calendar date, and nothing else.
+ *
+ * `@IsDateString()` on the DTOs accepts a full ISO instant as happily as a
+ * plain date, so "2026-09-01T23:00:00Z" reaches this service. Postgres then
+ * resolves `'2026-09-01T23:00:00Z'::date` against the session timezone, which
+ * means the day a booking lands on would depend on a database setting nobody
+ * looks at. Rejecting anything that is not a bare date removes the question.
+ */
+const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 @Injectable()
 export class BookingsService {
   constructor(
@@ -38,20 +69,61 @@ export class BookingsService {
     private readonly config: ConfigService,
   ) {}
 
-  private validateDates(checkIn: string, checkOut: string): void {
-    const inDate = new Date(checkIn);
-    const outDate = new Date(checkOut);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (inDate >= outDate) {
-      throw new BadRequestException("checkIn must be before checkOut");
+  /**
+   * Validates a date range against the calendar in Bangladesh.
+   *
+   * The previous version compared `new Date(checkIn)` — UTC midnight — against
+   * `new Date()` with `setHours(0,0,0,0)`, which is midnight in whatever
+   * timezone the container runs in. Two defects came out of that.
+   *
+   * On a UTC deployment, for the six hours between 18:00Z and midnight the
+   * Dhaka calendar has already turned over while the UTC one has not, so a
+   * check-in date that is *yesterday in Bangladesh* was accepted. Every day.
+   * Reproduced at 19:00Z and 23:30Z before this was changed.
+   *
+   * And because `setHours` is local, the rule itself moved with the `TZ`
+   * environment variable — the same request could be valid on one deployment
+   * and rejected on another.
+   *
+   * Both sides stay strings now. ISO dates compare correctly with `<`, so no
+   * Date is constructed and there is no timezone for one to be wrong in.
+   *
+   * This is the fourth time UTC-for-Dhaka has been found on this codebase, so
+   * the helper is used rather than the arithmetic being rewritten here.
+   */
+  private validateDates(
+    from: string,
+    to: string,
+    labels: { from: string; to: string } = { from: "checkIn", to: "checkOut" },
+  ): void {
+    if (!CALENDAR_DATE.test(from) || !CALENDAR_DATE.test(to)) {
+      throw new BadRequestException(
+        `${labels.from} and ${labels.to} must be calendar dates (YYYY-MM-DD)`,
+      );
     }
-    if (inDate < today) {
-      throw new BadRequestException("checkIn cannot be in the past");
+    if (from >= to) {
+      throw new BadRequestException(
+        `${labels.from} must be before ${labels.to}`,
+      );
+    }
+    if (from < dhakaCalendarDate()) {
+      throw new BadRequestException(`${labels.from} cannot be in the past`);
+    }
+    if (this.nights(from, to) > MAX_NIGHTS) {
+      throw new BadRequestException(
+        `A range cannot be longer than ${MAX_NIGHTS} nights`,
+      );
     }
   }
 
+  /**
+   * Whole days between two calendar dates.
+   *
+   * Both sides are known to be bare "YYYY-MM-DD" by the time this is called,
+   * which Date parses as UTC midnight — so the subtraction is exact whole days
+   * with no offset able to leave a remainder. That guarantee is why
+   * validateDates rejects anything with a time component before this runs.
+   */
   private nights(checkIn: string, checkOut: string): number {
     const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
     return Math.round(ms / (1000 * 60 * 60 * 24));
@@ -74,7 +146,12 @@ export class BookingsService {
     const traveler = await this.prisma.user.findUnique({
       where: { id: userId },
     });
-    if (traveler?.suspendedAt) {
+    // `traveler?.suspendedAt` let a missing user through: optional chaining
+    // gives undefined, which is falsy, so an account deleted while its access
+    // token was still valid kept booking for the ~15 minutes the JWT lived.
+    // The listing checks below already read `!owner || ...`; this is the same
+    // shape.
+    if (!traveler || traveler.suspendedAt) {
       throw new ForbiddenException("Your account is suspended");
     }
 
@@ -126,6 +203,15 @@ export class BookingsService {
 
     const totalAmountMinor =
       this.nights(input.checkIn, input.checkOut) * pricePerUnit;
+    // MAX_NIGHTS alone does not close this: a year at a suite priced above
+    // ~58,800 BDT a night still exceeds int4, and the INSERT would raise
+    // `22003 integer out of range` — a 500 for something the caller could have
+    // been told plainly.
+    if (totalAmountMinor > INT32_MAX) {
+      throw new BadRequestException(
+        "This booking's total is too large to process — shorten the stay",
+      );
+    }
     const roomId = input.bookableType === "ROOM" ? input.bookableId : null;
     const vehicleId =
       input.bookableType === "VEHICLE" ? input.bookableId : null;
@@ -396,10 +482,20 @@ export class BookingsService {
     callerId: string,
     input: CreateBlockInput,
   ): Promise<BookingRecord> {
+    // This method validated nothing at all. An inverted range reached
+    // `daterange(start, end)`, which Postgres rejects with "range lower bound
+    // must be less than or equal to range upper bound" — surfacing as a 500
+    // rather than the 400 it is, and with a message about ranges rather than
+    // about the two dates the vendor typed.
+    this.validateDates(input.startDate, input.endDate, {
+      from: "startDate",
+      to: "endDate",
+    });
+
     const caller = await this.prisma.user.findUnique({
       where: { id: callerId },
     });
-    if (caller?.suspendedAt) {
+    if (!caller || caller.suspendedAt) {
       throw new ForbiddenException("Your account is suspended");
     }
 
@@ -473,8 +569,14 @@ export class BookingsService {
     const caller = await this.prisma.user.findUnique({
       where: { id: callerId },
     });
-    if (caller?.suspendedAt) {
+    if (!caller || caller.suspendedAt) {
       throw new ForbiddenException("Your account is suspended");
+    }
+
+    if (input.amountMinor > INT32_MAX) {
+      throw new BadRequestException(
+        "This amount is too large to record — check the figure",
+      );
     }
 
     let resourceOwnerId: string;
