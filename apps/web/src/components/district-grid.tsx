@@ -11,7 +11,9 @@ import { DISTRICTS, FEATURED_DISTRICT_ORDER } from "@/lib/districts";
 export function DistrictGrid() {
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
-      <h2 className="text-2xl font-bold sm:text-3xl">কোথায় যাবেন?</h2>
+      <h2 className="font-display text-2xl font-light sm:text-3xl">
+        কোথায় যাবেন?
+      </h2>
       <p className="text-muted-foreground mt-2 text-base">
         বাংলাদেশের ১৬টি গন্তব্য — পাহাড়, সমুদ্র, বন আর শহর।
       </p>

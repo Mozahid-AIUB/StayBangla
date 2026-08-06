@@ -46,6 +46,66 @@
     var(--font-bengali), var(--font-geist-sans), ui-sans-serif, system-ui,
     sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+}
+
+/* Display face — splash wordmark and page headings. Serif for a travel brand
+   reads as considered rather than corporate; body copy stays on the sans
+   above, where a serif at small sizes would cost legibility.
+
+   A plain class rather than a --font-* theme token or an @utility: the token
+   form emits nothing when it resolves to a next/font variable (whose value is
+   injected at runtime, not build time), and @utility did not register in dev
+   either. Verified against the served stylesheet rather than assumed. */
+.font-display {
+  font-family: var(--font-display-serif), var(--font-bengali), serif;
+}
+
+/* Splash motion. Kept here rather than inline so the keyframes exist once and
+   the reduced-motion guard below can switch all of it off in one place. */
+
+/* Ken Burns: slow enough that it reads as depth rather than movement. */
+@keyframes splash-drift {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.09);
+  }
+}
+
+/* A single pass of light across the wordmark. */
+@keyframes splash-sheen {
+  from {
+    background-position: -150% 0;
+  }
+  to {
+    background-position: 250% 0;
+  }
+}
+
+/* Hero drift: far slower than the splash's, and it alternates rather than
+   looping, so it never snaps back to the start while someone is reading. */
+@keyframes hero-drift {
+  from {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.12) translate3d(-1%, -1.5%, 0);
+  }
+}
+
+.hero-drift {
+  animation: hero-drift 38s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-drift,
+  .splash-sheen,
+  .hero-drift {
+    animation: none !important;
+  }
 }
 
 @media (prefers-color-scheme: dark) {

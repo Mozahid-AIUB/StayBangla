@@ -17,7 +17,9 @@ export function WhyStayBangla() {
   return (
     <section className="bg-surface border-border border-y">
       <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
-        <h2 className="text-2xl font-bold sm:text-3xl">কেন StayBangla</h2>
+        <h2 className="font-display text-2xl font-light sm:text-3xl">
+          কেন StayBangla
+        </h2>
         <div className="mt-8 grid gap-6 sm:grid-cols-3 sm:gap-8">
           {REASONS.map(({ title, body }) => (
             <div key={title}>

@@ -4,79 +4,155 @@ import { useEffect, useState } from "react";
 
 const SEEN_KEY = "staybangla:splash-seen";
 
-/** How long the brand mark holds before the curtains start moving. */
-const HOLD_MS = 450;
+/**
+ * How long the wordmark takes to spin in from depth and settle. The photograph
+ * sharpens from blur over the same window, so the two land together.
+ */
+const ARRIVE_MS = 1100;
 
-/** How long the curtains take to part. Matches the CSS duration below. */
-const PART_MS = 550;
+/** When the Bengali tagline fades in — after the wordmark has settled. */
+const TAGLINE_DELAY_MS = 900;
 
 /**
- * Hard ceiling on the whole thing — hold plus part, one second total, as
- * specified. If anything stalls (slow image, busy main thread) the splash
- * leaves anyway. On Bangladeshi mobile networks a stuck overlay is the
- * difference between a visit and a bounce, so this ceiling is not optional.
+ * Total time before the curtains move — arrival, then a beat to read both
+ * lines and let the light pass across the wordmark.
+ *
+ * At the original 450ms nobody could see the image at all, which defeated the
+ * point of having one. 2.3s gives the four layered movements room to read as
+ * one composed moment rather than a pile-up, without becoming a toll booth.
+ */
+const HOLD_MS = 2300;
+
+/** How long the curtains take to part. Matches the CSS duration below. */
+const PART_MS = 700;
+
+/**
+ * Hard ceiling on the whole thing — hold plus part, 3s total. If anything
+ * stalls (slow image, busy main thread) the splash leaves anyway. On
+ * Bangladeshi mobile networks a stuck overlay is the difference between a visit
+ * and a bounce, so this ceiling is not optional.
  */
 const MAX_VISIBLE_MS = HOLD_MS + PART_MS;
 
-type Phase = "hidden" | "showing" | "parting";
+/**
+ * Runs before first paint, inlined in <head> by SplashGate below.
+ *
+ * This is the whole reason the splash does not flash the page first: React
+ * cannot help here. Any React-driven overlay necessarily paints *after* the
+ * server HTML, so the visitor sees the hero, then the splash covering it, then
+ * the hero again. Deciding in a blocking head script means the overlay is
+ * already opaque in the very first frame.
+ *
+ * Sets data-splash="on" on <html>, which the CSS below keys off. Anyone with
+ * prefers-reduced-motion never gets the attribute, and in production neither
+ * does a returning visitor — for them the overlay is never painted at all.
+ *
+ * In development it replays on every reload, so the animation can be iterated
+ * on without clearing sessionStorage or opening a private window each time.
+ */
+const GATE_SCRIPT = `(function(){try{
+if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+${
+  process.env.NODE_ENV === "production"
+    ? `if(sessionStorage.getItem('${SEEN_KEY}')==='1')return;
+sessionStorage.setItem('${SEEN_KEY}','1');`
+    : `/* dev: replay on every reload so the animation can be worked on without
+     clearing storage or opening a private window. NODE_ENV is inlined at
+     build time, so this branch does not exist in a production bundle. */`
+}
+document.documentElement.setAttribute('data-splash','on');
+}catch(e){}})();`;
 
 /**
- * First-visit splash: a full-bleed image parts left and right like curtains to
- * reveal the hero already rendered beneath it.
+ * Renders the blocking gate script plus the overlay's initial CSS.
  *
- * It is an overlay, never a gate. The page is fully server-rendered underneath,
- * so crawlers, no-JS visitors, and anyone who has been here before get the real
- * page immediately. This component only ever adds something on top.
+ * Must be rendered inside <head>. The style block sits here rather than in
+ * globals.css so the two stay together — the script sets the attribute, the CSS
+ * reacts to it, and splitting them across files invites one being changed
+ * without the other.
+ */
+export function SplashGate() {
+  return (
+    <>
+      <script dangerouslySetInnerHTML={{ __html: GATE_SCRIPT }} />
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+:root[data-splash="on"] #splash-overlay{opacity:1}
+#splash-overlay{opacity:0}
+/* The page sits back slightly while the splash is up, then eases forward as
+   the curtains part — so it reads as stepping into the scene rather than a
+   panel sliding off a static page. The attribute is removed when the splash
+   retires, which is what triggers the settle.
+
+   Applied to a wrapper inside <body>, never to <body> itself: a transform on
+   an ancestor makes it the containing block for position:fixed descendants,
+   which would break the fixed overlay and anything else fixed on the page. */
+:root[data-splash="on"] #page-shell{transform:scale(0.965)}
+#page-shell{transform:scale(1);transform-origin:50% 45%;transition:transform 900ms cubic-bezier(0.22,1,0.36,1)}
+@media (prefers-reduced-motion: reduce){#page-shell{transform:none;transition:none}}
+`,
+        }}
+      />
+    </>
+  );
+}
+
+/**
+ * arriving — first frame: photograph blurred, wordmark small, rotated and far
+ * settled  — wordmark has spun forward and stopped; photograph is sharp
+ * parting  — curtains sliding apart
+ * gone     — unmounted
+ */
+type Phase = "arriving" | "settled" | "parting" | "gone";
+
+/**
+ * The overlay itself: a full-bleed image that parts left and right like
+ * curtains to reveal the hero already rendered beneath it.
  *
- * Starts as "hidden" rather than "showing" for the same reason: the first
- * server-rendered paint must not contain the overlay, or a returning visitor
- * would see it flash before the effect that dismisses it can run.
+ * It is painted from the first frame (see SplashGate) and then animated away by
+ * React once hydration lands. The page underneath is fully server-rendered the
+ * whole time — crawlers and no-JS visitors are never gated, they simply see an
+ * overlay that never animates, which is why the CSS defaults it to opacity 0
+ * unless the gate script explicitly turned it on.
  */
 export function Splash() {
-  const [phase, setPhase] = useState<Phase>("hidden");
+  // "holding" on both server and client, so hydration matches. Whether the
+  // overlay is actually visible is decided by the gate script's attribute via
+  // CSS, not by this state — a returning visitor renders the same markup at
+  // opacity 0 and never sees it.
+  const [phase, setPhase] = useState<Phase>("arriving");
 
   useEffect(() => {
-    // Anyone who has asked for less motion never sees this.
-    const reducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    if (reducedMotion) return;
-
-    let alreadySeen = false;
-    try {
-      alreadySeen = window.sessionStorage.getItem(SEEN_KEY) === "1";
-      window.sessionStorage.setItem(SEEN_KEY, "1");
-    } catch {
-      // Private mode or storage disabled. Showing the splash once more is a
-      // far better failure than crashing the page over a cosmetic flourish.
+    // Returning visitor or reduced motion: the gate never set the attribute,
+    // so retire the markup immediately. Queued as a microtask rather than
+    // called straight from the effect body, which React 19 flags as a
+    // cascading render.
+    if (document.documentElement.getAttribute("data-splash") !== "on") {
+      queueMicrotask(() => setPhase("gone"));
+      return;
     }
-    if (alreadySeen) return;
 
-    // Deferred to the next frame rather than set synchronously here: React 19
-    // flags a synchronous setState in an effect as a cascading render, and
-    // waiting a frame also guarantees the hero beneath has painted before the
-    // overlay covers it — so a skip lands on real content, never a blank.
-    let partTimer = 0;
-    let doneTimer = 0;
-    const frame = window.requestAnimationFrame(() => {
-      setPhase("showing");
-      partTimer = window.setTimeout(() => setPhase("parting"), HOLD_MS);
-      doneTimer = window.setTimeout(() => setPhase("hidden"), MAX_VISIBLE_MS);
-    });
+    // One frame in "arriving" so the browser paints the start of the
+    // transition (blurred, rotated, distant) before the target values are
+    // applied — otherwise there is nothing to animate from and the wordmark
+    // simply appears in place.
+    const arriveFrame = window.requestAnimationFrame(() => setPhase("settled"));
+    const partTimer = window.setTimeout(() => setPhase("parting"), HOLD_MS);
+    const doneTimer = window.setTimeout(() => setPhase("gone"), MAX_VISIBLE_MS);
 
     return () => {
-      window.cancelAnimationFrame(frame);
+      window.cancelAnimationFrame(arriveFrame);
       window.clearTimeout(partTimer);
       window.clearTimeout(doneTimer);
     };
   }, []);
 
-  // Any interaction skips it. Deliberately not gated on `showing` alone, so a
-  // visitor can cut it short mid-part too.
+  // Any interaction skips it, including mid-part.
   useEffect(() => {
-    if (phase === "hidden") return;
+    if (phase === "gone") return;
 
-    const dismiss = () => setPhase("hidden");
+    const dismiss = () => setPhase("gone");
     const events = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
     events.forEach((e) =>
       window.addEventListener(e, dismiss, { once: true, passive: true }),
@@ -84,14 +160,24 @@ export function Splash() {
     return () => events.forEach((e) => window.removeEventListener(e, dismiss));
   }, [phase]);
 
-  if (phase === "hidden") return null;
+  // Clear the attribute once done so a client-side navigation cannot repaint
+  // the overlay at full opacity before this component's effect runs again.
+  useEffect(() => {
+    if (phase === "gone") {
+      document.documentElement.removeAttribute("data-splash");
+    }
+  }, [phase]);
 
+  if (phase === "gone") return null;
+
+  const arriving = phase === "arriving";
   const parting = phase === "parting";
 
   return (
     <div
-      // aria-hidden: this is decoration. A screen reader should be reading the
-      // real page underneath, not announcing a transition.
+      id="splash-overlay"
+      // aria-hidden: decoration. A screen reader should be reading the real
+      // page underneath, not announcing a transition.
       aria-hidden
       className="pointer-events-none fixed inset-0 z-50 overflow-hidden"
     >
@@ -111,29 +197,113 @@ export function Splash() {
           }}
         >
           {/*
-            Each half holds a full-width backdrop offset so the two together
-            read as one continuous image rather than two tiles.
+            Two layers, both double-width and offset to this half's edge so the
+            pair reads as one continuous photograph rather than two tiles.
 
-            Replace this gradient with the real photograph:
-              backgroundImage: "url(/images/splash/splash.jpg)"
-            and keep backgroundSize: "200% 100%" so the halves still line up.
+            Behind: the same image blown up and blurred, filling the letterbox
+            that `contain` leaves on a wide screen. Without it those bands would
+            be flat gradient, which reads as a rendering fault rather than a
+            deliberate frame.
           */}
           <div
-            className="absolute inset-y-0 w-[200%] bg-[linear-gradient(140deg,#0b4b2f_0%,#10643f_38%,#0f5b73_100%)] bg-cover bg-center"
-            style={{ [side]: 0 }}
+            className="absolute inset-y-0 w-[200%] scale-110 bg-cover bg-center blur-2xl"
+            style={{
+              [side]: 0,
+              backgroundImage: "url(/images/splash/splash.webp)",
+            }}
           />
+          {/*
+            Front: the whole photograph, uncropped. `contain` rather than
+            `cover` because the image is 4:3 and the viewport is wider — cover
+            would slice off the sky and the valley floor, which is most of what
+            makes this picture worth showing.
+          */}
+          {/*
+            Ken Burns on the outer element, the photograph on the inner one.
+            Two nodes because the arrival blur and the drift are independent —
+            putting an animation and a transition on the same transform means
+            whichever runs last silently wins.
+          */}
+          <div
+            className="splash-drift absolute inset-y-0 w-[200%]"
+            style={{
+              [side]: 0,
+              animation: `splash-drift ${MAX_VISIBLE_MS + 400}ms linear forwards`,
+            }}
+          >
+            <div
+              className="absolute inset-0 bg-contain bg-center bg-no-repeat"
+              style={{
+                backgroundImage: "url(/images/splash/splash.webp)",
+                // Sharpens as the wordmark arrives — the scene coming into
+                // focus, like eyes adjusting.
+                filter: arriving ? "blur(18px)" : "blur(0px)",
+                transition: `filter ${ARRIVE_MS}ms ease-out`,
+              }}
+            />
+          </div>
+          {/* Darkens the photograph so the white wordmark stays legible. */}
+          <div className="absolute inset-0 bg-[var(--hero-scrim)]" />
         </div>
       ))}
 
       <div
         className="absolute inset-0 flex items-center justify-center"
         style={{
+          // 3D depth: the wordmark starts far back and rotated, then spins
+          // forward into place. Without perspective the rotation reads as a
+          // flat squash rather than something travelling towards you.
+          perspective: "900px",
           opacity: parting ? 0 : 1,
           transition: "opacity 400ms ease-out",
         }}
       >
-        <span className="text-3xl font-bold tracking-tight text-white sm:text-5xl">
-          StayBangla
+        <span
+          className="flex flex-col items-center will-change-transform"
+          style={{
+            transform: arriving
+              ? "translateZ(-620px) rotateY(-95deg) scale(0.6)"
+              : "translateZ(0) rotateY(0deg) scale(1)",
+            opacity: arriving ? 0 : 1,
+            // Overshoots slightly past the resting position before settling,
+            // which is what makes it feel like it arrives rather than fades.
+            transition: `transform ${ARRIVE_MS}ms cubic-bezier(0.18, 0.9, 0.24, 1.08), opacity ${Math.round(ARRIVE_MS * 0.5)}ms ease-out`,
+          }}
+        >
+          <span
+            className="splash-sheen font-display bg-clip-text text-4xl font-light tracking-[0.06em] text-white sm:text-6xl"
+            style={{
+              // A single pass of light across the letters. The gradient is
+              // painted onto the text itself and swept once — no extra
+              // element, nothing to clean up.
+              backgroundImage:
+                "linear-gradient(105deg, transparent 35%, rgb(255 245 214 / 0.95) 50%, transparent 65%)",
+              backgroundSize: "250% 100%",
+              backgroundRepeat: "no-repeat",
+              animation: arriving
+                ? "none"
+                : `splash-sheen 1400ms ease-in-out ${ARRIVE_MS}ms 1 both`,
+              textShadow: "0 2px 24px rgb(0 0 0 / 0.45)",
+            }}
+          >
+            StayBangla
+          </span>
+          {/*
+            The Bengali line is the point of the brand, not decoration — it
+            arrives a beat later so the two read in sequence rather than
+            competing for the same instant.
+          */}
+          <span
+            className="font-display mt-3 text-sm font-extralight tracking-[0.14em] text-white/80 sm:mt-4 sm:text-lg"
+            style={{
+              opacity: arriving ? 0 : 1,
+              transform: arriving ? "translateY(8px)" : "translateY(0)",
+              transition: `opacity 600ms ease-out ${TAGLINE_DELAY_MS}ms, transform 600ms ease-out ${TAGLINE_DELAY_MS}ms`,
+              textShadow: "0 1px 16px rgb(0 0 0 / 0.5)",
+            }}
+          >
+            বাংলাদেশ ঘুরে দেখুন
+          </span>
         </span>
       </div>
     </div>
