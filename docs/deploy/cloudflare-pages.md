@@ -23,16 +23,39 @@ Private is fine.
 ### 2. Create the project
 
 [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** →
-**Create** → **Pages** → **Connect to Git** → pick the repository.
+**Create** → **Import a repository** → pick the repository.
+
+Cloudflare's Create flow now produces a **Worker**, not a Pages project. Pages
+still exists but is no longer the default path, and the Worker screens have
+different fields — there is no "Framework preset" and no "Build output
+directory". If a guide mentions those, it predates the change.
+
+For a folder of static files the two are equivalent. The Workers free tier is
+100,000 requests a day.
 
 ### 3. Build settings
 
-| Field                  | Value                                                              |
-| ---------------------- | ------------------------------------------------------------------ |
-| Framework preset       | `Next.js (Static HTML Export)`                                     |
-| Build command          | `pnpm install && pnpm --filter @staybangla/web build`              |
-| Build output directory | `apps/web/out`                                                     |
-| Root directory         | _(leave empty — this is a monorepo, the build runs from the root)_ |
+| Field          | Value                                                 |
+| -------------- | ----------------------------------------------------- |
+| Build command  | `pnpm install && pnpm --filter @staybangla/web build` |
+| Deploy command | `npx wrangler deploy`                                 |
+| Root directory | _(leave empty — the repository root)_                 |
+
+`wrangler.jsonc` at the repository root is what makes this work. Pointed at a
+pnpm workspace with no config to read, `wrangler deploy` inspects the tree,
+finds several packages and stops with _"application detection logic has been
+run in the root of a workspace instead of targeting a specific project"_. It is
+not guessing wrong; it is refusing to guess. The config names the asset
+directory so there is nothing to guess about.
+
+Verify it before pushing, from the repository root:
+
+```
+npx wrangler deploy --dry-run
+```
+
+It should report reading the files from `apps/web/out` without deploying
+anything.
 
 ### 4. Environment variables
 
@@ -100,6 +123,24 @@ it later.
 middleware.** None are in use. The day `/search` needs a server, deleting that
 one line in `next.config.ts` puts Next back on a server and the rest keeps
 working — Cloudflare Pages runs Next.js in server mode too.
+
+---
+
+## How the frontend will reach the API
+
+A static export has no server, so it cannot call the API during rendering —
+every request goes out from the visitor's browser.
+
+Two consequences, neither of them blocking:
+
+- **The API needs CORS.** It has to allow the deployed origin explicitly.
+  `https://<project>.workers.dev` today, the real domain later.
+- **Search results will not be server-rendered.** Google can still index them
+  (it runs JavaScript), but they arrive a beat later than markup would. If
+  search pages ever need to rank on their own, that is the point to drop
+  `output: "export"` and let Next render them on a server.
+
+Neither changes anything about the landing page, which has no data to fetch.
 
 ---
 

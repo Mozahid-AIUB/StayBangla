@@ -1,0 +1,38 @@
+{
+  // Cloudflare Workers, serving the static export as assets.
+  //
+  // This file sits at the repository root rather than in apps/web, and that is
+  // the whole point of it. Cloudflare's build runs `wrangler deploy` from
+  // wherever the project's root directory is set; pointed at a pnpm workspace
+  // with no config to read, it inspects the tree, finds several packages, and
+  // stops with "application detection logic has been run in the root of a
+  // workspace instead of targeting a specific project". It is not guessing
+  // wrong — it is refusing to guess. This tells it.
+  //
+  // Workers rather than Pages because Cloudflare's "Create" flow now produces
+  // a Worker; Pages is still there but is no longer the path of least
+  // resistance. For a folder of static files the two are equivalent, and the
+  // Workers free tier is 100,000 requests a day.
+  "name": "staybangla",
+
+  // Pins the runtime's behaviour to a date, so a future Cloudflare change
+  // cannot alter how an already-deployed Worker behaves. Move it deliberately,
+  // not because it looks old.
+  "compatibility_date": "2026-08-06",
+
+  "assets": {
+    // Where `next build` leaves the export. Relative to this file.
+    "directory": "./apps/web/out",
+
+    // Serve the 404 page for unknown paths instead of Cloudflare's generic
+    // one — the export writes 404.html, and without this nobody ever sees it.
+    "not_found_handling": "404-page"
+  }
+
+  // No "main". There is no server-side code: every route is a file. Adding a
+  // Worker script here would put a JavaScript runtime in front of static
+  // assets for no reason, and would be billed for it.
+  //
+  // _headers, which carries the CSP and the caching rules, is picked up
+  // automatically from inside the assets directory. It does not belong here.
+}
