@@ -2,33 +2,72 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #14201a;
+  /* Warm near-black rather than a green-black. The text should not carry a
+     hue at all — any tint in body copy is a colour decision applied to the
+     one element that has no business making one. */
+  --foreground: #1a1a1c;
 
-  /* Tea-garden green. Primary actions and brand marks.
-     --primary on white = 5.9:1, passes AA for normal text.
-     White on --primary = 5.9:1, so button labels pass too. */
-  --primary: #10643f;
-  --primary-hover: #0b4b2f;
+  /* Bengal indigo. Primary actions and brand marks.
+     ---------------------------------------------------------------
+     Replaces a tea-garden green, and the reason is the reflex behind it:
+     travel → nature → green is the first association anyone reaches for,
+     which is exactly why it is on every other travel site. A colour that
+     arrives without a decision is not a brand.
+
+     Indigo is the dye this land was made to grow — the plantations, the
+     revolt, the word নীল itself. It is specific to Bengal in a way no
+     palette generator would produce, it is not green, and it is none of the
+     three looks machine-made design keeps landing on (cream and terracotta,
+     near-black and acid green, newsprint rules).
+
+     White on --primary = 12.2:1, well past AAA, so button labels are safe at
+     any size. --primary on white is the same figure for links and icons. */
+  --primary: #26355c;
+  --primary-hover: #1b2745;
   --on-primary: #ffffff;
 
-  /* Bay-of-Bengal blue. Secondary accents only — never a second CTA,
-     which would compete with search. */
-  --accent: #0f5b73;
+  /* Surfaces are warm stone, not a tinted version of the brand colour. The
+     photography is the only thing on this page that should be saturated;
+     everything the interface itself draws stays quiet so the pictures are the
+     one place colour arrives.
+     --muted-foreground on --surface = 4.9:1 (AA); it is for supporting copy,
+     never for anything load-bearing. */
+  --surface: #f6f4f1;
+  --border: #e4e0da;
+  --muted-foreground: #6b6560;
 
-  /* Surfaces. --muted-foreground on --surface = 5.1:1 (AA);
-     it is for supporting copy, never for anything load-bearing. */
-  --surface: #f5f7f5;
-  --border: #dbe3dd;
-  --muted-foreground: #5a6b60;
+  /* The one warm value, and it is named for its job rather than as an
+     "accent" so nobody reaches for it as a general second colour.
+     ---------------------------------------------------------------
+     It marks *now*: the current month on a season bar, and the districts whose
+     season is running in the footer. Warm against a cold interface reads as the
+     present moment, which is the single thing this site keeps pointing at.
+
+     Measured before it was chosen. No warm tone in this family clears 4.5:1 on
+     white AND on the footer AND on the dark district cards — the three surfaces
+     it would have to survive as text. This one is 6.8:1 on the footer and
+     3.4:1 on a card, which is past the 3:1 a graphic marker needs, and 2.5:1
+     on white, which is why it is never text on white and why the name says
+     marker.
+
+     Deliberately not #F4A261 or any terracotta. A near-white page, a serif
+     display and a terracotta accent is the exact combination machine-made
+     design keeps producing, and two thirds of it is already on this page. */
+  --marker: #d19a3c;
 
   /* Scrim over hero photography. The headline must not depend on the
-     photograph happening to be dark — this guarantees contrast whatever
-     image sits underneath. */
-  /* Was 0.55, which flattened the photograph into mud once the two gradient
+     photograph happening to be dark — this guarantees contrast whatever image
+     sits underneath.
+
+     Was 0.55, which flattened the photograph into mud once the two gradient
      scrims stacked on top of it. The headline sits in the upper third, so the
      top-weighted gradient carries most of the contrast work and this flat wash
-     only needs to take the edge off. */
-  --hero-scrim: rgb(6 26 18 / 0.22);
+     only needs to take the edge off.
+
+     Indigo-black rather than the old green-black: a scrim tints everything
+     under it, so a green wash was quietly pulling every photograph towards the
+     colour the brand no longer uses. */
+  --hero-scrim: rgb(10 14 30 / 0.22);
 }
 
 @theme inline {
@@ -37,32 +76,45 @@
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-on-primary: var(--on-primary);
-  --color-accent: var(--accent);
+  /* No --color-accent. It was defined as a second brand colour and then never
+     used by a single component — a token nobody reaches for is a decision
+     nobody made, and it invites a future second call-to-action competing with
+     search. If a genuine secondary need appears, it can be added then. */
+  --color-marker: var(--marker);
   --color-surface: var(--surface);
   --color-border: var(--border);
   --color-muted-foreground: var(--muted-foreground);
 
-  /* Bengali first so Bangla glyphs resolve; Geist follows for Latin and
-     numerals. Tailwind maps --font-sans onto --default-font-family, so this
-     becomes the body font without the old `body { font-family: Arial }`
-     rule that used to override it. */
-  --font-sans:
-    var(--font-bengali), var(--font-geist-sans), ui-sans-serif, system-ui,
-    sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  /* One family for both scripts. Hind Siliguri draws Bengali and Latin in the
+     same design, so a sentence that mixes them is set rather than assembled.
 
+     The stack this replaces put Noto Sans Bengali first and Geist behind it —
+     but Noto Sans Bengali carries a Latin subset, so it answered for the Latin
+     too and Geist never drew a character while still being downloaded.
+
+     Tailwind maps --font-sans onto --default-font-family, so this is the body
+     font without needing a `body { font-family }` rule to force it. */
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+
+  /* No --font-mono override: nothing on the site uses the font-mono utility,
+     and defining it meant shipping a whole monospace family to render nothing.
+     Tailwind's own default stack still answers if a mono class ever appears. */
 }
 
-/* Display face — splash wordmark and page headings. Serif for a travel brand
-   reads as considered rather than corporate; body copy stays on the sans
-   above, where a serif at small sizes would cost legibility.
+/* Display face — splash wordmark and page headings. Body copy stays on the
+   sans above, where a serif at small sizes would cost legibility.
+
+   Two faces, one stack, and the order is the bilingual pairing. Fraunces has
+   no Bengali glyphs, so the browser reaches past it to Noto Serif Bengali for
+   anything in the Bengali block and uses Fraunces for everything else. One
+   class covers both languages and the toggle never drops to a system font.
 
    A plain class rather than a --font-* theme token or an @utility: the token
    form emits nothing when it resolves to a next/font variable (whose value is
    injected at runtime, not build time), and @utility did not register in dev
    either. Verified against the served stylesheet rather than assumed. */
 .font-display {
-  font-family: var(--font-display-serif), var(--font-bengali), serif;
+  font-family: var(--font-display), var(--font-display-bengali), Georgia, serif;
 }
 
 /* Splash motion. Kept here rather than inline so the keyframes exist once and

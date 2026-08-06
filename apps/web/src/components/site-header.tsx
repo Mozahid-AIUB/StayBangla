@@ -42,9 +42,14 @@ export function SiteHeader() {
       //
       // The negative margin pulls the hero up under the bar; sticky then keeps
       // it pinned on scroll without ever leaving the flow.
+      // No backdrop-blur. A blurred backdrop has to be re-read and re-filtered
+      // across the full width of the bar on every frame the page scrolls, and
+      // it was doing that underneath a background already 95% opaque — paying
+      // the whole cost for an effect nobody could see. The extra two percent
+      // below is what closes the visual difference.
       className={`sticky top-0 z-40 -mb-16 transition-colors duration-300 sm:-mb-18 ${
         scrolled
-          ? "border-border bg-background/95 border-b backdrop-blur"
+          ? "border-border bg-background/97 border-b"
           : "border-b border-transparent"
       }`}
     >
@@ -98,7 +103,10 @@ export function SiteHeader() {
                   lang === code
                     ? scrolled
                       ? "bg-primary text-on-primary"
-                      : "bg-white/90 text-[#10643f]"
+                      : // Literal rather than text-primary: this pill sits on a
+                        // white chip over the photograph, where the token would
+                        // resolve against the wrong surface in a future theme.
+                        "bg-white/90 text-[#26355c]"
                     : scrolled
                       ? "text-muted-foreground hover:text-foreground"
                       : "text-white/80 hover:text-white"
@@ -127,7 +135,7 @@ export function SiteHeader() {
             className={`rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed ${
               scrolled
                 ? "bg-primary text-on-primary"
-                : "border border-white/35 bg-white/10 text-white backdrop-blur-sm"
+                : "border border-white/35 bg-black/20 text-white"
             }`}
           >
             {t(COPY.nav.listProperty, lang)}

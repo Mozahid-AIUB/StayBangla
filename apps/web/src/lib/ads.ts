@@ -101,7 +101,7 @@ export const HOUSE_ADS: readonly AdCreative[] = [
       bn: "তারা সবে জেলা বেছেছে, এখনো কিছু বুক করেনি। ঠিক এই মুহূর্তেই আপনার অফারের দাম সবচেয়ে বেশি।",
     },
     cta: { en: "Advertise here", bn: "বিজ্ঞাপন দিন" },
-    tone: "linear-gradient(135deg,#0a3d2a 0%,#10643f 55%,#17805a 100%)",
+    tone: "linear-gradient(135deg,#141b33 0%,#26355c 55%,#3a5180 100%)",
   },
   {
     id: "house-property",
@@ -115,7 +115,7 @@ export const HOUSE_ADS: readonly AdCreative[] = [
       bn: "রুম, বুকিং আর টাকা — এক ড্যাশবোর্ডে। আর আপনার হোটেল দেখানো হবে ঠিক সেই লোকদের, যারা আপনার জেলাটাই দেখছে।",
     },
     cta: { en: "List your property", bn: "হোটেল যুক্ত করুন" },
-    tone: "linear-gradient(135deg,#082f3e 0%,#0f5b73 55%,#12708a 100%)",
+    tone: "linear-gradient(135deg,#12283a 0%,#2b5470 55%,#44768f 100%)",
     // Stands in for a real creative's video so the video path is exercised
     // rather than shipped untried. An advertiser's own file replaces it.
     video: "/videos/hero-2.mp4",

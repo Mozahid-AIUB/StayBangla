@@ -291,7 +291,7 @@ export function Splash() {
         cover than that.
       */}
       <div
-        className="absolute inset-0 bg-[rgb(6_26_18/0.45)]"
+        className="absolute inset-0 bg-[rgb(10_14_30/0.45)]"
         style={{
           opacity: parting ? 0 : 1,
           transition: `opacity ${PART_MS}ms ease-out`,

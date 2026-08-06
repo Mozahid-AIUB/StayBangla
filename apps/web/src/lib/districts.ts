@@ -247,6 +247,41 @@ export const FEATURED_DISTRICTS = [
   District.KHAGRACHARI,
 ] as const;
 
+/** COXS_BAZAR becomes coxs-bazar — the district's own folder under public. */
+export function districtSlug(district: District): string {
+  return district.toLowerCase().replaceAll("_", "-");
+}
+
+/**
+ * Where a district's card photograph lives, derived from the enum rather than
+ * stored.
+ *
+ * COXS_BAZAR becomes /images/districts/coxs-bazar/cover.webp. A hand-kept map
+ * of district to filename is a second list to keep in step with the first, and
+ * the failure when it drifts is a card that silently shows no picture.
+ *
+ * A folder each rather than eight files in one, so a district can grow a
+ * gallery later without the flat directory turning into a naming convention
+ * nobody remembers. `cover` is the one this grid uses.
+ */
+export function districtPhotoPath(district: District): string {
+  return `/images/districts/${districtSlug(district)}/cover.webp`;
+}
+
+/**
+ * Districts whose photograph has actually been added to the folder above.
+ *
+ * Listed rather than probed: the browser cannot ask whether a file exists
+ * without requesting it, so rendering every card's image unconditionally would
+ * fire a 404 for each one still missing — console noise that reads like a bug
+ * and costs a request on a connection that has better uses.
+ *
+ * Adding a photograph is two steps: drop the file in, add the district here.
+ * Cards not listed keep their painted tone, which is a finished state and not
+ * a placeholder.
+ */
+export const DISTRICTS_WITH_PHOTO: readonly District[] = [];
+
 /**
  * Everything else, derived rather than listed.
  *

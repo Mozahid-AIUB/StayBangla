@@ -43,11 +43,20 @@ function useCurrentDhakaMonth(): Month | null {
  * "Saint Martin is four months of the year" faster from a bar than from a
  * sentence.
  *
- * The current month stands taller than the rest, so the bar answers the
- * question people actually have — not "when is it good" but "is it good now".
+ * Two facts, two channels, and they are kept apart on purpose. Brightness says
+ * whether a month is in season; warmth and height say which month is now. An
+ * earlier version marked the current month by making its segment taller *and*
+ * left it dim when out of season, which produced a grey lump in the middle of
+ * the bar that read as neither — the eye cannot tell a marker from a value when
+ * both ride the same property.
  *
- * The bar is aria-hidden and the line beneath it carries the same fact in
- * words, so nothing here depends on seeing colour or shape.
+ * The current month is the only warm thing on an otherwise cold page, which is
+ * the whole reason --marker exists. It says "you are here" without a word, and
+ * it stays legible whether or not the month it lands on is in season, because
+ * the opacity still carries that answer separately.
+ *
+ * The bar is aria-hidden and the line beneath carries the same fact in words,
+ * so nothing here depends on seeing colour or shape.
  */
 export function SeasonBar({ months }: { months: readonly Month[] }) {
   const { lang } = useLang();
@@ -55,22 +64,32 @@ export function SeasonBar({ months }: { months: readonly Month[] }) {
 
   return (
     <div>
-      <div aria-hidden className="flex items-end gap-[3px]">
+      {/* items-center, so the current month's segment grows in both directions
+          and reads as a tick on a ruler rather than a bump on one edge. */}
+      <div aria-hidden className="flex items-center gap-[2px]">
         {ALL_MONTHS.map((month) => {
           const lit = months.includes(month);
           const current = month === now;
           return (
             <span
               key={month}
-              className={`flex-1 rounded-full transition-[height] duration-300 ${
-                current ? "h-2.5" : "h-1"
-              } ${lit ? "bg-white/85" : "bg-white/20"}`}
+              className={`flex-1 rounded-[1.5px] transition-all duration-300 ${
+                current ? "h-3" : "h-1.5"
+              } ${
+                current
+                  ? lit
+                    ? "bg-marker"
+                    : "bg-marker/40"
+                  : lit
+                    ? "bg-white/90"
+                    : "bg-white/15"
+              }`}
             />
           );
         })}
       </div>
-      <p className="mt-2 text-xs text-white/75">
-        <span className="text-white/55">{t(COPY.season.best, lang)}</span>{" "}
+      <p className="mt-3 text-[0.6875rem] text-white/80">
+        <span className="text-white/50">{t(COPY.season.best, lang)}</span>{" "}
         {formatSeason(months, lang)}
       </p>
     </div>

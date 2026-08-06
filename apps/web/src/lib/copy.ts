@@ -34,14 +34,60 @@ export const COPY = {
   },
 
   search: {
-    where: { en: "Where to", bn: "কোথায় যাবেন" },
+    where: { en: "Where", bn: "কোথায়" },
     anywhere: { en: "Anywhere", bn: "যেকোনো জায়গা" },
+    when: { en: "When", bn: "কখন" },
+    addDates: { en: "Add dates", bn: "তারিখ দিন" },
     checkIn: { en: "Check in", bn: "যাওয়ার তারিখ" },
     checkOut: { en: "Check out", bn: "ফেরার তারিখ" },
     guests: { en: "Guests", bn: "অতিথি" },
+    guest: { en: "guest", bn: "জন" },
+    guestsPlural: { en: "guests", bn: "জন" },
+    addGuest: { en: "Add a guest", bn: "একজন বাড়ান" },
+    removeGuest: { en: "Remove a guest", bn: "একজন কমান" },
     submit: { en: "Search", bn: "খুঁজুন" },
     comingSoon: { en: "Search opens soon", bn: "অনুসন্ধান শীঘ্রই চালু হচ্ছে" },
     formLabel: { en: "Find stays and rides", bn: "হোটেল ও গাড়ি খুঁজুন" },
+  },
+
+  calendar: {
+    label: { en: "Choose your dates", bn: "তারিখ বেছে নিন" },
+    previousMonth: { en: "Previous month", bn: "আগের মাস" },
+    nextMonth: { en: "Next month", bn: "পরের মাস" },
+    clear: { en: "Clear", bn: "মুছুন" },
+    done: { en: "Done", bn: "হয়ে গেছে" },
+    /** {n} is replaced with the count. */
+    nights: { en: "{n} nights", bn: "{n} রাত" },
+    night: { en: "{n} night", bn: "{n} রাত" },
+    /**
+     * Full names for the calendar's own heading. COPY.season.months is the
+     * abbreviated set and stays that way — a season bar has a card's width to
+     * work in, a month heading has the whole panel.
+     */
+    monthNames: [
+      { en: "January", bn: "জানুয়ারি" },
+      { en: "February", bn: "ফেব্রুয়ারি" },
+      { en: "March", bn: "মার্চ" },
+      { en: "April", bn: "এপ্রিল" },
+      { en: "May", bn: "মে" },
+      { en: "June", bn: "জুন" },
+      { en: "July", bn: "জুলাই" },
+      { en: "August", bn: "আগস্ট" },
+      { en: "September", bn: "সেপ্টেম্বর" },
+      { en: "October", bn: "অক্টোবর" },
+      { en: "November", bn: "নভেম্বর" },
+      { en: "December", bn: "ডিসেম্বর" },
+    ],
+    /** Sunday first, matching how a calendar is printed in Bangladesh. */
+    weekdays: [
+      { en: "Su", bn: "রবি" },
+      { en: "Mo", bn: "সোম" },
+      { en: "Tu", bn: "মঙ্গল" },
+      { en: "We", bn: "বুধ" },
+      { en: "Th", bn: "বৃহঃ" },
+      { en: "Fr", bn: "শুক্র" },
+      { en: "Sa", bn: "শনি" },
+    ],
   },
 
   districts: {
@@ -80,6 +126,52 @@ export const COPY = {
     ],
   },
 
+  rides: {
+    heading: { en: "The hotel is the easy part", bn: "হোটেলটাই সহজ অংশ" },
+    sub: {
+      en: "Sajek is six hours from Dhaka and the last stretch is not a road a bus takes. Knowing what carries you is half the planning.",
+      bn: "ঢাকা থেকে সাজেক ছয় ঘণ্টা — শেষ পথটুকু বাসের রাস্তা নয়। কীসে চড়ে যাবেন, সেটা জানাই অর্ধেক পরিকল্পনা।",
+    },
+    pairings: [
+      {
+        stay: {
+          en: "A cottage above the cloud line",
+          bn: "মেঘের উপরে একটা কটেজ",
+        },
+        ride: {
+          en: "Chander Gari — the jeep that knows the road",
+          bn: "চান্দের গাড়ি — যে পথটা চেনে",
+        },
+      },
+      {
+        stay: { en: "A cabin on the water", bn: "জলের উপরে একটা কেবিন" },
+        ride: {
+          en: "A launch, and someone who reads the tide",
+          bn: "লঞ্চ, আর যে জোয়ার পড়তে জানে",
+        },
+      },
+      {
+        stay: { en: "A room facing the sea", bn: "সমুদ্রমুখী একটা রুম" },
+        ride: {
+          en: "A car from Dhaka, waiting before dawn",
+          bn: "ঢাকা থেকে গাড়ি, ভোরের আগেই অপেক্ষায়",
+        },
+      },
+    ],
+    /**
+     * Deliberately says "listed", not "booked together".
+     *
+     * A Booking carries a bookableType of ROOM or VEHICLE and never both, so a
+     * room and a jeep are two bookings and two payments. The claim this replaces
+     * — "booked alongside the room, not separately" — was on the page and was
+     * not true of the product.
+     */
+    footnote: {
+      en: "Both listed here, district by district.",
+      bn: "দুটোই আছে — জেলা ধরে ধরে।",
+    },
+  },
+
   ads: {
     /**
      * Labelled, not disguised. A promotional panel styled to read as our own
@@ -107,10 +199,15 @@ export const COPY = {
         },
       },
       {
-        title: { en: "Stay and ride together", bn: "হোটেল আর গাড়ি একসাথে" },
+        // Replaces "Stay and ride together — booked alongside the room, not
+        // separately", which was two problems in one card. It was untrue: a
+        // Booking is ROOM or VEHICLE, never both, so the jeep is its own
+        // booking and its own payment. And once the section above exists to
+        // make the same point properly, this card was repeating it.
+        title: { en: "In your language", bn: "আপনার ভাষায়" },
         body: {
-          en: "A jeep for the hill roads, a boat for the rivers. Booked alongside the room, not separately.",
-          bn: "পাহাড়ি পথের জন্য জিপ, নদীপথের জন্য নৌকা — রুমের সাথেই, আলাদা করে নয়।",
+          en: "Every page in Bangla and English — both written, neither one run through a translator.",
+          bn: "প্রতিটা পাতা বাংলা আর ইংরেজিতে — দুটোই লেখা, একটা থেকে আরেকটা যন্ত্রে অনুবাদ করা নয়।",
         },
       },
       {
@@ -137,6 +234,45 @@ export const COPY = {
 
   footer: {
     tagline: { en: "See Bangladesh", bn: "বাংলাদেশ ঘুরে দেখুন" },
+    blurb: {
+      en: "Stays and rides in sixteen districts, booked in taka, from the people who live on those roads.",
+      bn: "ষোলো জেলার হোটেল আর গাড়ি — টাকায় বুক করুন, যারা ওই পথে থাকে তাদের কাছ থেকেই।",
+    },
+    destinations: { en: "Destinations", bn: "গন্তব্য" },
+    allDistricts: { en: "All sixteen districts", bn: "ষোলো জেলাই দেখুন" },
+    explore: { en: "Explore", bn: "ঘুরে দেখুন" },
+    partners: { en: "Partners", bn: "অংশীদার" },
+    /**
+     * Payment methods, stated because they are what SSLCommerz actually
+     * carries. Names only, no logos — a logo needs the brand's permission and
+     * a wordmark does not.
+     */
+    payments: { en: "Pay with", bn: "টাকা দিন" },
+    paymentNote: {
+      en: "In taka, through a Bangladeshi gateway.",
+      bn: "টাকায়, বাংলাদেশি গেটওয়ে দিয়ে।",
+    },
+    /** Shown against everything that has no page behind it yet. */
+    soon: { en: "Soon", bn: "শীঘ্রই" },
+    /**
+     * Heads the line of districts whose season is running today. Not a slogan —
+     * the list underneath is computed from the month, so this has to read as a
+     * statement of fact.
+     */
+    bestNow: { en: "In season right now", bn: "এখন যাওয়ার সময়" },
+    rights: { en: "All rights reserved", bn: "সর্বস্বত্ব সংরক্ষিত" },
+    madeIn: { en: "Made in Bangladesh", bn: "বাংলাদেশে তৈরি" },
+    links: {
+      whyUs: { en: "Why StayBangla", bn: "কেন StayBangla" },
+      staysAndRides: { en: "Stays and rides", bn: "থাকা আর যাওয়া" },
+      listProperty: { en: "List your property", bn: "হোটেল যুক্ত করুন" },
+      addVehicle: { en: "Add a vehicle", bn: "গাড়ি যুক্ত করুন" },
+      advertise: { en: "Advertise", bn: "বিজ্ঞাপন দিন" },
+      partnerLogin: { en: "Partner sign in", bn: "অংশীদার লগইন" },
+      help: { en: "Help", bn: "সহায়তা" },
+      terms: { en: "Terms", bn: "শর্তাবলি" },
+      privacy: { en: "Privacy", bn: "গোপনীয়তা" },
+    },
   },
 } as const;
 

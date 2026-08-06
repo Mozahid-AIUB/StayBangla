@@ -8,6 +8,7 @@ import {
   type AdCreative,
 } from "@/lib/ads";
 import { COPY, t } from "@/lib/copy";
+import { useInViewport } from "@/lib/in-viewport";
 import { useLang } from "@/lib/lang-context";
 import { useHeavyMediaAllowed } from "@/lib/media-connection";
 import { usePrefersReducedMotion } from "@/lib/motion";
@@ -27,13 +28,26 @@ const TRANSITION_MS = 700;
  */
 function AdVideo({ src, poster }: { src: string; poster?: string }) {
   const [ready, setReady] = useState(false);
+  const { ref, element, inView } = useInViewport<HTMLVideoElement>("250px");
+
+  // An advertisement decoding while it is off screen spends the visitor's
+  // battery and the browser's frame budget on something nobody is looking at —
+  // and, once impressions are billed, on something nobody can be charged for
+  // either.
+  useEffect(() => {
+    if (!element) return;
+    // Muted playback is never blocked by autoplay policy, but the promise still
+    // rejects if the element is torn down mid-call.
+    if (inView) void element.play().catch(() => {});
+    else element.pause();
+  }, [element, inView]);
 
   return (
     <video
+      ref={ref}
       // Decorative: the creative's meaning is in its text, which is real DOM
       // above this. A screen reader announcing a silent loop is only noise.
       aria-hidden
-      autoPlay
       muted
       loop
       playsInline
@@ -71,7 +85,7 @@ function AdSlide({ ad, active }: { ad: AdCreative; active: boolean }) {
           imagery stays visible on the right. */}
       <div
         aria-hidden
-        className="absolute inset-0 bg-[linear-gradient(100deg,rgb(4_16_11/0.72)_0%,rgb(4_16_11/0.5)_45%,rgb(4_16_11/0.2)_100%)]"
+        className="absolute inset-0 bg-[linear-gradient(100deg,rgb(7_10_22/0.72)_0%,rgb(7_10_22/0.5)_45%,rgb(7_10_22/0.2)_100%)]"
       />
 
       <div className="relative flex h-full flex-col justify-center p-5 sm:p-8">
@@ -100,7 +114,7 @@ function AdSlide({ ad, active }: { ad: AdCreative; active: boolean }) {
               {...(isExternalHref(href)
                 ? { target: "_blank", rel: "noopener noreferrer nofollow" }
                 : {})}
-              className="inline-flex rounded-lg bg-white/95 px-4 py-2 text-sm font-medium text-[#10643f] transition-colors hover:bg-white"
+              className="inline-flex rounded-lg bg-white/95 px-4 py-2 text-sm font-medium text-[#26355c] transition-colors hover:bg-white"
             >
               {t(ad.cta, lang)}
             </a>
@@ -111,7 +125,7 @@ function AdSlide({ ad, active }: { ad: AdCreative; active: boolean }) {
             <button
               type="button"
               disabled
-              className="inline-flex cursor-not-allowed rounded-lg border border-white/35 bg-white/10 px-4 py-2 text-sm font-medium text-white/90 backdrop-blur-sm"
+              className="inline-flex cursor-not-allowed rounded-lg border border-white/35 bg-black/20 px-4 py-2 text-sm font-medium text-white/90"
             >
               {t(ad.cta, lang)}
             </button>
@@ -142,6 +156,7 @@ export function AdPanel({ ads = HOUSE_ADS }: { ads?: readonly AdCreative[] }) {
   const [interacting, setInteracting] = useState(false);
   const [tabVisible, setTabVisible] = useState(true);
   const reducedMotion = usePrefersReducedMotion();
+  const { ref: panelRef, inView: onScreen } = useInViewport<HTMLElement>();
 
   useEffect(() => {
     const sync = () => setTabVisible(document.visibilityState === "visible");
@@ -154,11 +169,13 @@ export function AdPanel({ ads = HOUSE_ADS }: { ads?: readonly AdCreative[] }) {
   // that moves for more than five seconds, which is the button below.
   const autoAdvances = ads.length > 1 && !reducedMotion;
 
-  // Hidden tabs stop the clock too. Otherwise the panel burns through every
-  // creative while nobody is looking, which wastes the reader's attention and
-  // — once impressions are billed — charges an advertiser for a slide that was
-  // never on screen.
-  const running = autoAdvances && !userPaused && !interacting && tabVisible;
+  // Hidden tabs and a panel scrolled out of view stop the clock too. Otherwise
+  // it burns through every creative while nobody is looking, which wastes the
+  // reader's attention and — once impressions are billed — charges an
+  // advertiser for slides that were never on screen. It also keeps an
+  // animation off the compositor while the visitor is scrolling past.
+  const running =
+    autoAdvances && !userPaused && !interacting && tabVisible && onScreen;
 
   if (ads.length === 0) return null;
 
@@ -166,6 +183,7 @@ export function AdPanel({ ads = HOUSE_ADS }: { ads?: readonly AdCreative[] }) {
 
   return (
     <section
+      ref={panelRef}
       className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6 sm:pb-24"
       aria-roledescription="carousel"
       aria-label={t(COPY.ads.carousel, lang)}
@@ -251,7 +269,7 @@ export function AdPanel({ ads = HOUSE_ADS }: { ads?: readonly AdCreative[] }) {
                   userPaused ? COPY.ads.play : COPY.ads.pause,
                   lang,
                 )}
-                className="grid h-8 w-8 place-items-center rounded-full border border-white/35 bg-black/25 text-white backdrop-blur-sm transition-colors hover:bg-black/40"
+                className="grid h-8 w-8 place-items-center rounded-full border border-white/35 bg-black/35 text-white transition-colors hover:bg-black/50"
               >
                 <svg
                   viewBox="0 0 16 16"
