@@ -97,7 +97,12 @@ export function SearchForm() {
               // by the operating system, so it is a different shape and weight
               // on every machine and there is no way to make it match anything
               // else on the page.
-              className="w-full cursor-pointer appearance-none truncate bg-transparent pr-6 text-base focus:outline-none"
+              //
+              // No focus:outline-none. It was here to hide the browser ring
+              // and it hid the only signal a keyboard visitor had that this
+              // field was selected — the global :focus-visible rule now draws
+              // a deliberate one instead.
+              className="w-full cursor-pointer appearance-none truncate bg-transparent pr-6 text-base"
             >
               <option value="">{t(COPY.search.anywhere, lang)}</option>
               {ALL_DISTRICTS_IN_ORDER.map((d) => (

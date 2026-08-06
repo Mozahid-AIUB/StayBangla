@@ -186,6 +186,36 @@
   color-scheme: light;
 }
 
+/* Focus, made visible everywhere and in one place.
+   ---------------------------------------------------------------
+   Nothing on this site declared a focus style, so every control fell back to
+   the browser's default outline. That is fine on the white sections and
+   effectively invisible on the ones this design is built around — white text
+   on a photograph, the dark footer, the district cards. And the district
+   select carried `focus:outline-none` with no replacement at all, which is a
+   straight WCAG 2.4.7 failure: a keyboard visitor tabbing through the search
+   panel had no way to know where they were.
+
+   :focus-visible rather than :focus, so a mouse click does not leave a ring
+   behind — which is the reason people reach for outline-none in the first
+   place.
+
+   Two rings, one light and one dark, both drawn outside the element so a
+   rounded control keeps its shape. currentColor is not used: on a photograph
+   the text is white and the ring would vanish into it. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Anything sitting on photography or on the footer needs the opposite ring —
+   the indigo one disappears against both. */
+.on-dark :focus-visible,
+footer :focus-visible {
+  outline-color: #ffffff;
+}
+
 /* Anchor targets clear the sticky header instead of landing underneath it. */
 [id] {
   scroll-margin-top: 5.5rem;

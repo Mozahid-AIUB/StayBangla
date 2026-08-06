@@ -80,10 +80,56 @@ const notoSerifBengali = Noto_Serif_Bengali({
   display: "swap",
 });
 
+/**
+ * Absolute base for every generated URL — Open Graph images and canonicals are
+ * required to be absolute, and Next silently emits relative ones without this.
+ *
+ * From the environment because the value differs per deployment and a hardcoded
+ * production domain would make preview builds advertise the live site's images.
+ */
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+const TITLE = "StayBangla — stays and rides across Bangladesh";
+const DESCRIPTION =
+  "Book hotels and vehicles in sixteen districts, from Saint Martin to Sajek, Sundarbans to Sreemangal. Pay in taka.";
+
 export const metadata: Metadata = {
-  title: "StayBangla — stays and rides across Bangladesh",
-  description:
-    "Book hotels and vehicles in sixteen districts, from Saint Martin to Sajek, Sundarbans to Sreemangal. Pay in taka.",
+  metadataBase: new URL(SITE_URL),
+  title: TITLE,
+  description: DESCRIPTION,
+  /**
+   * Social cards. Growth for a Bangladeshi travel brand runs through Facebook
+   * and WhatsApp, and a link pasted into either was rendering as bare text —
+   * no photograph, no title, nothing to click. That is the single cheapest
+   * thing on this page and it was missing.
+   */
+  openGraph: {
+    type: "website",
+    siteName: "StayBangla",
+    title: TITLE,
+    description: DESCRIPTION,
+    url: SITE_URL,
+    locale: "en_US",
+    // WhatsApp and Messenger read og:locale:alternate to decide which card to
+    // show a Bengali-locale reader.
+    alternateLocale: ["bn_BD"],
+    images: [
+      {
+        url: "/images/og.webp",
+        width: 1200,
+        height: 630,
+        alt: "Cloud over the hills at Sajek",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/images/og.webp"],
+  },
+  alternates: { canonical: "/" },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({
@@ -113,6 +159,56 @@ export default function RootLayout({
           the page, then the splash covering it, then the page again. That
           flash is exactly what this replaces.
         */}
+        {/*
+          Structured data. Google reads this to decide whether StayBangla is a
+          brand it knows — without it the site is an anonymous page, and the
+          knowledge panel and sitelinks search box are not offered at all.
+
+          Two things only, and both are true today. No AggregateRating, no
+          Offer, no Product: those are the fields that earn rich results, and
+          inventing them for a site with no reviews and no listings is the
+          fabrication Google penalises rather than rewards.
+
+          The SearchAction points at /search, which does not exist yet — it is
+          declared with the route already agreed rather than left to be
+          remembered later, and a crawler that finds it early simply gets a 404
+          until the page lands.
+        */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@graph": [
+                {
+                  "@type": "Organization",
+                  "@id": `${SITE_URL}/#organization`,
+                  name: "StayBangla",
+                  url: SITE_URL,
+                  logo: `${SITE_URL}/images/og.webp`,
+                  areaServed: { "@type": "Country", name: "Bangladesh" },
+                },
+                {
+                  "@type": "WebSite",
+                  "@id": `${SITE_URL}/#website`,
+                  url: SITE_URL,
+                  name: "StayBangla",
+                  description: DESCRIPTION,
+                  publisher: { "@id": `${SITE_URL}/#organization` },
+                  inLanguage: ["en", "bn"],
+                  potentialAction: {
+                    "@type": "SearchAction",
+                    target: {
+                      "@type": "EntryPoint",
+                      urlTemplate: `${SITE_URL}/search?district={search_term_string}`,
+                    },
+                    "query-input": "required name=search_term_string",
+                  },
+                },
+              ],
+            }),
+          }}
+        />
         <SplashGate />
         {/*
           Children before the overlay: the real page is the document's content

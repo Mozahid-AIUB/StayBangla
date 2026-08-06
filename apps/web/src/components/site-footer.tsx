@@ -103,7 +103,11 @@ function Column({
   const { lang } = useLang();
   return (
     <div>
-      <h3
+      {/* h2, not h3. The page runs h1 (hero) then h2 per section, and these
+          column titles were h3 with no h2 anywhere in the footer above them —
+          a skipped level, which is what a screen reader's heading list uses to
+          work out what contains what. */}
+      <h2
         className={`mb-4 text-white ${
           // Caps and tracking are Latin devices; Bengali has neither case nor
           // room between its marks for extra spacing.
@@ -113,7 +117,7 @@ function Column({
         }`}
       >
         {title}
-      </h3>
+      </h2>
       <ul className="space-y-2.5 text-sm">{children}</ul>
     </div>
   );
