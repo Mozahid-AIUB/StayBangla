@@ -205,6 +205,13 @@ export function Splash() {
       ].map(({ side, shift }) => (
         <div
           key={side}
+          // Exactly half, and the halves carry *only* the photograph — no
+          // scrim, no tint. Anything semi-transparent inside a half paints
+          // twice wherever the two halves meet or overlap, and that doubled
+          // row is itself the seam: a 1px overlap of two 0.45 washes reads as
+          // 0.70, a dark line straight down the middle. The scrim now lives
+          // above both halves as a single full-width layer, so there is one
+          // wash everywhere and nothing to double up.
           className="absolute inset-y-0 w-1/2 overflow-hidden will-change-transform"
           style={{
             [side]: 0,
@@ -215,8 +222,11 @@ export function Splash() {
           }}
         >
           {/*
-            Two layers, both double-width and offset to this half's edge so the
-            pair reads as one continuous photograph rather than two tiles.
+            Two layers, both a full viewport wide and offset to this half's
+            edge so the pair reads as one continuous photograph rather than two
+            tiles. w-screen rather than w-[200%]: 200% of a half that landed on
+            a fractional pixel is a *doubled* error, so the two halves of the
+            picture drift out of register with each other.
 
             Behind: the same image blown up and blurred, filling the letterbox
             that `contain` leaves on a wide screen. Without it those bands would
@@ -224,7 +234,7 @@ export function Splash() {
             deliberate frame.
           */}
           <div
-            className="absolute inset-y-0 w-[200%] scale-110 bg-cover bg-center blur-2xl"
+            className="absolute inset-y-0 w-screen scale-110 bg-cover bg-center blur-2xl"
             style={{
               [side]: 0,
               backgroundImage: "url(/images/splash/splash.webp)",
@@ -243,7 +253,7 @@ export function Splash() {
             whichever runs last silently wins.
           */}
           <div
-            className="splash-drift absolute inset-y-0 w-[200%]"
+            className="splash-drift absolute inset-y-0 w-screen"
             style={{
               [side]: 0,
               animation: `splash-drift ${MAX_VISIBLE_MS + 400}ms linear forwards`,
@@ -260,16 +270,33 @@ export function Splash() {
               }}
             />
           </div>
-          {/* Darkens the photograph so the white wordmark stays legible. */}
-          {/*
-            Its own value rather than --hero-scrim: the hero's wash was lowered
-            to 0.22 so the photograph reads properly behind body copy, but the
-            splash puts a large white wordmark straight over the image and
-            needs more cover than that to stay legible.
-          */}
-          <div className="absolute inset-0 bg-[rgb(6_26_18/0.45)]" />
         </div>
       ))}
+
+      {/*
+        Darkens the photograph so the white wordmark stays legible.
+
+        One full-width layer over both halves rather than one inside each. A
+        per-half scrim paints twice at the join — every seam this splash has
+        shown came from something semi-transparent being drawn once per half.
+
+        It fades rather than parting with the curtains: a scrim that slid away
+        would expose the un-dimmed photograph for the 700ms the halves are
+        still on screen, which reads as the image flashing brighter just as it
+        leaves.
+
+        Its own value rather than --hero-scrim: the hero's wash was lowered to
+        0.22 so the photograph reads properly behind body copy, but the splash
+        puts a large white wordmark straight over the image and needs more
+        cover than that.
+      */}
+      <div
+        className="absolute inset-0 bg-[rgb(6_26_18/0.45)]"
+        style={{
+          opacity: parting ? 0 : 1,
+          transition: `opacity ${PART_MS}ms ease-out`,
+        }}
+      />
 
       <div
         className="absolute inset-0 flex items-center justify-center"

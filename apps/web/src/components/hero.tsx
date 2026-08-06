@@ -90,7 +90,7 @@ export function Hero() {
         // near-clear through the middle so the photograph is actually visible.
         // The previous stop values held 0.5 at the bottom too, which combined
         // with the flat wash to leave the whole image looking muddy.
-        className="absolute -top-px -right-px -bottom-4 -left-px -z-10 bg-[linear-gradient(180deg,rgb(6_26_18/0.62)_0%,rgb(6_26_18/0.12)_55%,rgb(6_26_18/0.25)_100%)]"
+        className="absolute -top-px -right-px -bottom-4 -left-px -z-10 bg-[linear-gradient(180deg,rgb(6_26_18/0.5)_0%,rgb(6_26_18/0.08)_50%,rgb(6_26_18/0.2)_100%)]"
         style={{
           maskImage:
             "linear-gradient(to bottom, black 0%, black calc(100% - 40px), transparent 100%)",

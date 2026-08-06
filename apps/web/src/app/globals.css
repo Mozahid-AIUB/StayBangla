@@ -28,7 +28,7 @@
      scrims stacked on top of it. The headline sits in the upper third, so the
      top-weighted gradient carries most of the contrast work and this flat wash
      only needs to take the edge off. */
-  --hero-scrim: rgb(6 26 18 / 0.34);
+  --hero-scrim: rgb(6 26 18 / 0.22);
 }
 
 @theme inline {
