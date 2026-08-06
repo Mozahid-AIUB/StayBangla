@@ -2,6 +2,9 @@ import type { MetadataRoute } from "next";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
+/** Same reason as the sitemap: a static export needs this written to a file. */
+export const dynamic = "force-static";
+
 /**
  * There was no robots.txt at all, which means every crawler had to guess — and
  * once /search exists, a parameterised route is exactly what a crawler will
