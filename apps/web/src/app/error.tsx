@@ -49,22 +49,26 @@ export default function Error({
           Try again
         </button>
         {/*
-          A plain anchor, and the lint rule is switched off on purpose rather
-          than worked around.
+          A button that reloads, not a link.
 
-          next/link exists to avoid a full document reload and keep the client
-          cache. In an error boundary, discarding that cache is the entire
-          point: whatever state produced the crash is still in memory, and a
-          client-side navigation carries it to the next screen. `reset` above
-          is the soft retry; this is the one that starts over.
+          next/link would keep the client cache — and after a crash, discarding
+          that cache is the entire point: whatever state produced the error is
+          still in memory, and a client-side navigation carries it straight to
+          the next screen. `reset` above is the soft retry; this is the one
+          that starts over from nothing.
+
+          A button rather than an anchor with the lint rule silenced: at this
+          point "back to the start" is a recovery action sitting beside another
+          recovery action, not navigation someone would want to open in a new
+          tab.
         */}
-        { }
-        <a
-          href="/"
+        <button
+          type="button"
+          onClick={() => window.location.assign("/")}
           className="border-border text-foreground hover:bg-surface inline-flex rounded-lg border px-5 py-3 text-sm font-medium transition-colors"
         >
           Back to the start
-        </a>
+        </button>
       </div>
       {error.digest && (
         <p className="text-muted-foreground mt-8 font-mono text-xs">
