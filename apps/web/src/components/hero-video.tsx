@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useHeavyMediaAllowed } from "@/lib/media-connection";
 
 const SOURCES = ["/videos/hero-1.mp4", "/videos/hero-2.mp4"] as const;
 
@@ -27,31 +28,9 @@ const FADE_MS = 1600;
 export function HeroVideo() {
   const [active, setActive] = useState(0);
   const [visible, setVisible] = useState(false);
-  const [allowed, setAllowed] = useState(false);
-
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    // navigator.connection is Chromium-only. Where it is missing we opt in
-    // rather than out.
-    const conn = (
-      navigator as Navigator & {
-        connection?: { effectiveType?: string; saveData?: boolean };
-      }
-    ).connection;
-
-    // Respect an explicit data-saver request without argument.
-    if (conn?.saveData) return;
-
-    // Only genuinely slow links are excluded. Requiring "4g" also blocked plain
-    // wifi — the API reports a round-trip-time estimate, and a desktop on a
-    // good connection is routinely classified "3g".
-    if (conn?.effectiveType && /^(slow-)?2g$/.test(conn.effectiveType)) return;
-
-    // Queued rather than set straight from the effect body, which React 19
-    // flags as a cascading render.
-    queueMicrotask(() => setAllowed(true));
-  }, []);
+  // Reduced motion, data-saver and slow links all live in one place now, since
+  // the ad panel has to answer the question identically.
+  const allowed = useHeavyMediaAllowed();
 
   // Rotate on a timer rather than on `ended`: a clip that stalls mid-buffer
   // must not be able to freeze the rotation.

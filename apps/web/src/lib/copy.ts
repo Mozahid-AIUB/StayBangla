@@ -80,6 +80,22 @@ export const COPY = {
     ],
   },
 
+  ads: {
+    /**
+     * Labelled, not disguised. A promotional panel styled to read as our own
+     * editorial is the one version of this that is dishonest, and it is also
+     * the version that costs the most trust when someone notices.
+     */
+    heading: { en: "Partner offers", bn: "অংশীদারদের অফার" },
+    sponsored: { en: "Sponsored", bn: "প্রচারিত" },
+    pause: { en: "Pause", bn: "থামান" },
+    play: { en: "Play", bn: "চালান" },
+    carousel: { en: "Partner offers", bn: "অংশীদারদের অফার" },
+    /** Screen-reader label for each dot; {n} is replaced with the number. */
+    goToSlide: { en: "Offer {n}", bn: "অফার {n}" },
+    slideOf: { en: "{n} of {total}", bn: "{total}-এর {n}" },
+  },
+
   why: {
     heading: { en: "Why StayBangla", bn: "কেন StayBangla" },
     reasons: [

@@ -104,6 +104,19 @@
   will-change: transform;
 }
 
+/* Time remaining on the current promotional slide. Its real job is feedback:
+   without it the pause button gives no sign of having done anything, and an
+   auto-advancing panel that offers no evidence it is auto-advancing is just a
+   thing that moves while you are reading it. */
+@keyframes ad-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .splash-drift,
   .splash-sheen,
