@@ -3,6 +3,8 @@
 import { useId, useState } from "react";
 import { District } from "@staybangla/shared-types";
 import { DISTRICTS, FEATURED_DISTRICT_ORDER } from "@/lib/districts";
+import { COPY, t } from "@/lib/copy";
+import { useLang } from "@/lib/lang-context";
 
 /**
  * The one client component on the landing page — it holds form state.
@@ -16,6 +18,7 @@ import { DISTRICTS, FEATURED_DISTRICT_ORDER } from "@/lib/districts";
  * layout work.
  */
 export function SearchForm() {
+  const { lang } = useLang();
   const districtId = useId();
   const checkInId = useId();
   const checkOutId = useId();
@@ -31,7 +34,7 @@ export function SearchForm() {
       // Submission lands in a later step along with /search.
       onSubmit={(e) => e.preventDefault()}
       className="bg-background/95 w-full rounded-2xl p-4 shadow-2xl backdrop-blur sm:p-5"
-      aria-label="হোটেল ও গাড়ি খুঁজুন"
+      aria-label={t(COPY.search.formLabel, lang)}
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_auto]">
         <div className="flex flex-col gap-1.5">
@@ -39,7 +42,7 @@ export function SearchForm() {
             htmlFor={districtId}
             className="text-muted-foreground text-sm font-medium"
           >
-            কোথায় যাবেন
+            {t(COPY.search.where, lang)}
           </label>
           <select
             id={districtId}
@@ -47,10 +50,10 @@ export function SearchForm() {
             onChange={(e) => setDistrict(e.target.value as District | "")}
             className="border-border focus:border-primary focus:ring-primary/30 h-12 rounded-lg border bg-transparent px-3 text-base focus:ring-2 focus:outline-none"
           >
-            <option value="">যেকোনো জায়গা</option>
+            <option value="">{t(COPY.search.anywhere, lang)}</option>
             {FEATURED_DISTRICT_ORDER.map((d) => (
               <option key={d} value={d}>
-                {DISTRICTS[d].name}
+                {t(DISTRICTS[d].name, lang)}
               </option>
             ))}
           </select>
@@ -61,7 +64,7 @@ export function SearchForm() {
             htmlFor={checkInId}
             className="text-muted-foreground text-sm font-medium"
           >
-            যাওয়ার তারিখ
+            {t(COPY.search.checkIn, lang)}
           </label>
           <input
             id={checkInId}
@@ -77,7 +80,7 @@ export function SearchForm() {
             htmlFor={checkOutId}
             className="text-muted-foreground text-sm font-medium"
           >
-            ফেরার তারিখ
+            {t(COPY.search.checkOut, lang)}
           </label>
           <input
             id={checkOutId}
@@ -93,7 +96,7 @@ export function SearchForm() {
             htmlFor={guestsId}
             className="text-muted-foreground text-sm font-medium"
           >
-            অতিথি
+            {t(COPY.search.guests, lang)}
           </label>
           <input
             id={guestsId}
@@ -110,12 +113,15 @@ export function SearchForm() {
       <button
         type="submit"
         disabled
-        className="bg-primary text-on-primary hover:bg-primary-hover mt-4 h-12 w-full rounded-lg text-base font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+        // Full colour even while disabled. At 60% opacity it read as a dead
+        // control and dragged the whole form down with it; the cursor and the
+        // note below already say it is not live yet.
+        className="bg-primary text-on-primary hover:bg-primary-hover mt-4 h-12 w-full rounded-lg text-base font-semibold transition-colors disabled:cursor-not-allowed"
       >
-        খুঁজুন
+        {t(COPY.search.submit, lang)}
       </button>
       <p className="text-muted-foreground mt-2 text-center text-xs">
-        অনুসন্ধান শীঘ্রই চালু হচ্ছে
+        {t(COPY.search.comingSoon, lang)}
       </p>
     </form>
   );

@@ -87,9 +87,27 @@ export function SplashGate() {
 
    Applied to a wrapper inside <body>, never to <body> itself: a transform on
    an ancestor makes it the containing block for position:fixed descendants,
-   which would break the fixed overlay and anything else fixed on the page. */
-:root[data-splash="on"] #page-shell{transform:scale(0.965)}
-#page-shell{transform:scale(1);transform-origin:50% 45%;transition:transform 900ms cubic-bezier(0.22,1,0.36,1)}
+   which would break the fixed overlay and anything else fixed on the page.
+
+   The scaled-down shell is narrower than the viewport, so the page background
+   shows in the gap around it — a pale seam on the way in. Painting <html>
+   dark for the duration hides it; the seam is only visible while the
+   attribute is set, and this reverts the moment it is removed. */
+/* A small lift rather than a scale-down.
+
+   Scaling made the shell narrower and shorter than the viewport, so the page
+   background showed in the gap around it — a pale seam along the edges for the
+   duration of the settle. Painting the root dark hid it at the sides but not
+   at the bottom, where the shell's own edge was still visible against the
+   next section.
+
+   translateY keeps the shell full-size, but the direction matters: offsetting
+   it *down* leaves a strip of bare body along the bottom edge for the duration
+   of the settle, which is visible as a seam right where the hero photograph
+   meets the next section. Offsetting it *up* puts that strip at the top
+   instead, where the splash overlay is still covering it. */
+:root[data-splash="on"] #page-shell{transform:translate3d(0,-14px,0)}
+#page-shell{transform:translate3d(0,0,0);transition:transform 900ms cubic-bezier(0.22,1,0.36,1)}
 @media (prefers-reduced-motion: reduce){#page-shell{transform:none;transition:none}}
 `,
         }}
@@ -243,7 +261,13 @@ export function Splash() {
             />
           </div>
           {/* Darkens the photograph so the white wordmark stays legible. */}
-          <div className="absolute inset-0 bg-[var(--hero-scrim)]" />
+          {/*
+            Its own value rather than --hero-scrim: the hero's wash was lowered
+            to 0.22 so the photograph reads properly behind body copy, but the
+            splash puts a large white wordmark straight over the image and
+            needs more cover than that to stay legible.
+          */}
+          <div className="absolute inset-0 bg-[rgb(6_26_18/0.45)]" />
         </div>
       ))}
 

@@ -1,10 +1,11 @@
 import { District } from "@staybangla/shared-types";
 
 export interface DistrictInfo {
-  /** Bengali name, as a Bangladeshi traveller would say it. */
-  name: string;
+  /** Both languages: the site defaults to English but most of the audience
+   *  reads Bengali, so neither is a fallback for the other. */
+  name: { en: string; bn: string };
   /** One line on why you would go. Kept short — these are cards, not copy. */
-  blurb: string;
+  blurb: { en: string; bn: string };
 }
 
 /**
@@ -14,68 +15,98 @@ export interface DistrictInfo {
  */
 export const DISTRICTS: Record<District, DistrictInfo> = {
   [District.COXS_BAZAR]: {
-    name: "কক্সবাজার",
-    blurb: "বিশ্বের দীর্ঘতম সমুদ্রসৈকত",
+    name: { en: "Cox's Bazar", bn: "কক্সবাজার" },
+    blurb: {
+      en: "The world's longest beach",
+      bn: "বিশ্বের দীর্ঘতম সমুদ্রসৈকত",
+    },
   },
   [District.SAINT_MARTIN]: {
-    name: "সেন্ট মার্টিন",
-    blurb: "দেশের একমাত্র প্রবাল দ্বীপ",
+    name: { en: "Saint Martin", bn: "সেন্ট মার্টিন" },
+    blurb: { en: "The only coral island", bn: "দেশের একমাত্র প্রবাল দ্বীপ" },
   },
   [District.RANGAMATI]: {
-    name: "রাঙামাটি",
-    blurb: "কাপ্তাই হ্রদ আর সাজেকের মেঘ",
+    name: { en: "Rangamati", bn: "রাঙামাটি" },
+    blurb: {
+      en: "Kaptai lake, Sajek cloud",
+      bn: "কাপ্তাই হ্রদ আর সাজেকের মেঘ",
+    },
   },
   [District.BANDARBAN]: {
-    name: "বান্দরবান",
-    blurb: "নীলগিরি, নাফাখুম, পাহাড়ি পথ",
+    name: { en: "Bandarban", bn: "বান্দরবান" },
+    blurb: {
+      en: "Nilgiri, Nafakhum, hill roads",
+      bn: "নীলগিরি, নাফাখুম, পাহাড়ি পথ",
+    },
   },
   [District.KHAGRACHARI]: {
-    name: "খাগড়াছড়ি",
-    blurb: "আলুটিলা গুহা আর ঝরনার দেশ",
+    name: { en: "Khagrachari", bn: "খাগড়াছড়ি" },
+    blurb: { en: "Caves and waterfalls", bn: "আলুটিলা গুহা আর ঝরনার দেশ" },
   },
   [District.SREEMANGAL]: {
-    name: "শ্রীমঙ্গল",
-    blurb: "চায়ের রাজধানী, সবুজ বাগান",
+    name: { en: "Sreemangal", bn: "শ্রীমঙ্গল" },
+    blurb: {
+      en: "Tea country, green terraces",
+      bn: "চায়ের রাজধানী, সবুজ বাগান",
+    },
   },
   [District.SUNDARBANS]: {
-    name: "সুন্দরবন",
-    blurb: "রয়েল বেঙ্গল টাইগারের বাড়ি",
+    name: { en: "Sundarbans", bn: "সুন্দরবন" },
+    blurb: {
+      en: "Home of the Royal Bengal tiger",
+      bn: "রয়েল বেঙ্গল টাইগারের বাড়ি",
+    },
   },
   [District.SYLHET]: {
-    name: "সিলেট",
-    blurb: "জাফলং, রাতারগুল, হাওরের জল",
+    name: { en: "Sylhet", bn: "সিলেট" },
+    blurb: {
+      en: "Jaflong, Ratargul, haor water",
+      bn: "জাফলং, রাতারগুল, হাওরের জল",
+    },
   },
   [District.CHATTOGRAM]: {
-    name: "চট্টগ্রাম",
-    blurb: "পাহাড় আর সমুদ্রের বন্দরনগরী",
+    name: { en: "Chattogram", bn: "চট্টগ্রাম" },
+    blurb: {
+      en: "Port city of hills and sea",
+      bn: "পাহাড় আর সমুদ্রের বন্দরনগরী",
+    },
   },
   [District.DHAKA]: {
-    name: "ঢাকা",
-    blurb: "চারশো বছরের রাজধানী",
+    name: { en: "Dhaka", bn: "ঢাকা" },
+    blurb: { en: "Four centuries a capital", bn: "চারশো বছরের রাজধানী" },
   },
   [District.KHULNA]: {
-    name: "খুলনা",
-    blurb: "সুন্দরবনের প্রবেশদ্বার",
+    name: { en: "Khulna", bn: "খুলনা" },
+    blurb: { en: "Gateway to the Sundarbans", bn: "সুন্দরবনের প্রবেশদ্বার" },
   },
   [District.BARISHAL]: {
-    name: "বরিশাল",
-    blurb: "নদীর শহর, ভাসমান পেয়ারা বাজার",
+    name: { en: "Barishal", bn: "বরিশাল" },
+    blurb: {
+      en: "River city, floating guava market",
+      bn: "নদীর শহর, ভাসমান পেয়ারা বাজার",
+    },
   },
   [District.RAJSHAHI]: {
-    name: "রাজশাহী",
-    blurb: "আম, রেশম আর পুঠিয়ার মন্দির",
+    name: { en: "Rajshahi", bn: "রাজশাহী" },
+    blurb: {
+      en: "Mangoes, silk, Puthia temples",
+      bn: "আম, রেশম আর পুঠিয়ার মন্দির",
+    },
   },
   [District.RANGPUR]: {
-    name: "রংপুর",
-    blurb: "তাজহাট জমিদারবাড়ি",
+    name: { en: "Rangpur", bn: "রংপুর" },
+    blurb: { en: "Tajhat palace", bn: "তাজহাট জমিদারবাড়ি" },
   },
   [District.MYMENSINGH]: {
-    name: "ময়মনসিংহ",
-    blurb: "ব্রহ্মপুত্রের পাড়, গারো পাহাড়",
+    name: { en: "Mymensingh", bn: "ময়মনসিংহ" },
+    blurb: {
+      en: "Brahmaputra bank, Garo hills",
+      bn: "ব্রহ্মপুত্রের পাড়, গারো পাহাড়",
+    },
   },
   [District.JESSORE]: {
-    name: "যশোর",
-    blurb: "ফুলের রাজ্য গদখালী",
+    name: { en: "Jessore", bn: "যশোর" },
+    blurb: { en: "Godkhali, kingdom of flowers", bn: "ফুলের রাজ্য গদখালী" },
   },
 };
 

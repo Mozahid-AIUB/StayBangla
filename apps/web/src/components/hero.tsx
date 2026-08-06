@@ -1,5 +1,10 @@
+"use client";
+
 import { District } from "@staybangla/shared-types";
 import { DISTRICTS } from "@/lib/districts";
+import { COPY, t } from "@/lib/copy";
+import { useLang } from "@/lib/lang-context";
+import { HeroVideo } from "./hero-video";
 import { SearchForm } from "./search-form";
 
 /**
@@ -7,18 +12,24 @@ import { SearchForm } from "./search-form";
  * lands in one place and a district removed from the enum breaks the build
  * instead of leaving a chip that leads nowhere.
  */
-const POPULAR = (
-  [
-    District.COXS_BAZAR,
-    District.RANGAMATI,
-    District.SUNDARBANS,
-    District.SREEMANGAL,
-  ] as const
-).map((d) => DISTRICTS[d].name);
+const POPULAR = [
+  District.COXS_BAZAR,
+  District.RANGAMATI,
+  District.SUNDARBANS,
+  District.SREEMANGAL,
+] as const;
 
 export function Hero() {
+  const { lang } = useLang();
+
   return (
-    <section className="relative isolate overflow-hidden">
+    // No `overflow-hidden`: the probe showed the seam sits exactly on the
+    // section's fractional bottom edge (676.80px) with no element and no
+    // background colour there — it is the clip itself. Clipping at a
+    // fractional pixel makes the browser paint a row of partially-transparent
+    // pixels, and that row reads as a hairline. The backdrop below is masked
+    // instead, so there is no hard cut to alias.
+    <section className="relative isolate">
       {/*
         The same photograph the splash used, so the curtains part onto the
         scene the visitor was just looking at rather than cutting to something
@@ -31,12 +42,32 @@ export function Hero() {
       */}
       <div
         aria-hidden
-        className="absolute inset-0 -z-10 overflow-hidden bg-[linear-gradient(140deg,#0b4b2f_0%,#10643f_38%,#0f5b73_100%)]"
+        // Bleeds a little past every edge, most of all the bottom. Two reasons:
+        // fractional viewport heights round to whole pixels and can leave a
+        // hairline of whatever is underneath, and the page shell is offset by
+        // 14px during the splash settle — without the overhang that offset
+        // exposes a strip of bare body right where the photograph ends.
+        className="absolute -top-px -right-px -bottom-4 -left-px -z-10 overflow-hidden bg-[linear-gradient(140deg,#0b4b2f_0%,#10643f_38%,#0f5b73_100%)]"
+        style={{
+          // Feathers the bottom edge instead of cutting it. A hard clip at a
+          // fractional pixel height leaves a row of partially-transparent
+          // pixels that reads as a hairline; a mask has no edge to alias.
+          maskImage:
+            "linear-gradient(to bottom, black 0%, black calc(100% - 40px), transparent 100%)",
+          WebkitMaskImage:
+            "linear-gradient(to bottom, black 0%, black calc(100% - 40px), transparent 100%)",
+        }}
       >
         <div
           className="hero-drift absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: "url(/images/splash/splash.webp)" }}
         />
+        {/*
+          Fades in over the photograph on fast connections only, and only once
+          buffered. Sits inside the same clipped container so it inherits the
+          scrims below rather than needing its own.
+        */}
+        <HeroVideo />
       </div>
       {/*
         Two scrims, not one: a flat wash for overall legibility, plus a
@@ -45,11 +76,27 @@ export function Hero() {
       */}
       <div
         aria-hidden
-        className="absolute inset-0 -z-10 bg-[var(--hero-scrim)]"
+        className="absolute -top-px -right-px -bottom-4 -left-px -z-10 bg-[var(--hero-scrim)]"
+        style={{
+          maskImage:
+            "linear-gradient(to bottom, black 0%, black calc(100% - 40px), transparent 100%)",
+          WebkitMaskImage:
+            "linear-gradient(to bottom, black 0%, black calc(100% - 40px), transparent 100%)",
+        }}
       />
       <div
         aria-hidden
-        className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgb(6_26_18/0.55)_0%,rgb(6_26_18/0.15)_45%,rgb(6_26_18/0.5)_100%)]"
+        // Weighted to the top third, where the eyebrow and headline sit, and
+        // near-clear through the middle so the photograph is actually visible.
+        // The previous stop values held 0.5 at the bottom too, which combined
+        // with the flat wash to leave the whole image looking muddy.
+        className="absolute -top-px -right-px -bottom-4 -left-px -z-10 bg-[linear-gradient(180deg,rgb(6_26_18/0.62)_0%,rgb(6_26_18/0.12)_55%,rgb(6_26_18/0.25)_100%)]"
+        style={{
+          maskImage:
+            "linear-gradient(to bottom, black 0%, black calc(100% - 40px), transparent 100%)",
+          WebkitMaskImage:
+            "linear-gradient(to bottom, black 0%, black calc(100% - 40px), transparent 100%)",
+        }}
       />
 
       {/*
@@ -57,16 +104,18 @@ export function Hero() {
         strip, but capped so the search form is never pushed below the fold on
         a short laptop screen.
       */}
-      <div className="mx-auto flex min-h-[78svh] w-full max-w-5xl flex-col justify-center px-4 pt-24 pb-14 sm:px-6 sm:pt-32 sm:pb-20">
-        <p className="text-sm font-medium tracking-wide text-white/80 sm:text-base">
-          বাংলাদেশ ঘুরে দেখুন
-        </p>
-        <h1 className="font-display mt-3 text-3xl leading-tight font-light tracking-[0.01em] text-white sm:text-5xl">
-          যেখানে বিদেশি সাইট পৌঁছায় না
+      <div className="mx-auto flex min-h-[78svh] w-full max-w-5xl flex-col justify-center px-4 pt-28 pb-14 sm:px-6 sm:pt-32 sm:pb-20">
+        {/*
+          Two lines, not three. The old eyebrow said "See Bangladesh" above a
+          headline that said much the same thing, and the paragraph beneath
+          listed four destinations the grid already shows — three stacked
+          messages competing for the same glance.
+        */}
+        <h1 className="font-display max-w-3xl text-4xl leading-[1.15] font-light tracking-[0.01em] text-white sm:text-6xl">
+          {t(COPY.hero.headline, lang)}
         </h1>
-        <p className="mt-4 max-w-2xl text-base text-white/90 sm:text-lg">
-          সেন্ট মার্টিনের প্রবাল থেকে সাজেকের মেঘ, সুন্দরবনের বাঘ থেকে
-          শ্রীমঙ্গলের চা-বাগান — ১৬টি জেলার হোটেল আর গাড়ি এক জায়গায়।
+        <p className="mt-5 max-w-xl text-base text-white/85 sm:text-lg">
+          {t(COPY.hero.sub, lang)}
         </p>
 
         <div className="mt-8 sm:mt-10">
@@ -80,13 +129,15 @@ export function Hero() {
           form, since both need the same route.
         */}
         <div className="mt-5 flex flex-wrap items-center gap-2 sm:mt-6 sm:gap-2.5">
-          <span className="text-xs text-white/70 sm:text-sm">জনপ্রিয়:</span>
-          {POPULAR.map((name) => (
+          <span className="text-xs text-white/70 sm:text-sm">
+            {t(COPY.hero.popular, lang)}:
+          </span>
+          {POPULAR.map((district) => (
             <span
-              key={name}
+              key={district}
               className="rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs text-white/90 backdrop-blur-sm sm:text-sm"
             >
-              {name}
+              {t(DISTRICTS[district].name, lang)}
             </span>
           ))}
         </div>

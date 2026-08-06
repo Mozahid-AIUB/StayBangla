@@ -24,7 +24,11 @@
   /* Scrim over hero photography. The headline must not depend on the
      photograph happening to be dark — this guarantees contrast whatever
      image sits underneath. */
-  --hero-scrim: rgb(6 26 18 / 0.55);
+  /* Was 0.55, which flattened the photograph into mud once the two gradient
+     scrims stacked on top of it. The headline sits in the upper third, so the
+     top-weighted gradient carries most of the contrast work and this flat wash
+     only needs to take the edge off. */
+  --hero-scrim: rgb(6 26 18 / 0.34);
 }
 
 @theme inline {
@@ -108,16 +112,26 @@
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0d1512;
-    --foreground: #e8efea;
-    --primary: #3fb883;
-    --primary-hover: #5ccb98;
-    --on-primary: #06231a;
-    --accent: #5ab4cf;
-    --surface: #16211c;
-    --border: #26332c;
-    --muted-foreground: #9fb0a6;
+/* Light only, deliberately. A travel site lives on its photography, and a dark
+   chrome mutes the very images it exists to show — the same reason
+   Booking.com and Airbnb stay light. Declaring color-scheme also stops the
+   browser darkening form controls and scrollbars for visitors whose OS is set
+   to dark, which is what made the page look muddy. */
+:root {
+  color-scheme: light;
+}
+
+/* Anchor targets clear the sticky header instead of landing underneath it. */
+[id] {
+  scroll-margin-top: 5.5rem;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }

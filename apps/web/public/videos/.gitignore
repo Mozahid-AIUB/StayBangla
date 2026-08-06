@@ -1,9 +1,11 @@
-# Source videos live here but must never be committed — the ones dropped in so
-# far are 4K60 at 15-17 MB, which would be minutes of download on a Bangladeshi
-# mobile connection and would sit in git history forever even if deleted later.
+# Source footage lives here but must never be committed — the originals were
+# 4K60 at 15-17 MB, which would be minutes of download on a Bangladeshi mobile
+# connection and would sit in git history forever even if deleted later.
 #
-# Commit only a web-encoded derivative: 1080p, ~3 MB ceiling, no audio.
+# Only web-encoded derivatives ship: 1080p, no audio, and as small as the
+# footage allows. hero-1 is the lighter of the two and loads first.
 *.mp4
 *.mov
 *.webm
-!hero.mp4
+!hero-1.mp4
+!hero-2.mp4

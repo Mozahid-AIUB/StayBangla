@@ -6,6 +6,7 @@ import {
   Noto_Serif_Bengali,
 } from "next/font/google";
 import { Splash, SplashGate } from "@/components/splash";
+import { LangProvider } from "@/lib/lang-context";
 import "./globals.css";
 
 // Bengali leads: most user-facing copy is Bangla, and neither Geist nor any
@@ -45,9 +46,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StayBangla — বাংলাদেশ ঘুরে দেখুন",
+  title: "StayBangla — stays and rides across Bangladesh",
   description:
-    "সেন্ট মার্টিন থেকে সাজেক, সুন্দরবন থেকে শ্রীমঙ্গল — বাংলাদেশের ১৬টি গন্তব্যে হোটেল ও গাড়ি বুক করুন।",
+    "Book hotels and vehicles in sixteen districts, from Saint Martin to Sajek, Sundarbans to Sreemangal. Pay in taka.",
 };
 
 export default function RootLayout({
@@ -57,7 +58,13 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="bn"
+      lang="en"
+      // The splash gate sets data-splash on <html> before React hydrates, so
+      // the server markup and the live DOM legitimately differ by that one
+      // attribute. This is exactly the case suppressHydrationWarning exists
+      // for; without it React reports a mismatch and the dev overlay draws a
+      // marker across the page.
+      suppressHydrationWarning
       className={`${notoSansBengali.variable} ${notoSerifBengali.variable} ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="bg-background text-foreground flex min-h-full flex-col">
@@ -82,8 +89,16 @@ export default function RootLayout({
           transform creates a containing block for position:fixed descendants,
           so scaling <body> would trap the fixed overlay inside it.
         */}
-        <div id="page-shell" className="flex min-h-full flex-1 flex-col">
-          {children}
+        {/*
+          bg-background is deliberate: while the shell is offset during the
+          splash settle it would otherwise leave a strip of bare <html> showing
+          below its bottom edge, which reads as a stray pale line.
+        */}
+        <div
+          id="page-shell"
+          className="bg-background flex min-h-full flex-1 flex-col"
+        >
+          <LangProvider>{children}</LangProvider>
         </div>
         <Splash />
       </body>

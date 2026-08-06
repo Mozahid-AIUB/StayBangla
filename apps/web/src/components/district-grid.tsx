@@ -1,4 +1,8 @@
+"use client";
+
 import { DISTRICTS, FEATURED_DISTRICT_ORDER } from "@/lib/districts";
+import { COPY, t } from "@/lib/copy";
+import { useLang } from "@/lib/lang-context";
 
 /**
  * Cards are plain articles for now. They become links into /search once that
@@ -9,16 +13,21 @@ import { DISTRICTS, FEATURED_DISTRICT_ORDER } from "@/lib/districts";
  * curated per-district imagery is its own step.
  */
 export function DistrictGrid() {
+  const { lang } = useLang();
+
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
-      <h2 className="font-display text-2xl font-light sm:text-3xl">
-        কোথায় যাবেন?
+    <section
+      id="districts"
+      className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24"
+    >
+      <h2 className="font-display text-2xl font-light sm:text-4xl">
+        {t(COPY.districts.heading, lang)}
       </h2>
       <p className="text-muted-foreground mt-2 text-base">
-        বাংলাদেশের ১৬টি গন্তব্য — পাহাড়, সমুদ্র, বন আর শহর।
+        {t(COPY.districts.sub, lang)}
       </p>
 
-      <ul className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+      <ul className="mt-8 grid grid-cols-2 gap-3 sm:mt-10 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
         {FEATURED_DISTRICT_ORDER.map((district) => {
           const { name, blurb } = DISTRICTS[district];
           return (
@@ -29,8 +38,12 @@ export function DistrictGrid() {
                   className="from-primary to-accent h-24 bg-gradient-to-br sm:h-28"
                 />
                 <div className="p-3 sm:p-4">
-                  <h3 className="text-base font-semibold sm:text-lg">{name}</h3>
-                  <p className="text-muted-foreground mt-1 text-sm">{blurb}</p>
+                  <h3 className="text-base font-semibold sm:text-lg">
+                    {t(name, lang)}
+                  </h3>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    {t(blurb, lang)}
+                  </p>
                 </div>
               </article>
             </li>
