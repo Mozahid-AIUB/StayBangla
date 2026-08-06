@@ -35,11 +35,11 @@ For a folder of static files the two are equivalent. The Workers free tier is
 
 ### 3. Build settings
 
-| Field          | Value                                                 |
-| -------------- | ----------------------------------------------------- |
-| Build command  | `pnpm install && pnpm --filter @staybangla/web build` |
-| Deploy command | `npx wrangler deploy`                                 |
-| Root directory | _(leave empty — the repository root)_                 |
+| Field          | Value                                                      |
+| -------------- | ---------------------------------------------------------- |
+| Build command  | `pnpm install && npx turbo build --filter=@staybangla/web` |
+| Deploy command | `npx wrangler deploy`                                      |
+| Root directory | _(leave empty — the repository root)_                      |
 
 `wrangler.jsonc` at the repository root is what makes this work. Pointed at a
 pnpm workspace with no config to read, `wrangler deploy` inspects the tree,
