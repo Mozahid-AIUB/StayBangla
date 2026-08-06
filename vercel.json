@@ -1,37 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-
-  "//": [
-    "Vercel reads this from the repository root, which is what makes it useful:",
-    "with no config, Vercel sees a pnpm workspace and runs the root build, which",
-    "builds every package — including the NestJS API. That is what failed the",
-    "first deploy on `nest build`, and it was never going to succeed, because the",
-    "API has no business being built to put a static site online.",
-    "",
-    "Naming the build here does the same job as setting Root Directory in the",
-    "dashboard, and it lives in git where it can be reviewed instead of in a",
-    "settings page nobody sees."
-  ],
-
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm --filter @staybangla/web build",
   "outputDirectory": "apps/web/out",
-
-  "//framework": [
-    "null, not 'nextjs'. next.config.ts sets output: 'export', so the build",
-    "leaves a folder of files rather than a server for Vercel to run. Declaring",
-    "the framework would have Vercel look for a Next.js server that is not there."
-  ],
   "framework": null,
-
-  "//headers": [
-    "The same protections as apps/web/public/_headers, which Vercel does not",
-    "read — _headers is a Cloudflare convention. Deploying here without this",
-    "block would have quietly shipped the site with none of them.",
-    "",
-    "Keep the two in step. They exist twice because the site can be hosted in",
-    "either place, not because either is optional."
-  ],
   "headers": [
     {
       "source": "/(.*)",
