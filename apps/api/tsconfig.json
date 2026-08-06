@@ -6,7 +6,31 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "outDir": "./dist",
-    "baseUrl": "./"
+    "baseUrl": "./",
+
+    // Explicit, rather than letting TypeScript discover @types by walking up
+    // node_modules. This build passes locally and fails in CI with
+    // "Property 'json' does not exist on type 'Response'" — fetch and Response
+    // are globals contributed by @types/node, and the only way that error
+    // happens is TypeScript not loading it. Naming the packages removes the
+    // discovery step, and with it the difference between the two machines.
+    //
+    // Only global type packages belong here. @types/express, @types/supertest
+    // and the rest are imported by name, so they resolve on their own.
+    "types": ["node", "jest"],
+
+    // DOM alongside ES2022, and this is a trade rather than a tidy answer.
+    //
+    // The service layer calls fetch. Its Response type comes from @types/node,
+    // and when that fails to load there is nothing else in scope that has
+    // .json() — which is the CI failure above. DOM guarantees the type exists
+    // whatever happens to @types resolution.
+    //
+    // The cost: browser globals like `window` and `document` now type-check in
+    // server code that has neither. They would fail immediately at runtime, so
+    // the mistake is loud rather than silent, but it is a real footgun and
+    // worth removing the day the CI difference is understood.
+    "lib": ["ES2022", "DOM"]
   },
   "include": ["src/**/*.ts", "test/**/*.ts"],
   "exclude": ["node_modules", "dist"]
