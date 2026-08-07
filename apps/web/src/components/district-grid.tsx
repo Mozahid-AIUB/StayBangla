@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { District } from "@staybangla/shared-types";
 import {
   DISTRICTS,
@@ -82,11 +83,12 @@ function DistrictCard({ district }: { district: District }) {
     // this the card sat in the top half of its cell and left a hole the size of
     // another card underneath it.
     //
-    // An article, not a link: /search does not exist yet, and a card that 404s
-    // is worse than one that plainly waits. It becomes a <Link> in the step
-    // that wires the search form, since both need the same route.
-    <article
-      className={`relative h-full overflow-hidden rounded-2xl text-white ring-1 ring-black/5 sm:min-h-0 ${
+    // A link now that /search exists. It goes with no dates — someone choosing
+    // between districts has not decided when to travel, and the results page
+    // answers that question first with the district's own season bar.
+    <Link
+      href={`/search?city=${district}`}
+      className={`relative block h-full overflow-hidden rounded-2xl text-white ring-1 ring-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:min-h-0 ${
         // Photographed cards are taller on phones, where the grid gives every
         // card one column and the height is ours to choose.
         //
@@ -185,7 +187,7 @@ function DistrictCard({ district }: { district: District }) {
           <SeasonBar months={season} />
         </div>
       </div>
-    </article>
+    </Link>
   );
 }
 
@@ -237,11 +239,13 @@ export function DistrictGrid() {
         </h3>
         <ul className="mt-4 flex flex-wrap gap-2">
           {REMAINING_DISTRICTS.map((district) => (
-            <li
-              key={district}
-              className="border-border text-foreground rounded-full border px-3.5 py-1.5 text-sm"
-            >
-              {t(DISTRICTS[district].name, lang)}
+            <li key={district}>
+              <Link
+                href={`/search?city=${district}`}
+                className="border-border text-foreground hover:border-foreground/40 inline-flex min-h-11 items-center rounded-full border px-3.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+              >
+                {t(DISTRICTS[district].name, lang)}
+              </Link>
             </li>
           ))}
         </ul>

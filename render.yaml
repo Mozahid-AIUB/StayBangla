@@ -36,11 +36,18 @@ services:
     # and Render then restarts a process that was working.
     healthCheckPath: /health
 
-    # Migrations run before the first request, not from inside the container's
-    # start command. A failed migration then fails the deploy and Render keeps
-    # the previous version serving, rather than starting a new one against a
-    # schema it does not match.
-    preDeployCommand: pnpm --filter @staybangla/api exec prisma migrate deploy
+    # Migrations run as the container starts, because Render's free tier has no
+    # pre-deploy step. The trade-off is real and worth naming: a failed
+    # migration takes the service down with it, where a pre-deploy step would
+    # have failed the deploy and left the previous version serving.
+    #
+    # `migrate deploy` is idempotent and returns immediately when there is
+    # nothing to apply, so this costs one query on each cold start rather than
+    # a migration run.
+    #
+    # The Prisma CLI has to survive the production install for this to work —
+    # see the Dockerfile.
+    dockerCommand: sh -c "npx prisma migrate deploy && node dist/main.js"
 
     envVars:
       - key: NODE_ENV

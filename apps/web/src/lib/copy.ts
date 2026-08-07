@@ -296,6 +296,84 @@ export const COPY = {
       privacy: { en: "Privacy", bn: "গোপনীয়তা" },
     },
   },
+  /**
+   * The results page.
+   *
+   * Room types and vehicle categories are keyed by the enum value the API
+   * returns, so an enum gaining a member is a type error here rather than a
+   * card that renders "SUITE" at a visitor.
+   */
+  results: {
+    title: {
+      en: "Where you'll stay, and what carries you",
+      bn: "কোথায় থাকবেন, কী নিয়ে যাবে",
+    },
+    stays: { en: "Stays", bn: "থাকার জায়গা" },
+    rides: { en: "Rides", bn: "যাতায়াত" },
+    // "{n}" is replaced with a count, in the reader's own numerals.
+    foundStays: { en: "{n} places to stay", bn: "{n}টি থাকার জায়গা" },
+    foundOneStay: { en: "1 place to stay", bn: "১টি থাকার জায়গা" },
+    foundRides: { en: "{n} vehicles", bn: "{n}টি গাড়ি" },
+    foundOneRide: { en: "1 vehicle", bn: "১টি গাড়ি" },
+    anywhere: { en: "Across Bangladesh", bn: "সারা বাংলাদেশে" },
+    anyDates: { en: "Any dates", bn: "যেকোনো তারিখ" },
+    changeSearch: { en: "Change search", bn: "খোঁজ বদলান" },
+    clearDates: { en: "Show any dates", bn: "সব তারিখ দেখুন" },
+    perNight: { en: "per night", bn: "প্রতি রাত" },
+    perDay: { en: "per day", bn: "প্রতি দিন" },
+    forNight: { en: "for {n} night", bn: "{n} রাতে" },
+    forNights: { en: "for {n} nights", bn: "{n} রাতে" },
+    forDay: { en: "for {n} day", bn: "{n} দিনে" },
+    forDays: { en: "for {n} days", bn: "{n} দিনে" },
+    sleeps: { en: "Sleeps {n}", bn: "{n} জন" },
+    seats: { en: "Seats {n}", bn: "{n} জন" },
+    loading: { en: "Looking…", bn: "খোঁজা হচ্ছে…" },
+
+    // Empty and failed are different states and say different things. An empty
+    // result is the search working; a failure is ours, and the visitor can only
+    // retry.
+    noStays: {
+      en: "No rooms free on those dates.",
+      bn: "ওই তারিখে কোনো ঘর খালি নেই।",
+    },
+    noStaysAnyDates: {
+      en: "No hotels listed here yet.",
+      bn: "এখানে এখনো কোনো হোটেল নেই।",
+    },
+    noRides: {
+      en: "No vehicles free on those dates.",
+      bn: "ওই তারিখে কোনো গাড়ি খালি নেই।",
+    },
+    noRidesAnyDates: {
+      en: "No vehicles listed here yet.",
+      bn: "এখানে এখনো কোনো গাড়ি নেই।",
+    },
+    staysFailed: {
+      en: "Couldn't load places to stay.",
+      bn: "থাকার জায়গা আনা গেল না।",
+    },
+    ridesFailed: {
+      en: "Couldn't load vehicles.",
+      bn: "গাড়ির তালিকা আনা গেল না।",
+    },
+    retry: { en: "Try again", bn: "আবার চেষ্টা করুন" },
+
+    roomType: {
+      SINGLE: { en: "Single room", bn: "সিঙ্গেল রুম" },
+      DOUBLE: { en: "Double room", bn: "ডাবল রুম" },
+      TWIN: { en: "Twin room", bn: "টুইন রুম" },
+      SUITE: { en: "Suite", bn: "স্যুট" },
+      FAMILY: { en: "Family room", bn: "ফ্যামিলি রুম" },
+      DORMITORY: { en: "Dormitory bed", bn: "ডরমিটরি" },
+    },
+
+    vehicleCategory: {
+      CAR: { en: "Car", bn: "গাড়ি" },
+      CNG: { en: "CNG", bn: "সিএনজি" },
+      JEEP: { en: "Jeep", bn: "জিপ" },
+      BOAT: { en: "Boat", bn: "নৌকা" },
+    },
+  },
 } as const;
 
 /** Picks the active language from a bilingual pair. */
