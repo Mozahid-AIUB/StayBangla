@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { useRouter } from "next/navigation";
 import { District } from "@staybangla/shared-types";
 import { ALL_DISTRICTS_IN_ORDER, DISTRICTS } from "@/lib/districts";
 import { COPY, t } from "@/lib/copy";
@@ -66,9 +67,34 @@ export function SearchForm() {
   const { lang } = useLang();
   const districtId = useId();
 
+  const router = useRouter();
+
   const [district, setDistrict] = useState<District | "">("");
   const [dates, setDates] = useState<DateRange>({ from: null, to: null });
   const [guests, setGuests] = useState(2);
+
+  /**
+   * Puts the search in the URL and goes to the results.
+   *
+   * Everything optional. An empty form is a valid search — it means "show me
+   * what there is" — because the availability endpoints stopped requiring
+   * dates. Guests are not sent: the API filters by capacity nowhere, and a
+   * parameter it ignores would be a promise the results do not keep.
+   *
+   * Only a complete range is sent. Half of one is a 400, and the visitor did
+   * nothing to deserve it.
+   */
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const params = new URLSearchParams();
+    if (district) params.set("city", district);
+    if (dates.from && dates.to) {
+      params.set("checkIn", dates.from);
+      params.set("checkOut", dates.to);
+    }
+    const query = params.toString();
+    router.push(query ? `/search?${query}` : "/search");
+  };
 
   const step = (by: number) =>
     setGuests((g) => Math.min(MAX_GUESTS, Math.max(MIN_GUESTS, g + by)));
@@ -77,7 +103,7 @@ export function SearchForm() {
 
   return (
     <form
-      onSubmit={(e) => e.preventDefault()}
+      onSubmit={submit}
       aria-label={t(COPY.search.formLabel, lang)}
       className="w-full"
     >
@@ -166,11 +192,7 @@ export function SearchForm() {
         <div className="p-3 sm:p-3">
           <button
             type="submit"
-            disabled
-            // Full colour even while disabled. At reduced opacity it read as a
-            // dead control and dragged the whole panel down with it; the cursor
-            // and the note below already say it is not live yet.
-            className="bg-primary text-on-primary hover:bg-primary-hover flex h-full min-h-12 w-full items-center justify-center gap-2 rounded-xl px-6 text-base font-medium transition-colors disabled:cursor-not-allowed sm:min-h-[3.75rem]"
+            className="bg-primary text-on-primary hover:bg-primary-hover flex h-full min-h-12 w-full items-center justify-center gap-2 rounded-xl px-6 text-base font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:min-h-[3.75rem]"
           >
             <svg viewBox="0 0 16 16" aria-hidden className="h-4 w-4 shrink-0">
               <circle
@@ -192,10 +214,6 @@ export function SearchForm() {
           </button>
         </div>
       </div>
-
-      <p className="text-muted-foreground mt-3 text-xs sm:text-white/70">
-        {t(COPY.search.comingSoon, lang)}
-      </p>
     </form>
   );
 }
