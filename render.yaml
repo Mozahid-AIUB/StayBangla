@@ -36,6 +36,7 @@ services:
     # and Render then restarts a process that was working.
     healthCheckPath: /health
 
+<<<<<<< HEAD
     # No dockerCommand. The image's own entrypoint
     # (apps/api/docker-entrypoint.sh) runs migrations and then the API.
     #
@@ -49,6 +50,20 @@ services:
     # pre-deploy step would have failed the deploy and left the previous version
     # serving. `migrate deploy` is idempotent and returns immediately when there
     # is nothing to apply.
+=======
+    # Migrations run as the container starts, because Render's free tier has no
+    # pre-deploy step. The trade-off is real and worth naming: a failed
+    # migration takes the service down with it, where a pre-deploy step would
+    # have failed the deploy and left the previous version serving.
+    #
+    # `migrate deploy` is idempotent and returns immediately when there is
+    # nothing to apply, so this costs one query on each cold start rather than
+    # a migration run.
+    #
+    # The Prisma CLI has to survive the production install for this to work —
+    # see the Dockerfile.
+    dockerCommand: sh -c "npx prisma migrate deploy && node dist/main.js"
+>>>>>>> origin/main
 
     envVars:
       - key: NODE_ENV
