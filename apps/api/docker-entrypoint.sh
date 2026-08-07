@@ -11,6 +11,34 @@ set -e
 
 echo "[start] node $(node --version), cwd $(pwd)"
 
+# Say which required variables are missing, by name, before anything tries to
+# use them.
+#
+# Without this the first failure was Prisma's: "Environment variable not found:
+# DATABASE_URL", pointing at schema.prisma line 8 — accurate, but it looks like
+# a schema problem rather than a deployment one, and it stops at the first
+# missing variable instead of listing all of them. A deploy that is missing
+# four values should say so once, not four times across four attempts.
+#
+# Values are never printed. Only whether each name is set.
+missing=""
+for required in \
+  DATABASE_URL REDIS_URL JWT_ACCESS_SECRET JWT_REFRESH_SECRET OTP_PEPPER \
+  SSLCOMMERZ_STORE_ID SSLCOMMERZ_STORE_PASSWORD MINIO_ACCESS_KEY MINIO_SECRET_KEY
+do
+  eval "value=\${$required:-}"
+  if [ -z "$value" ]; then
+    missing="$missing $required"
+  fi
+done
+
+if [ -n "$missing" ]; then
+  echo "[start] MISSING environment variables:$missing"
+  echo "[start] set them in Render → the service → Environment, then redeploy."
+  exit 1
+fi
+echo "[start] all required environment variables are set"
+
 # Where the Prisma CLI can be, in order of likelihood. pnpm links workspace
 # binaries into the package's own node_modules/.bin; the root .bin exists when
 # a dependency was hoisted; and npx is the fallback that resolves either.

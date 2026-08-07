@@ -59,8 +59,39 @@
 
 ## Frontend (`apps/web`)
 
-বর্তমানে শুধু `create-next-app` default boilerplate — কোনো real page/feature নেই।
-**সিদ্ধান্ত (2026-07-25):** Phase 1 সম্পূর্ণ না হওয়া পর্যন্ত frontend শুরু হবে না।
+**লাইভ:** https://staybangla.mozahidislam343.workers.dev
+**API:** https://staybangla-api.onrender.com (Render free tier — ১৫ মিনিট
+নিষ্ক্রিয় থাকলে ঘুমায়, প্রথম request-এ ~৫০ সেকেন্ড)
+
+| # | পাতা | অবস্থা |
+| - | ---- | ------ |
+| F1 | Landing page (hero, ১৬ জেলা, ঋতু, footer) | ✅ |
+| F2 | `/search` — ঘর ও গাড়ির ফল | ✅ |
+| F3 | `/hotels/[id]` — হোটেলের বিস্তারিত | ⬜ |
+| F4 | `/vehicles/[id]` | ⬜ |
+| F5 | `/signin`, `/register`, OTP | ⬜ |
+| F6 | বুকিং + `/bookings/[id]/payment-result` | ⬜ |
+| F7 | `/trips` — নিজের বুকিং | ⬜ |
+| F8 | বিক্রেতার ড্যাশবোর্ড (৯টা endpoint তৈরি) | ⬜ |
+| F9 | অ্যাডমিন প্যানেল (১৭টা endpoint তৈরি) | ⬜ |
+
+**F3–F7-এর সম্পূর্ণ পরিকল্পনা** `openspec/changes/connect-web-to-api/`-এ —
+proposal, design, ছয়টা capability spec, ৪৭টা কাজ।
+
+**সবচেয়ে জরুরি তিনটে, এই ক্রমে:**
+
+1. **F3** — এখন ফলের কার্ডে ক্লিক করলে 404। সবচেয়ে দৃশ্যমান ফাঁক।
+2. **F5** — বুকিং করতে লগইন লাগবেই (`POST /v1/bookings` TRAVELER-only)।
+3. **F6** — SSLCommerz `{FRONTEND_URL}/bookings/{id}/payment-result`-এ ফেরত
+   পাঠায়। পাতাটা না থাকলে প্রত্যেক গ্রাহক **টাকা দিয়ে 404-এ** পড়বে।
+
+**জানা সীমা:**
+
+- `SSLCOMMERZ_STORE_ID` placeholder — পেমেন্ট পরীক্ষা করা যাবে না।
+- Neon-এ demo ডেটা আছে (৫ হোটেল, ৮ ঘর, ৭ গাড়ি)। আসল vendor এলে মুছতে হবে।
+- API চালু হওয়ার সময় R2-তে সংযোগ করে (`MinioStorageService.onModuleInit`)।
+  R2 অচল হলে **পুরো API বসে যাবে**, যদিও ৯৫% কাজ ওটা ছাড়াই চলত।
+- সাইট **হাতে** deploy হয় (`npx wrangler deploy`) — push করলে নিজে থেকে হয় না।
 
 ## কীভাবে এই ফাইল ব্যবহার হবে
 
