@@ -1,3 +1,5 @@
+import { mediaUrl } from "./assets";
+
 /**
  * The promotional slot on the landing page.
  *
@@ -118,7 +120,7 @@ export const HOUSE_ADS: readonly AdCreative[] = [
     tone: "linear-gradient(135deg,#12283a 0%,#2b5470 55%,#44768f 100%)",
     // Stands in for a real creative's video so the video path is exercised
     // rather than shipped untried. An advertiser's own file replaces it.
-    video: "/videos/hero-2.mp4",
+    video: mediaUrl("/videos/hero-2-720.mp4"),
   },
   {
     id: "house-vehicle",

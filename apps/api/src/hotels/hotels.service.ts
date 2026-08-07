@@ -16,6 +16,8 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import { UsersService } from "../users/users.service";
 import { StoragePort } from "../common/storage/storage.port";
+import { assertObjectKeyBelongsTo } from "../common/storage/object-key";
+import { assertAvailabilityRange } from "../common/date/calendar-date";
 
 export interface CreateHotelInput {
   name: string;
@@ -31,6 +33,8 @@ export interface CreateHotelInput {
 export interface RoomAvailability {
   id: string;
   hotelId: string;
+  hotelName: string;
+  hotelCity: District;
   roomType: RoomType;
   pricePerNightMinor: number;
   currency: string;
@@ -90,11 +94,13 @@ export class HotelsService {
     checkOut: string,
     city?: District,
   ): Promise<RoomAvailability[]> {
+    assertAvailabilityRange(checkIn, checkOut);
     const cityFilter = city
       ? Prisma.sql`AND h.city = ${city}::"District"`
       : Prisma.empty;
     return this.prisma.$queryRaw<RoomAvailability[]>(Prisma.sql`
-      SELECT r.id, r.hotel_id AS "hotelId", r.room_type AS "roomType",
+      SELECT r.id, r.hotel_id AS "hotelId", h.name AS "hotelName", h.city AS "hotelCity",
+             r.room_type AS "roomType",
              r.price_per_night_minor AS "pricePerNightMinor", r.currency, r.capacity
       FROM rooms r
       JOIN hotels h ON h.id = r.hotel_id
@@ -146,6 +152,7 @@ export class HotelsService {
     if (hotel.ownerId !== callerId) {
       throw new ForbiddenException("You do not own this hotel");
     }
+    assertObjectKeyBelongsTo("hotels", hotelId, objectKey);
     if (isPrimary) {
       await this.prisma.hotelPhoto.updateMany({
         where: { hotelId, isPrimary: true },

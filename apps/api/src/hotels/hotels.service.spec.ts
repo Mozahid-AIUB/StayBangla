@@ -153,6 +153,8 @@ describe("HotelsService", () => {
           {
             id: "r1",
             hotelId: "h1",
+            hotelName: "Lakeshore Dhaka",
+            hotelCity: "DHAKA",
             roomType: "DOUBLE",
             pricePerNightMinor: 500000,
             currency: "BDT",
@@ -166,6 +168,22 @@ describe("HotelsService", () => {
       );
       expect(results).toHaveLength(1);
       expect(results[0]!.roomType).toBe("DOUBLE");
+      expect(results[0]!.hotelName).toBe("Lakeshore Dhaka");
+      expect(results[0]!.hotelCity).toBe("DHAKA");
+    });
+
+    it("selects the hotel's name and city alongside each room", async () => {
+      (prisma as unknown as { $queryRaw: jest.Mock }).$queryRaw = jest
+        .fn()
+        .mockResolvedValue([]);
+
+      await service.searchAvailableRooms("2026-09-01", "2026-09-03");
+
+      const [sqlObject] = (prisma as unknown as { $queryRaw: jest.Mock })
+        .$queryRaw.mock.calls[0];
+      const rendered = sqlObject.strings.join("");
+      expect(rendered).toContain('h.name AS "hotelName"');
+      expect(rendered).toContain('h.city AS "hotelCity"');
     });
 
     it("delegates to a raw query without a city filter when city is omitted", async () => {

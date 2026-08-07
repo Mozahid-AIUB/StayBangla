@@ -36,7 +36,7 @@ function Field({
         htmlFor={htmlFor}
         className={`text-muted-foreground mb-1 block ${
           lang === "en"
-            ? "text-[0.625rem] tracking-[0.14em] uppercase"
+            ? "text-xs tracking-[0.14em] uppercase sm:text-[0.625rem]"
             : "text-xs"
         }`}
       >

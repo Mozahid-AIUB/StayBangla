@@ -45,6 +45,42 @@ describe("Booking availability search (e2e)", () => {
     expect(Array.isArray(res.body)).toBe(true);
   });
 
+  it("GET /rooms/available carries the hotel's name and city on each room, and a city filter excludes rooms in other districts", async () => {
+    const { accessToken: vendorToken } = await createVerifiedVendor(
+      app,
+      "availability-vendor-2@example.com",
+    );
+    const { roomId: dhakaRoomId } = await createHotelWithRoom(
+      app,
+      vendorToken,
+      { name: "Lakeshore Dhaka", city: "DHAKA" },
+    );
+    const { roomId: coxsRoomId } = await createHotelWithRoom(app, vendorToken, {
+      name: "Sea Pearl Coxs",
+      city: "COXS_BAZAR",
+    });
+
+    const res = await request(app.getHttpServer())
+      .get("/v1/rooms/available")
+      .query({ checkIn: "2027-03-01", checkOut: "2027-03-03", city: "DHAKA" });
+
+    expect(res.status).toBe(200);
+    const rooms = res.body as Array<{
+      id: string;
+      hotelName: string;
+      hotelCity: string;
+    }>;
+
+    const dhakaRoom = rooms.find((r) => r.id === dhakaRoomId);
+    expect(dhakaRoom).toBeDefined();
+    expect(dhakaRoom!.hotelName).toBe("Lakeshore Dhaka");
+    expect(dhakaRoom!.hotelCity).toBe("DHAKA");
+
+    // Discriminates the city filter: the Coxs Bazar room must not leak into
+    // a DHAKA-filtered search.
+    expect(rooms.some((r) => r.id === coxsRoomId)).toBe(false);
+  });
+
   it("GET /rooms/available rejects a missing checkIn with a clean 400, not a 500", async () => {
     const res = await request(app.getHttpServer())
       .get("/v1/rooms/available")

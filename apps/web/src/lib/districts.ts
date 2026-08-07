@@ -1,4 +1,5 @@
 import { District } from "@staybangla/shared-types";
+import { mediaUrl } from "./assets";
 import type { Month } from "./season";
 
 /**
@@ -265,7 +266,7 @@ export function districtSlug(district: District): string {
  * nobody remembers. `cover` is the one this grid uses.
  */
 export function districtPhotoPath(district: District): string {
-  return `/images/districts/${districtSlug(district)}/cover.webp`;
+  return mediaUrl(`/images/districts/${districtSlug(district)}/cover.webp`);
 }
 
 /**

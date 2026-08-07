@@ -58,7 +58,7 @@ function FooterLink({ href, children }: { href: string; children: string }) {
     <li>
       <a
         href={href}
-        className="inline-block text-white/60 transition-colors hover:text-white"
+        className="inline-block py-1 text-white/60 transition-colors hover:text-white"
       >
         {children}
       </a>
@@ -87,7 +87,7 @@ function Column({
           // Caps and tracking are Latin devices; Bengali has neither case nor
           // room between its marks for extra spacing.
           lang === "en"
-            ? "text-[0.625rem] tracking-[0.16em] uppercase"
+            ? "text-[0.6875rem] tracking-[0.16em] uppercase"
             : "text-sm"
         }`}
       >
@@ -190,7 +190,7 @@ export function SiteFooter() {
                       // The marker again, and for the same reason it appears on
                       // the season bars: these are the districts whose season is
                       // running now. 6.8:1 against this footer.
-                      className="font-display border-b border-[color:var(--marker)]/40 pb-0.5 text-sm font-light text-[color:var(--marker)] transition-colors hover:border-[color:var(--marker)]"
+                      className="font-display border-b border-[color:var(--marker)]/40 py-1 text-sm leading-6 font-light text-[color:var(--marker)] transition-colors hover:border-[color:var(--marker)]"
                     >
                       {t(DISTRICTS[district].name, lang)}
                     </a>

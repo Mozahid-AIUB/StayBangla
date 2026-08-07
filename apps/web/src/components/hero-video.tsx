@@ -3,8 +3,54 @@
 import { useEffect, useRef, useState } from "react";
 import { useInViewport } from "@/lib/in-viewport";
 import { useHeavyMediaAllowed } from "@/lib/media-connection";
+import { mediaUrl } from "@/lib/assets";
 
-const SOURCES = ["/videos/hero-1.mp4", "/videos/hero-2.mp4"] as const;
+/**
+ * Two clips, each encoded twice.
+ *
+ * The sources are 3840x2160 at 60fps. None of that reaches anyone: the hero is
+ * at most 1920 wide on a laptop, the clip sits behind a scrim with type over
+ * it, and the browser downsamples the rest away. So 4K on this element is
+ * fifteen megabytes of detail nobody can see — and on a Bangladeshi mobile
+ * pack, that is the visitor's money spent on decoration they did not ask for.
+ *
+ * 60fps went too. A slow drifting landscape is indistinguishable at 30, and
+ * the extra frames roughly double the file.
+ *
+ * 32 MB of source became 4.8 MB at 1080p and 1.7 MB at 720p — smaller than the
+ * clips these replace, from better footage.
+ */
+const CLIPS = [
+  { p720: "/videos/hero-1-720.mp4", p1080: "/videos/hero-1-1080.mp4" },
+  { p720: "/videos/hero-2-720.mp4", p1080: "/videos/hero-2-1080.mp4" },
+] as const;
+
+/** Above this width the 1080p rendition is worth its extra two megabytes. */
+const WIDE_VIEWPORT_PX = 900;
+
+/**
+ * Which rendition to load, decided once.
+ *
+ * Read on mount and never again. Switching source mid-playback tears the
+ * element down and starts the clip over, so a visitor who rotates their phone
+ * or drags a window wider would watch the hero restart — a worse outcome than
+ * carrying the rendition they began with.
+ *
+ * Null until the client answers, because the server has no viewport and
+ * guessing one is a hydration mismatch.
+ */
+function useRendition(): "p720" | "p1080" | null {
+  const [rendition, setRendition] = useState<"p720" | "p1080" | null>(null);
+
+  useEffect(() => {
+    const wide = window.innerWidth >= WIDE_VIEWPORT_PX;
+    // Queued rather than set straight from the effect body, which React 19
+    // flags as a cascading render.
+    queueMicrotask(() => setRendition(wide ? "p1080" : "p720"));
+  }, []);
+
+  return rendition;
+}
 
 /** How long each clip holds before crossfading to the next. */
 const CLIP_MS = 11000;
@@ -40,6 +86,7 @@ export function HeroVideo() {
   // Reduced motion, data-saver and slow links all live in one place now, since
   // the ad panel has to answer the question identically.
   const allowed = useHeavyMediaAllowed();
+  const rendition = useRendition();
 
   // A little ahead of arrival, so the clip is running by the time it is seen
   // rather than starting with a stall the moment it appears.
@@ -55,7 +102,7 @@ export function HeroVideo() {
   useEffect(() => {
     if (!visible || !onScreen) return;
     const t = window.setTimeout(
-      () => setActive((i) => (i + 1) % SOURCES.length),
+      () => setActive((i) => (i + 1) % CLIPS.length),
       CLIP_MS,
     );
     return () => window.clearTimeout(t);
@@ -74,17 +121,17 @@ export function HeroVideo() {
         element.pause();
       }
     });
-  }, [onScreen, active, allowed]);
+  }, [onScreen, active, allowed, rendition]);
 
-  if (!allowed) return null;
+  if (!allowed || !rendition) return null;
 
   return (
     // Wrapper exists to be observed. The videos keep their own -inset-px bleed
     // against this box, which is the same box they had before.
     <div ref={frameRef} className="absolute inset-0">
-      {SOURCES.map((src, i) => (
+      {CLIPS.map((clip, i) => (
         <video
-          key={src}
+          key={clip[rendition]}
           ref={(element) => {
             elements.current[i] = element;
           }}
@@ -122,7 +169,7 @@ export function HeroVideo() {
             opacity: visible && active === i ? 1 : 0,
             transition: `opacity ${FADE_MS}ms ease-in-out`,
           }}
-          src={src}
+          src={mediaUrl(clip[rendition])}
         />
       ))}
     </div>

@@ -96,7 +96,7 @@ export function SeasonBar({ months }: { months: readonly Month[] }) {
           );
         })}
       </div>
-      <p className="mt-3 text-[0.6875rem] text-white/80">
+      <p className="mt-3 text-xs text-white/80 sm:text-[0.6875rem]">
         <span className="text-white/50">{t(COPY.season.best, lang)}</span>{" "}
         {formatSeason(months, lang)}
       </p>

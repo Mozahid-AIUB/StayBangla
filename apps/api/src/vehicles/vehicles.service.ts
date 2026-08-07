@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import { Prisma, Vehicle, District } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { assertAvailabilityRange } from "../common/date/calendar-date";
 import { UsersService } from "../users/users.service";
 
 export interface CreateVehicleInput {
@@ -79,6 +80,7 @@ export class VehiclesService {
     endDate: string,
     city?: District,
   ): Promise<VehicleAvailability[]> {
+    assertAvailabilityRange(startDate, endDate);
     const cityFilter = city
       ? Prisma.sql`AND v.city = ${city}::"District"`
       : Prisma.empty;
