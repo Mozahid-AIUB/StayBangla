@@ -1,18 +1,34 @@
-# District photographs
+# Media staging
 
-**The pictures do not go in this folder.** They go in the R2 bucket, under the
-same paths listed below. This folder is only the map.
+Originals live here. Nothing here is committed, and nothing here is served —
+the site fetches its media from the R2 bucket `staybangla-media`.
 
-Media moved to object storage once the hero video made the cost obvious: 8 MB
-of it sits in this repository's history permanently, serving nobody. Eight
-photographs would have added the same weight for the same reason. `mediaUrl()`
-in `src/lib/assets.ts` resolves every media path against the bucket, so the
-paths here are bucket keys, not file paths.
+```
+media-source/
+  districts/<slug>/   photographs as downloaded or shot, any size or format
+  videos/             source footage and old encodes
+```
 
-Two steps to light up a card: upload the file, then add the district to
-`DISTRICTS_WITH_PHOTO` in `apps/web/src/lib/districts.ts`. A district that is
-not listed there keeps its painted tone — a finished state, not a broken one,
-so photographs can arrive one at a time.
+**This folder is deliberately outside `apps/web/public/`.** It used to be
+inside it, which was a mistake worth writing down: `public/` is not a
+convenient place to keep files, it _is_ the site. `next build` copies all of it
+into `out/`, and `wrangler deploy` publishes that — so 42 MB of unconverted
+originals went live, including a watermarked iStock preview and two photographs
+of hotel rooms. Adding them to `.gitignore` had kept them out of the repository
+and did nothing about the deploy, because git and the build read different
+lists. Outside `public/` there is no list to get wrong.
+
+## Getting a photograph onto a card
+
+1. Drop the original into `districts/<slug>/`. Any name, any size.
+2. Convert it to a cover — cropped to roughly the card's aspect, graded down,
+   under the weight budget.
+3. Upload to `staybangla-media` as `images/districts/<slug>/cover.webp`.
+4. Add the district to `DISTRICTS_WITH_PHOTO` in
+   `apps/web/src/lib/districts.ts`.
+
+A district that is not listed in step 4 keeps its painted tone — a finished
+state, not a broken one, so photographs can arrive one at a time.
 
 ## Where each file goes
 

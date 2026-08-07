@@ -19,3 +19,10 @@ coverage/
 # scratch, and it is also why `r2 object get` without --remote reports that a
 # key which plainly exists does not.
 .wrangler/
+
+# Media originals, staged for conversion and upload to R2. Kept outside
+# apps/web/public/ so that being ignored here is not the only thing standing
+# between a 16 MB source photograph and the public site — see
+# media-source/README.md.
+media-source/*
+!media-source/README.md
