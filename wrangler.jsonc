@@ -26,8 +26,20 @@
 
     // Serve the 404 page for unknown paths instead of Cloudflare's generic
     // one — the export writes 404.html, and without this nobody ever sees it.
-    "not_found_handling": "404-page"
-  }
+    "not_found_handling": "404-page",
+
+    // Workers reads `_headers` from inside the assets directory, but only
+    // when this is on. It is off by default, and the first deploy went out
+    // with no CSP, no referrer policy and no HSTS — the only header present
+    // was an X-Frame-Options Cloudflare adds on its own. Checked against the
+    // live response rather than assumed, which is how it was caught.
+    "run_worker_first": false,
+    "html_handling": "auto-trailing-slash"
+  },
+
+  // workers.dev stays on: it is the only address this site has until a domain
+  // is bought, and turning it off would take the deployment offline.
+  "workers_dev": true
 
   // No "main". There is no server-side code: every route is a file. Adding a
   // Worker script here would put a JavaScript runtime in front of static

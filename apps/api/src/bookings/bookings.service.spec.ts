@@ -63,7 +63,6 @@ describe("BookingsService.createBooking", () => {
     prisma.user.findUnique.mockResolvedValue({ id: "u1", suspendedAt: null });
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -440,7 +439,6 @@ describe("initiatePayment", () => {
     ledgerEntry: { createMany: jest.Mock };
     user: { findUnique: jest.Mock };
   };
-  let expiryQueue: { scheduleExpiry: jest.Mock; cancelExpiry: jest.Mock };
   let paymentProvider: {
     createSession: jest.Mock;
     validateTransaction: jest.Mock;
@@ -458,14 +456,12 @@ describe("initiatePayment", () => {
       ledgerEntry: { createMany: jest.fn() },
       user: { findUnique: jest.fn() },
     };
-    expiryQueue = { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() };
     paymentProvider = {
       createSession: jest.fn(),
       validateTransaction: jest.fn(),
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      expiryQueue as never,
       paymentProvider as never,
       { get: jest.fn() } as never,
     );
@@ -541,7 +537,6 @@ describe("confirmIfValid", () => {
     user: { findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
-  let expiryQueue: { scheduleExpiry: jest.Mock; cancelExpiry: jest.Mock };
   let paymentProvider: {
     createSession: jest.Mock;
     validateTransaction: jest.Mock;
@@ -576,14 +571,12 @@ describe("confirmIfValid", () => {
     prisma.$transaction.mockImplementation(
       async (fn: (tx: unknown) => unknown) => fn(prisma),
     );
-    expiryQueue = { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() };
     paymentProvider = {
       createSession: jest.fn(),
       validateTransaction: jest.fn(),
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      expiryQueue as never,
       paymentProvider as never,
       { get: jest.fn() } as never,
     );
@@ -663,7 +656,20 @@ describe("confirmIfValid", () => {
         },
       ],
     });
-    expect(expiryQueue.cancelExpiry).toHaveBeenCalledWith("b1");
+    // The hold used to be cancelled by removing a Redis job here. It is now
+    // cancelled by the row leaving HELD: the sweep's `status: HELD` predicate
+    // no longer matches it, so nothing can auto-cancel a booking that has just
+    // been confirmed and paid. Asserting the guarded transition is asserting
+    // the same guarantee at its new location.
+    expect(prisma.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "b1", status: "HELD" },
+        data: expect.objectContaining({
+          status: "CONFIRMED",
+          paymentStatus: "PAID",
+        }),
+      }),
+    );
   });
 
   it("does nothing when the booking is not found", async () => {
@@ -823,7 +829,6 @@ describe("cancel with payment-status policy", () => {
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -904,7 +909,6 @@ describe("getPaymentStatus", () => {
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -954,7 +958,6 @@ describe("BookingsService.checkout", () => {
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -1018,7 +1021,6 @@ describe("BookingsService.cancel", () => {
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -1074,7 +1076,6 @@ describe("BookingsService.createBlock", () => {
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -1306,7 +1307,6 @@ describe("createOfflineBooking", () => {
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -1484,7 +1484,6 @@ describe("cancelOfflineBooking", () => {
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -1574,7 +1573,6 @@ describe("BookingsService range validation", () => {
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );

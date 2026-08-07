@@ -10,7 +10,6 @@ import { LedgerEntryType, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { dhakaCalendarDate } from "../common/date/dhaka-time";
 import { PaymentProviderPort } from "../common/payments/payment-provider.port";
-import { BookingExpiryQueueService } from "./queue/booking-expiry-queue.service";
 import { BookingRecord, CreateOfflineBookingInput } from "./bookings.types";
 
 export interface CreateBookingInput {
@@ -64,7 +63,6 @@ const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
 export class BookingsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly expiryQueue: BookingExpiryQueueService,
     private readonly paymentProvider: PaymentProviderPort,
     private readonly config: ConfigService,
   ) {}
@@ -216,15 +214,31 @@ export class BookingsService {
     const vehicleId =
       input.bookableType === "VEHICLE" ? input.bookableId : null;
 
+    // The hold's deadline, written onto the booking itself.
+    //
+    // It used to be a delayed job in Redis. Redis is a cache: flush it, restart
+    // it without persistence, or move hosts, and every outstanding deadline is
+    // gone — those rooms stay reserved forever, nothing revisits them, and
+    // nobody is told. The booking's own row is the only place its own deadline
+    // belongs.
+    //
+    // An instant, so it is stored in UTC and compared in UTC. Fifteen minutes
+    // is fifteen minutes everywhere; this is a stopwatch, not a calendar day,
+    // and putting Asia/Dhaka on it would move every hold six hours.
+    const holdMinutes = this.config.get<number>("BOOKING_HOLD_MINUTES", 15);
+    const holdExpiresAt = new Date(Date.now() + holdMinutes * 60_000);
+
     try {
       const rows = await this.prisma.$queryRaw<BookingRecord[]>(Prisma.sql`
         INSERT INTO bookings (
           id, user_id, bookable_type, room_id, vehicle_id, resource_owner_id,
-          date_range, guest_count, total_amount_minor, currency, status, created_at, updated_at
+          date_range, guest_count, total_amount_minor, currency, status,
+          hold_expires_at, created_at, updated_at
         ) VALUES (
           gen_random_uuid(), ${userId}, ${input.bookableType}::"BookableType", ${roomId}, ${vehicleId}, ${resourceOwnerId},
           daterange(${input.checkIn}::date, ${input.checkOut}::date, '[)'),
-          ${input.guestCount ?? null}, ${totalAmountMinor}, ${currency}, 'HELD', now(), now()
+          ${input.guestCount ?? null}, ${totalAmountMinor}, ${currency}, 'HELD',
+          ${holdExpiresAt}, now(), now()
         )
         RETURNING id, user_id AS "userId", bookable_type AS "bookableType", room_id AS "roomId",
                   vehicle_id AS "vehicleId", resource_owner_id AS "resourceOwnerId",
@@ -236,7 +250,6 @@ export class BookingsService {
       if (!booking) {
         throw new Error("Booking insert returned no rows");
       }
-      await this.expiryQueue.scheduleExpiry(booking.id);
       return booking;
     } catch (error) {
       if (this.isExclusionViolation(error)) {
@@ -399,7 +412,10 @@ export class BookingsService {
       return;
     }
 
-    await this.expiryQueue.cancelExpiry(bookingId);
+    // Nothing to cancel. The hold's deadline is a column on the booking, and
+    // the row is no longer HELD — so the sweep's `status: HELD` predicate
+    // already excludes it. Removing a Redis job here used to be load-bearing;
+    // now the state transition is the cancellation.
   }
 
   async getPaymentStatus(

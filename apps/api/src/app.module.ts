@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
-import { BullModule } from "@nestjs/bullmq";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { ThrottlerStorageRedisService } from "@nest-lab/throttler-storage-redis";
 import { LoggerModule } from "nestjs-pino";
@@ -38,12 +37,19 @@ const isProduction = process.env.NODE_ENV === "production";
     }),
     PrismaModule,
     RedisModule,
-    BullModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        connection: { url: config.get<string>("REDIS_URL") },
-      }),
-    }),
+    // BullMQ's root configuration is gone with the last queue that used it.
+    // Booking expiry and payment reconciliation are now sweeps over the
+    // database, run by an external scheduler, so nothing registers a queue and
+    // this was configuration for a subsystem with no members.
+    //
+    // Redis stays — RedisModule above still backs OTP storage and the
+    // throttler. What left is only the part that required a process to stay
+    // awake waiting for a job to come due.
+    //
+    // The @nestjs/bullmq and bullmq packages are deliberately left in
+    // package.json rather than pulled in the same change: an unused dependency
+    // costs nothing at runtime, and removing it belongs with a lockfile change
+    // that can be reviewed on its own.
     ThrottlerModule.forRootAsync({
       inject: [ConfigService, RedisService],
       useFactory: (config: ConfigService, redis: RedisService) => ({
