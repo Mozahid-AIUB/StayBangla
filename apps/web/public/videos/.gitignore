@@ -1,11 +1,13 @@
-# Source footage lives here but must never be committed — the originals were
-# 4K60 at 15-17 MB, which would be minutes of download on a Bangladeshi mobile
-# connection and would sit in git history forever even if deleted later.
+# Nothing in this folder is committed any more.
 #
-# Only web-encoded derivatives ship: 1080p, no audio, and as small as the
-# footage allows. hero-1 is the lighter of the two and loads first.
+# The originals were 4K60 at 15-17 MB. The web encodes that ship — 720p and
+# 1080p, no audio — live in the R2 bucket instead, and the site fetches them
+# from there (see src/lib/assets.ts). Two of them used to be committed, which
+# is why the repository still carries roughly 8 MB in its history that nothing
+# will ever serve again.
+#
+# This folder stays as a working directory: encode here, upload to R2 under
+# `videos/`, and the site picks the file up by name.
 *.mp4
 *.mov
 *.webm
-!hero-1.mp4
-!hero-2.mp4
