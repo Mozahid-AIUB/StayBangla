@@ -92,4 +92,17 @@ ENV PORT=8080
 EXPOSE 8080
 
 WORKDIR /repo/apps/api
-CMD ["node", "dist/main.js"]
+
+# The entrypoint runs migrations and then the API, and says which prisma binary
+# it found. The previous start command was a single `sh -c "npx prisma migrate
+# deploy && node dist/main.js"`, which exited 127 — command not found — with no
+# way to say which command.
+#
+# Copied as its own layer and made executable here rather than relying on the
+# file mode in git, which does not survive every checkout on Windows.
+COPY --from=build --chown=node:node /repo/apps/api/docker-entrypoint.sh ./
+USER root
+RUN chmod +x ./docker-entrypoint.sh
+USER node
+
+CMD ["./docker-entrypoint.sh"]

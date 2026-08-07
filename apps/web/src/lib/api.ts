@@ -19,12 +19,25 @@
  * from CI, and invisible to anyone reading this repository. An API origin is
  * not a credential.
  *
- * TODO: replace the localhost fallback once the API is deployed. Until then a
- * production build points at a machine that is not there, which fails loudly
- * rather than silently — the right way round.
+ * Two defaults rather than one, chosen by NODE_ENV. `next dev` talks to the
+ * API on this machine; a production build talks to Render. Neither needs a
+ * variable set for the common case, and setting one still overrides both.
+ *
+ * The alternative — one localhost default — meant every production build
+ * pointed the visitor's browser at their own machine. It fails visibly rather
+ * than silently, but it fails on every page for every visitor, and the only
+ * thing standing between that and a working site is a build variable nobody
+ * can see from the repository.
+ *
+ * Render's free tier sleeps after fifteen minutes. The first request after
+ * that takes upwards of thirty seconds while the container starts, so a page
+ * that shows nothing until it answers looks broken — hence the loading states.
  */
 const API_ORIGIN = (
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:3001"
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  (process.env.NODE_ENV === "production"
+    ? "https://staybangla-api.onrender.com"
+    : "http://127.0.0.1:3001")
 ).replace(/\/+$/, "");
 
 /**
