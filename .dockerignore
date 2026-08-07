@@ -1,0 +1,51 @@
+# What never needs to reach the build.
+#
+# Without this the daemon was shipping 118 MB of context — node_modules that
+# the build reinstalls anyway, a Next.js build the API has no use for, and the
+# video originals. Every one of those bytes is uploaded before the first
+# instruction runs, on every build, on Render too.
+
+# Reinstalled from the lockfile inside the image, so sending them is pure cost —
+# and worse, a Linux image would receive whatever platform-specific binaries
+# this machine installed.
+node_modules
+**/node_modules
+
+# The web app. The API's image has no use for any of it.
+apps/web/.next
+apps/web/out
+
+.turbo
+**/.turbo
+dist
+**/dist
+coverage
+**/coverage
+
+# Media originals, staged for conversion and upload to R2.
+media-source
+
+# Local state and history.
+.git
+.github
+.wrangler
+.superpowers
+
+# Secrets. The Dockerfile copies none of these, but a file that is never sent
+# cannot be copied by a later edit either.
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Planning and documentation.
+openspec
+docs
+*.md
+!apps/api/README.md
+
+# Editor and OS leavings.
+.vscode
+.idea
+.DS_Store
+*.log

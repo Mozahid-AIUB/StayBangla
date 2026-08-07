@@ -39,11 +39,29 @@ COPY . .
 RUN pnpm --filter @staybangla/api exec prisma generate
 RUN pnpm --filter @staybangla/api build
 
-# Reinstall production-only. `pnpm prune` does not reliably strip a workspace's
-# devDependencies through symlinks, so the dependency tree is rebuilt from the
-# lockfile instead — the same versions, minus everything only the build needed.
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts \
-    && pnpm --filter @staybangla/api exec prisma generate
+# Generate the client while the CLI is still here, then reinstall
+# production-only. `pnpm prune` does not reliably strip a workspace's
+# devDependencies through symlinks, so the tree is rebuilt from the lockfile —
+# the same versions, minus everything only the build needed.
+#
+# Order matters and was wrong: `prisma` is a devDependency, so a `--prod`
+# install removes it, and running `prisma generate` afterwards asks for a
+# binary that was deleted a moment earlier. Generating first leaves the output
+# in @prisma/client, which is a real dependency and survives.
+RUN pnpm --filter @staybangla/api exec prisma generate \
+    && pnpm install --frozen-lockfile --prod --ignore-scripts
+
+# The Prisma CLI now lives in `dependencies`, not `devDependencies`, so the
+# production install above keeps it.
+#
+# That is a real change of meaning rather than a workaround: Render's free tier
+# has no pre-deploy step, so `prisma migrate deploy` runs from the container's
+# start command — the CLI is part of what the API needs to run, not only to be
+# built.
+#
+# The first attempt installed it separately with npm, which failed: npm cannot
+# read a node_modules tree pnpm laid out, and reported it as
+# "Cannot read properties of null".
 
 # ---- run --------------------------------------------------------------------
 FROM node:22-slim AS run
