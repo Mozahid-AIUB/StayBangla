@@ -1,5 +1,8 @@
 import { BadRequestException } from "@nestjs/common";
-import { assertAvailabilityRange } from "./calendar-date";
+import {
+  assertAvailabilityRange,
+  assertOptionalAvailabilityRange,
+} from "./calendar-date";
 
 /**
  * Both availability searches — rooms and vehicles — build
@@ -54,5 +57,44 @@ describe("assertAvailabilityRange", () => {
       assertAvailabilityRange("2026-12-30", "2027-01-02"),
     ).not.toThrow();
     rejected("2027-01-02", "2026-12-30");
+  });
+});
+
+describe("assertOptionalAvailabilityRange", () => {
+  // Browsing without dates is the point: the landing page's sixteen district
+  // cards invite someone to look at a place before they have decided when to
+  // go, and demanding a date first asks the two questions in the wrong order.
+  it("allows both dates to be absent", () => {
+    expect(() =>
+      assertOptionalAvailabilityRange(undefined, undefined),
+    ).not.toThrow();
+  });
+
+  it("validates the pair when both are present", () => {
+    expect(() =>
+      assertOptionalAvailabilityRange("2026-09-01", "2026-09-03"),
+    ).not.toThrow();
+    expect(() =>
+      assertOptionalAvailabilityRange("2026-09-03", "2026-09-01"),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      assertOptionalAvailabilityRange("2026-09-01", "2026-09-01"),
+    ).toThrow(BadRequestException);
+  });
+
+  // A half-specified range has no meaning, and silently ignoring the one that
+  // was given would answer a different question than the one asked — the
+  // caller would see results for no dates at all and believe they were filtered.
+  it("rejects one date without the other, naming the missing one", () => {
+    expect(() =>
+      assertOptionalAvailabilityRange("2026-09-01", undefined),
+    ).toThrow(/checkOut/);
+    expect(() =>
+      assertOptionalAvailabilityRange(undefined, "2026-09-03"),
+    ).toThrow(/checkIn/);
+  });
+
+  it("treats an empty string as absent, since a query string sends one", () => {
+    expect(() => assertOptionalAvailabilityRange("", "")).not.toThrow();
   });
 });

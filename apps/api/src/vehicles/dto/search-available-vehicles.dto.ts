@@ -4,20 +4,31 @@ import {
   CALENDAR_DATE_REGEX,
 } from "../../common/date/calendar-date";
 import { District } from "@prisma/client";
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { ApiPropertyOptional } from "@nestjs/swagger";
 
+/**
+ * Dates are optional, matching rooms. See SearchAvailableRoomsDto for why the
+ * pairing rule lives in `assertOptionalAvailabilityRange` rather than here.
+ */
 export class SearchAvailableVehiclesDto {
-  @ApiProperty({ example: "2026-09-01" })
+  @ApiPropertyOptional({
+    example: "2026-09-01",
+    description:
+      "Omit both dates to browse everything in the district. Sending one " +
+      "without the other is a 400.",
+  })
+  @IsOptional()
   @Matches(CALENDAR_DATE_REGEX, {
     message: `startDate ${CALENDAR_DATE_MESSAGE}`,
   })
-  startDate!: string;
+  startDate?: string;
 
-  @ApiProperty({ example: "2026-09-03" })
+  @ApiPropertyOptional({ example: "2026-09-03" })
+  @IsOptional()
   @Matches(CALENDAR_DATE_REGEX, {
     message: `endDate ${CALENDAR_DATE_MESSAGE}`,
   })
-  endDate!: string;
+  endDate?: string;
 
   @ApiPropertyOptional({ enum: District, example: "BANDARBAN" })
   @IsOptional()

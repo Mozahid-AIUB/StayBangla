@@ -55,3 +55,44 @@ export function assertAvailabilityRange(
     throw new BadRequestException("checkIn must be before checkOut");
   }
 }
+
+/**
+ * The same validation for a search where dates are optional.
+ *
+ * Both availability searches used to require dates. That put the two questions
+ * in the wrong order: the landing page's sixteen district cards invite someone
+ * to look at a place, and a visitor deciding *where* to go has not yet decided
+ * *when*. Browsing a district with no dates is now a search that returns
+ * everything active there.
+ *
+ * One date without the other is refused rather than ignored. Ignoring it would
+ * answer a different question than the one asked — the caller would get results
+ * for no dates at all while believing they were filtered by the date they sent,
+ * which is the kind of wrong that looks right.
+ *
+ * Empty strings count as absent. A query string carries `?checkIn=` as an empty
+ * value, and treating that as a malformed date would fail a request that simply
+ * left the field blank.
+ *
+ * @returns true when a range was supplied and should be applied.
+ */
+export function assertOptionalAvailabilityRange(
+  checkIn: string | undefined,
+  checkOut: string | undefined,
+): boolean {
+  const from = checkIn?.trim() ? checkIn : undefined;
+  const to = checkOut?.trim() ? checkOut : undefined;
+
+  if (!from && !to) {
+    return false;
+  }
+  if (from && !to) {
+    throw new BadRequestException("checkOut is required when checkIn is given");
+  }
+  if (!from && to) {
+    throw new BadRequestException("checkIn is required when checkOut is given");
+  }
+
+  assertAvailabilityRange(from as string, to as string);
+  return true;
+}
