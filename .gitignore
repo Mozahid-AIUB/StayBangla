@@ -6,5 +6,10 @@ coverage/
 *.log
 .env
 .env.*
+# Templates carry no values, only the names and where to get them. `.env.*`
+# above swallows them too, which quietly kept .env.production.example out of
+# the repository — a deployment checklist that exists on one laptop is not a
+# checklist. Anything ending .example is safe to track by construction.
 !.env.example
+!.env.*.example
 .DS_Store
