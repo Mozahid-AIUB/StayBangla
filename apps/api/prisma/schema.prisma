@@ -94,6 +94,9 @@ enum BookableType {
 }
 
 enum VehicleCategory {
+  /// A hired car with a driver — the ordinary way to travel between cities
+  /// here, and the most common thing a traveller asks for. It was missing.
+  CAR
   CNG
   JEEP
   BOAT
