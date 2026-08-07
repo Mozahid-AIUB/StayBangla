@@ -1,0 +1,59 @@
+# Cloudflare Pages reads this file and applies the headers below. It is copied
+# into the export as-is, which is why it lives in public/.
+#
+# None of this is optional for a site that will take payments. A static host
+# gives you no server to set headers from, so this file is the only place
+# they can be declared.
+
+/*
+  # Clickjacking. Without it, someone can put StayBangla in an invisible iframe
+  # over their own page and collect whatever a visitor types into the search
+  # panel — or, once auth exists, whatever they click while signed in.
+  X-Frame-Options: DENY
+
+  # Stops a browser second-guessing a file's declared type. A .webp that a
+  # vendor uploaded but that actually contains HTML would otherwise be run as
+  # HTML on this origin.
+  X-Content-Type-Options: nosniff
+
+  # Send the full URL to our own pages, only the origin to anyone else. A
+  # search URL carries a district and dates; a third party has no business
+  # reading a visitor's travel plans out of a referrer header.
+  Referrer-Policy: strict-origin-when-cross-origin
+
+  # Nothing on this site needs a camera, a microphone, or a location. Denying
+  # them means a compromised dependency cannot quietly ask for one either.
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+
+  # HTTPS only, for two years, including subdomains. Preload is deliberately
+  # left off until a real domain is in place — it is very hard to undo.
+  Strict-Transport-Security: max-age=63072000; includeSubDomains
+
+  # Content Security Policy.
+  #
+  # 'unsafe-inline' on script-src is not laziness: the splash gate is a
+  # blocking inline script, and it has to be, because it decides whether the
+  # overlay is opaque before the first frame paints. Replacing it with a nonce
+  # needs a server to generate one per request, which a static export does not
+  # have. The trade is deliberate and worth revisiting the day this site stops
+  # being static.
+  #
+  # 'unsafe-inline' on style-src is Next's own doing — it inlines critical CSS.
+  #
+  # img-src and media-src allow https: so the district photographs and the
+  # hero clips can move to R2 without this file having to change first.
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' https:; font-src 'self'; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+
+# Hashed build assets never change under the same name, so they can be cached
+# for a year. This is what stops a returning visitor re-downloading the fonts
+# and the JavaScript on every visit.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Photography and video are replaced by uploading a new file, not by renaming,
+# so a day rather than a year — long enough to matter, short enough that a
+# corrected image is not stuck in caches for months.
+/images/*
+  Cache-Control: public, max-age=86400
+/videos/*
+  Cache-Control: public, max-age=86400

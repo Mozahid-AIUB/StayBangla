@@ -55,9 +55,14 @@ describe("BookingsService.createBooking", () => {
       user: { findUnique: jest.fn() },
       $queryRaw: jest.fn(),
     };
+    // A caller who exists and is not suspended, so each test below is about
+    // the thing it names. These previously left the mock unset, which resolved
+    // to undefined — and the old `traveler?.suspendedAt` read that as "not
+    // suspended" and carried on. That is the hole the check now closes, so the
+    // tests have to state the account exists rather than rely on it.
+    prisma.user.findUnique.mockResolvedValue({ id: "u1", suspendedAt: null });
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -434,7 +439,6 @@ describe("initiatePayment", () => {
     ledgerEntry: { createMany: jest.Mock };
     user: { findUnique: jest.Mock };
   };
-  let expiryQueue: { scheduleExpiry: jest.Mock; cancelExpiry: jest.Mock };
   let paymentProvider: {
     createSession: jest.Mock;
     validateTransaction: jest.Mock;
@@ -452,14 +456,12 @@ describe("initiatePayment", () => {
       ledgerEntry: { createMany: jest.fn() },
       user: { findUnique: jest.fn() },
     };
-    expiryQueue = { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() };
     paymentProvider = {
       createSession: jest.fn(),
       validateTransaction: jest.fn(),
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      expiryQueue as never,
       paymentProvider as never,
       { get: jest.fn() } as never,
     );
@@ -535,7 +537,6 @@ describe("confirmIfValid", () => {
     user: { findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
-  let expiryQueue: { scheduleExpiry: jest.Mock; cancelExpiry: jest.Mock };
   let paymentProvider: {
     createSession: jest.Mock;
     validateTransaction: jest.Mock;
@@ -570,14 +571,12 @@ describe("confirmIfValid", () => {
     prisma.$transaction.mockImplementation(
       async (fn: (tx: unknown) => unknown) => fn(prisma),
     );
-    expiryQueue = { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() };
     paymentProvider = {
       createSession: jest.fn(),
       validateTransaction: jest.fn(),
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      expiryQueue as never,
       paymentProvider as never,
       { get: jest.fn() } as never,
     );
@@ -657,7 +656,20 @@ describe("confirmIfValid", () => {
         },
       ],
     });
-    expect(expiryQueue.cancelExpiry).toHaveBeenCalledWith("b1");
+    // The hold used to be cancelled by removing a Redis job here. It is now
+    // cancelled by the row leaving HELD: the sweep's `status: HELD` predicate
+    // no longer matches it, so nothing can auto-cancel a booking that has just
+    // been confirmed and paid. Asserting the guarded transition is asserting
+    // the same guarantee at its new location.
+    expect(prisma.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "b1", status: "HELD" },
+        data: expect.objectContaining({
+          status: "CONFIRMED",
+          paymentStatus: "PAID",
+        }),
+      }),
+    );
   });
 
   it("does nothing when the booking is not found", async () => {
@@ -817,7 +829,6 @@ describe("cancel with payment-status policy", () => {
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -898,7 +909,6 @@ describe("getPaymentStatus", () => {
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -948,7 +958,6 @@ describe("BookingsService.checkout", () => {
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -1012,7 +1021,6 @@ describe("BookingsService.cancel", () => {
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -1068,7 +1076,6 @@ describe("BookingsService.createBlock", () => {
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -1300,7 +1307,6 @@ describe("createOfflineBooking", () => {
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -1478,7 +1484,6 @@ describe("cancelOfflineBooking", () => {
     };
     service = new BookingsService(
       prisma as unknown as PrismaService,
-      { scheduleExpiry: jest.fn(), cancelExpiry: jest.fn() } as never,
       { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
       { get: jest.fn() } as never,
     );
@@ -1525,5 +1530,187 @@ describe("cancelOfflineBooking", () => {
     await expect(
       service.cancelOfflineBooking("vendor1", "booking1"),
     ).rejects.toThrow(ConflictException);
+  });
+});
+
+/**
+ * Range validation, written against the defects found auditing this module.
+ *
+ * The existing "rejects a checkIn date in the past" test uses 2020-01-01 —
+ * six years back. It passes against every implementation that rejects
+ * anything at all, including one whose idea of "today" is six hours out, so it
+ * proved nothing about the boundary. These fixtures sit in the 18:00Z-24:00Z
+ * window where the UTC and Dhaka calendars disagree, which is the only place
+ * the two implementations can be told apart.
+ */
+describe("BookingsService range validation", () => {
+  let prisma: {
+    room: { findUnique: jest.Mock };
+    vehicle: { findUnique: jest.Mock };
+    user: { findUnique: jest.Mock };
+    $queryRaw: jest.Mock;
+  };
+  let service: BookingsService;
+
+  const activeRoom = (pricePerNightMinor: number) => ({
+    id: "r1",
+    isActive: true,
+    capacity: 4,
+    pricePerNightMinor,
+    currency: "BDT",
+    hotel: {
+      ownerId: "v1",
+      owner: { verifiedStatus: "VERIFIED", suspendedAt: null },
+    },
+  });
+
+  beforeEach(() => {
+    prisma = {
+      room: { findUnique: jest.fn() },
+      vehicle: { findUnique: jest.fn() },
+      user: { findUnique: jest.fn() },
+      $queryRaw: jest.fn(),
+    };
+    service = new BookingsService(
+      prisma as unknown as PrismaService,
+      { createSession: jest.fn(), validateTransaction: jest.fn() } as never,
+      { get: jest.fn() } as never,
+    );
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  // 19:00Z on 6 August is already 01:00 on 7 August in Dhaka, so "2026-08-06"
+  // is yesterday there. A UTC-midnight comparison still reads it as today and
+  // lets the booking through — every day, for the six hours before midnight
+  // UTC. Both instants below reproduced that before the fix.
+  it.each(["2026-08-06T19:00:00Z", "2026-08-06T23:30:00Z"])(
+    "rejects a check-in already past in Dhaka, at %s",
+    async (instant) => {
+      jest.useFakeTimers().setSystemTime(new Date(instant));
+
+      await expect(
+        service.createBooking("u1", {
+          bookableType: "ROOM",
+          bookableId: "r1",
+          checkIn: "2026-08-06",
+          checkOut: "2026-08-09",
+        }),
+      ).rejects.toThrow("checkIn cannot be in the past");
+
+      // Nothing was read: it failed on the dates, not on a missing mock.
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    },
+  );
+
+  // The other half, and the one that stops the fix from being "reject more".
+  // Inside the same window, the date that *is* today in Dhaka must still pass
+  // validation — proven by the failure moving on to the next check.
+  it("still accepts today-in-Dhaka inside that same window", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-08-06T19:00:00Z"));
+    prisma.user.findUnique.mockResolvedValue({ id: "u1", suspendedAt: null });
+    prisma.room.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.createBooking("u1", {
+        bookableType: "ROOM",
+        bookableId: "r1",
+        checkIn: "2026-08-07",
+        checkOut: "2026-08-09",
+      }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("rejects a range longer than a year", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-08-06T06:00:00Z"));
+
+    await expect(
+      service.createBooking("u1", {
+        bookableType: "ROOM",
+        bookableId: "r1",
+        checkIn: "2026-08-07",
+        checkOut: "2027-08-09", // 367 nights
+      }),
+    ).rejects.toThrow("365 nights");
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  // 365 nights is inside the limit, so the length check cannot catch this one:
+  // 365 x 90,000 BDT is 3,285,000,000 minor units, past int4. Without the
+  // guard the INSERT raises 22003 and the traveller gets a 500.
+  it("rejects a total that would overflow the int4 amount column", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-08-06T06:00:00Z"));
+    prisma.user.findUnique.mockResolvedValue({ id: "u1", suspendedAt: null });
+    prisma.room.findUnique.mockResolvedValue(activeRoom(9_000_000));
+
+    await expect(
+      service.createBooking("u1", {
+        bookableType: "ROOM",
+        bookableId: "r1",
+        checkIn: "2026-08-07",
+        checkOut: "2027-08-07",
+      }),
+    ).rejects.toThrow("too large");
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("rejects a datetime where a calendar date is required", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-08-06T06:00:00Z"));
+
+    await expect(
+      service.createBooking("u1", {
+        bookableType: "ROOM",
+        bookableId: "r1",
+        checkIn: "2026-09-01T23:00:00Z",
+        checkOut: "2026-09-03",
+      }),
+    ).rejects.toThrow("YYYY-MM-DD");
+  });
+
+  it("rejects a booking from a user that no longer exists", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-08-06T06:00:00Z"));
+    prisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.createBooking("ghost", {
+        bookableType: "ROOM",
+        bookableId: "r1",
+        checkIn: "2026-08-07",
+        checkOut: "2026-08-09",
+      }),
+    ).rejects.toThrow(ForbiddenException);
+    // Never reached the room, so it stopped on the missing account.
+    expect(prisma.room.findUnique).not.toHaveBeenCalled();
+  });
+
+  // createBlock validated nothing at all, so an inverted range reached
+  // daterange() and came back as a 500 about range bounds.
+  it("rejects a block whose start is after its end, before touching the database", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-08-06T06:00:00Z"));
+
+    await expect(
+      service.createBlock("v1", {
+        bookableType: "ROOM",
+        bookableId: "r1",
+        startDate: "2026-09-15",
+        endDate: "2026-09-10",
+      }),
+    ).rejects.toThrow("startDate must be before endDate");
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("rejects a block already past in Dhaka", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-08-06T19:00:00Z"));
+
+    await expect(
+      service.createBlock("v1", {
+        bookableType: "ROOM",
+        bookableId: "r1",
+        startDate: "2026-08-06",
+        endDate: "2026-08-20",
+      }),
+    ).rejects.toThrow("startDate cannot be in the past");
   });
 });

@@ -10,9 +10,9 @@ import { District } from "@prisma/client";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CreateVehicleDto {
-  @ApiProperty({ enum: ["CNG", "JEEP", "BOAT"], example: "JEEP" })
-  @IsIn(["CNG", "JEEP", "BOAT"])
-  category!: "CNG" | "JEEP" | "BOAT";
+  @ApiProperty({ enum: ["CAR", "CNG", "JEEP", "BOAT"], example: "JEEP" })
+  @IsIn(["CAR", "CNG", "JEEP", "BOAT"])
+  category!: "CAR" | "CNG" | "JEEP" | "BOAT";
 
   @ApiProperty({ enum: District, example: "BANDARBAN" })
   @IsEnum(District)

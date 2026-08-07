@@ -3,7 +3,7 @@ import { District } from "./enums";
 export interface Vehicle {
   id: string;
   ownerId: string;
-  category: "CNG" | "JEEP" | "BOAT";
+  category: "CAR" | "CNG" | "JEEP" | "BOAT";
   city: District;
   model: string | null;
   capacity: number;

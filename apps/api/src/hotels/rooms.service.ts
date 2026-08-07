@@ -9,6 +9,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { HotelsService } from "./hotels.service";
 import { UsersService } from "../users/users.service";
 import { StoragePort } from "../common/storage/storage.port";
+import { assertObjectKeyBelongsTo } from "../common/storage/object-key";
 
 export interface CreateRoomInput {
   roomType: RoomType;
@@ -113,6 +114,7 @@ export class RoomsService {
     isPrimary: boolean,
   ): Promise<RoomPhoto> {
     await this.assertOwnsRoom(callerId, roomId);
+    assertObjectKeyBelongsTo("rooms", roomId, objectKey);
     if (isPrimary) {
       await this.prisma.roomPhoto.updateMany({
         where: { roomId, isPrimary: true },

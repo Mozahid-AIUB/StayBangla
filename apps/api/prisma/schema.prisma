@@ -94,6 +94,9 @@ enum BookableType {
 }
 
 enum VehicleCategory {
+  /// A hired car with a driver — the ordinary way to travel between cities
+  /// here, and the most common thing a traveller asks for. It was missing.
+  CAR
   CNG
   JEEP
   BOAT
@@ -321,11 +324,30 @@ model Booking {
   vendorOwedMinor  Int?                     @map("vendor_owed_minor")
   source           BookingSource            @default(ONLINE) @map("source")
 
+  /// When a HELD booking stops holding its dates. Null for anything that was
+  /// never held — blocks, offline bookings, and rows already resolved.
+  ///
+  /// This deadline used to live only in Redis, as a delayed BullMQ job. Two
+  /// problems with that. Redis is a cache: flush it, lose the volume, move
+  /// hosts, and every outstanding hold becomes permanent — the room is
+  /// reserved forever, nothing revisits it, and nobody is told. And a delayed
+  /// job needs a process awake to run it, which no free tier provides.
+  ///
+  /// An instant, not a calendar date, so it is stored and compared in UTC.
+  /// Fifteen minutes is fifteen minutes in every timezone; "expires at" is a
+  /// stopwatch, not a day, and applying Asia/Dhaka to it would move every hold
+  /// six hours in one direction or the other.
+  holdExpiresAt    DateTime?                @map("hold_expires_at")
+
   ledgerEntries       LedgerEntry[]
   vendorLedgerEntries VendorLedgerEntry[]
 
   @@index([userId])
   @@index([resourceOwnerId])
+  /// The sweep runs every minute and asks the same question every time:
+  /// which HELD rows are past their deadline. Without this it is a sequential
+  /// scan of the whole bookings table, sixty times an hour, forever.
+  @@index([status, holdExpiresAt])
   @@map("bookings")
 }
 

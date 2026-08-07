@@ -16,6 +16,8 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import { UsersService } from "../users/users.service";
 import { StoragePort } from "../common/storage/storage.port";
+import { assertObjectKeyBelongsTo } from "../common/storage/object-key";
+import { assertOptionalAvailabilityRange } from "../common/date/calendar-date";
 
 export interface CreateHotelInput {
   name: string;
@@ -31,10 +33,22 @@ export interface CreateHotelInput {
 export interface RoomAvailability {
   id: string;
   hotelId: string;
+  hotelName: string;
+  hotelCity: District;
   roomType: RoomType;
   pricePerNightMinor: number;
   currency: string;
   capacity: number;
+  /**
+   * Object key for the card image — the room's own photograph, or its hotel's,
+   * or null.
+   *
+   * Nullable and expected to be null often: most listings will not have a
+   * photograph on the day they are created. A card with no image falls back to
+   * its painted tone, which is a finished state rather than a broken image, so
+   * null needs no special handling beyond choosing the fallback.
+   */
+  coverObjectKey: string | null;
 }
 
 // Mirrors @staybangla/shared-types' HotelWithDetails (packages/shared-types/src/hotel.ts).
@@ -77,7 +91,19 @@ export class HotelsService {
   async findPublicDetailOrThrow(id: string): Promise<HotelDetailResult> {
     const hotel = await this.prisma.hotel.findUnique({
       where: { id },
-      include: { rooms: { include: { photos: true } }, photos: true },
+      include: {
+        // Active rooms only. This used to return every room, including ones a
+        // vendor had deactivated — so the page offered rooms that could not be
+        // booked, and the visitor found out after choosing one.
+        //
+        // Filtered in the query rather than after it, so there is no version of
+        // this that fetches everything and forgets to filter on the way out.
+        rooms: {
+          where: { isActive: true },
+          include: { photos: true },
+        },
+        photos: true,
+      },
     });
     if (!hotel || !hotel.isActive) {
       throw new NotFoundException("Hotel not found");
@@ -85,27 +111,71 @@ export class HotelsService {
     return hotel as HotelDetailResult;
   }
 
+  /**
+   * Rooms in a district, and — when dates are given — only those free for them.
+   *
+   * Dates are optional so a visitor can look at a district before choosing when
+   * to travel. With no dates this answers "what is here"; with dates, "what is
+   * free". The overlap clause is added rather than the query being written
+   * twice, so the two paths cannot drift apart on the parts that matter — the
+   * active checks and the suspended-owner exclusion.
+   */
   async searchAvailableRooms(
-    checkIn: string,
-    checkOut: string,
+    checkIn?: string,
+    checkOut?: string,
     city?: District,
   ): Promise<RoomAvailability[]> {
+    const hasRange = assertOptionalAvailabilityRange(checkIn, checkOut);
+
     const cityFilter = city
-      ? Prisma.sql`AND h.city = ${city}::"District"`
+      ? // The cast is load-bearing: without it Postgres cannot compare a text
+        // parameter to the enum column, and the query fails at runtime rather
+        // than at build time.
+        Prisma.sql`AND h.city = ${city}::"District"`
       : Prisma.empty;
-    return this.prisma.$queryRaw<RoomAvailability[]>(Prisma.sql`
-      SELECT r.id, r.hotel_id AS "hotelId", r.room_type AS "roomType",
-             r.price_per_night_minor AS "pricePerNightMinor", r.currency, r.capacity
-      FROM rooms r
-      JOIN hotels h ON h.id = r.hotel_id
-      WHERE r.is_active = true AND h.is_active = true ${cityFilter}
-        AND h.owner_id NOT IN (SELECT id FROM users WHERE suspended_at IS NOT NULL)
+
+    const rangeFilter = hasRange
+      ? Prisma.sql`
         AND NOT EXISTS (
           SELECT 1 FROM bookings b
           WHERE b.room_id = r.id
             AND b.status IN ('HELD', 'CONFIRMED', 'CHECKED_IN', 'BLOCKED')
             AND b.date_range && daterange(${checkIn}::date, ${checkOut}::date, '[)')
-        )
+        )`
+      : Prisma.empty;
+
+    return this.prisma.$queryRaw<RoomAvailability[]>(Prisma.sql`
+      SELECT r.id, r.hotel_id AS "hotelId", h.name AS "hotelName", h.city AS "hotelCity",
+             r.room_type AS "roomType",
+             r.price_per_night_minor AS "pricePerNightMinor", r.currency, r.capacity,
+             -- The room's own photograph if it has one, otherwise the hotel's.
+             -- Resolved here rather than in the browser: doing it client-side
+             -- would cost a request per result, and a second round trip would
+             -- make the page render twice.
+             --
+             -- LATERAL rather than a join, because a join to a one-to-many
+             -- table multiplies the rows — a room with three photographs would
+             -- appear three times in the results.
+             COALESCE(rp.object_key, hp.object_key) AS "coverObjectKey"
+      FROM rooms r
+      JOIN hotels h ON h.id = r.hotel_id
+      LEFT JOIN LATERAL (
+        SELECT object_key FROM room_photos
+        WHERE room_id = r.id
+        -- Primary first, then oldest, so the choice is stable between calls.
+        ORDER BY is_primary DESC, created_at ASC
+        LIMIT 1
+      ) rp ON true
+      LEFT JOIN LATERAL (
+        SELECT object_key FROM hotel_photos
+        WHERE hotel_id = h.id
+        ORDER BY is_primary DESC, created_at ASC
+        LIMIT 1
+      ) hp ON true
+      WHERE r.is_active = true AND h.is_active = true ${cityFilter}
+        AND h.owner_id NOT IN (SELECT id FROM users WHERE suspended_at IS NOT NULL)
+        ${rangeFilter}
+      ORDER BY r.price_per_night_minor ASC
     `);
   }
 
@@ -146,6 +216,7 @@ export class HotelsService {
     if (hotel.ownerId !== callerId) {
       throw new ForbiddenException("You do not own this hotel");
     }
+    assertObjectKeyBelongsTo("hotels", hotelId, objectKey);
     if (isPrimary) {
       await this.prisma.hotelPhoto.updateMany({
         where: { hotelId, isPrimary: true },

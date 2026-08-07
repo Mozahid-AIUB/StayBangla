@@ -2,25 +2,231 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  /* Warm near-black rather than a green-black. The text should not carry a
+     hue at all — any tint in body copy is a colour decision applied to the
+     one element that has no business making one. */
+  --foreground: #1a1a1c;
+
+  /* Bengal indigo. Primary actions and brand marks.
+     ---------------------------------------------------------------
+     Replaces a tea-garden green, and the reason is the reflex behind it:
+     travel → nature → green is the first association anyone reaches for,
+     which is exactly why it is on every other travel site. A colour that
+     arrives without a decision is not a brand.
+
+     Indigo is the dye this land was made to grow — the plantations, the
+     revolt, the word নীল itself. It is specific to Bengal in a way no
+     palette generator would produce, it is not green, and it is none of the
+     three looks machine-made design keeps landing on (cream and terracotta,
+     near-black and acid green, newsprint rules).
+
+     White on --primary = 12.2:1, well past AAA, so button labels are safe at
+     any size. --primary on white is the same figure for links and icons. */
+  --primary: #26355c;
+  --primary-hover: #1b2745;
+  --on-primary: #ffffff;
+
+  /* Surfaces are warm stone, not a tinted version of the brand colour. The
+     photography is the only thing on this page that should be saturated;
+     everything the interface itself draws stays quiet so the pictures are the
+     one place colour arrives.
+     --muted-foreground on --surface = 4.9:1 (AA); it is for supporting copy,
+     never for anything load-bearing. */
+  --surface: #f6f4f1;
+  --border: #e4e0da;
+  --muted-foreground: #6b6560;
+
+  /* The one warm value, and it is named for its job rather than as an
+     "accent" so nobody reaches for it as a general second colour.
+     ---------------------------------------------------------------
+     It marks *now*: the current month on a season bar, and the districts whose
+     season is running in the footer. Warm against a cold interface reads as the
+     present moment, which is the single thing this site keeps pointing at.
+
+     Measured before it was chosen. No warm tone in this family clears 4.5:1 on
+     white AND on the footer AND on the dark district cards — the three surfaces
+     it would have to survive as text. This one is 6.8:1 on the footer and
+     3.4:1 on a card, which is past the 3:1 a graphic marker needs, and 2.5:1
+     on white, which is why it is never text on white and why the name says
+     marker.
+
+     Deliberately not #F4A261 or any terracotta. A near-white page, a serif
+     display and a terracotta accent is the exact combination machine-made
+     design keeps producing, and two thirds of it is already on this page. */
+  --marker: #d19a3c;
+
+  /* Scrim over hero photography. The headline must not depend on the
+     photograph happening to be dark — this guarantees contrast whatever image
+     sits underneath.
+
+     Was 0.55, which flattened the photograph into mud once the two gradient
+     scrims stacked on top of it. The headline sits in the upper third, so the
+     top-weighted gradient carries most of the contrast work and this flat wash
+     only needs to take the edge off.
+
+     Indigo-black rather than the old green-black: a scrim tints everything
+     under it, so a green wash was quietly pulling every photograph towards the
+     colour the brand no longer uses. */
+  --hero-scrim: rgb(10 14 30 / 0.22);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
+  /* No --color-accent. It was defined as a second brand colour and then never
+     used by a single component — a token nobody reaches for is a decision
+     nobody made, and it invites a future second call-to-action competing with
+     search. If a genuine secondary need appears, it can be added then. */
+  --color-marker: var(--marker);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-muted-foreground: var(--muted-foreground);
+
+  /* One family for both scripts. Hind Siliguri draws Bengali and Latin in the
+     same design, so a sentence that mixes them is set rather than assembled.
+
+     The stack this replaces put Noto Sans Bengali first and Geist behind it —
+     but Noto Sans Bengali carries a Latin subset, so it answered for the Latin
+     too and Geist never drew a character while still being downloaded.
+
+     Tailwind maps --font-sans onto --default-font-family, so this is the body
+     font without needing a `body { font-family }` rule to force it. */
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+
+  /* No --font-mono override: nothing on the site uses the font-mono utility,
+     and defining it meant shipping a whole monospace family to render nothing.
+     Tailwind's own default stack still answers if a mono class ever appears. */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Display face — splash wordmark and page headings. Body copy stays on the
+   sans above, where a serif at small sizes would cost legibility.
+
+   Two faces, one stack, and the order is the bilingual pairing. Fraunces has
+   no Bengali glyphs, so the browser reaches past it to Noto Serif Bengali for
+   anything in the Bengali block and uses Fraunces for everything else. One
+   class covers both languages and the toggle never drops to a system font.
+
+   A plain class rather than a --font-* theme token or an @utility: the token
+   form emits nothing when it resolves to a next/font variable (whose value is
+   injected at runtime, not build time), and @utility did not register in dev
+   either. Verified against the served stylesheet rather than assumed. */
+.font-display {
+  font-family: var(--font-display), var(--font-display-bengali), Georgia, serif;
+}
+
+/* Splash motion. Kept here rather than inline so the keyframes exist once and
+   the reduced-motion guard below can switch all of it off in one place. */
+
+/* Ken Burns: slow enough that it reads as depth rather than movement. */
+@keyframes splash-drift {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.09);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* A single pass of light across the wordmark. */
+@keyframes splash-sheen {
+  from {
+    background-position: -150% 0;
+  }
+  to {
+    background-position: 250% 0;
+  }
+}
+
+/* Hero drift: far slower than the splash's, and it alternates rather than
+   looping, so it never snaps back to the start while someone is reading. */
+@keyframes hero-drift {
+  from {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.12) translate3d(-1%, -1.5%, 0);
+  }
+}
+
+.hero-drift {
+  animation: hero-drift 38s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* Time remaining on the current promotional slide. Its real job is feedback:
+   without it the pause button gives no sign of having done anything, and an
+   auto-advancing panel that offers no evidence it is auto-advancing is just a
+   thing that moves while you are reading it. */
+@keyframes ad-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-drift,
+  .splash-sheen,
+  .hero-drift {
+    animation: none !important;
+  }
+}
+
+/* Light only, deliberately. A travel site lives on its photography, and a dark
+   chrome mutes the very images it exists to show — the same reason
+   Booking.com and Airbnb stay light. Declaring color-scheme also stops the
+   browser darkening form controls and scrollbars for visitors whose OS is set
+   to dark, which is what made the page look muddy. */
+:root {
+  color-scheme: light;
+}
+
+/* Focus, made visible everywhere and in one place.
+   ---------------------------------------------------------------
+   Nothing on this site declared a focus style, so every control fell back to
+   the browser's default outline. That is fine on the white sections and
+   effectively invisible on the ones this design is built around — white text
+   on a photograph, the dark footer, the district cards. And the district
+   select carried `focus:outline-none` with no replacement at all, which is a
+   straight WCAG 2.4.7 failure: a keyboard visitor tabbing through the search
+   panel had no way to know where they were.
+
+   :focus-visible rather than :focus, so a mouse click does not leave a ring
+   behind — which is the reason people reach for outline-none in the first
+   place.
+
+   Two rings, one light and one dark, both drawn outside the element so a
+   rounded control keeps its shape. currentColor is not used: on a photograph
+   the text is white and the ring would vanish into it. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Anything sitting on photography or on the footer needs the opposite ring —
+   the indigo one disappears against both. */
+.on-dark :focus-visible,
+footer :focus-visible {
+  outline-color: #ffffff;
+}
+
+/* Anchor targets clear the sticky header instead of landing underneath it. */
+[id] {
+  scroll-margin-top: 5.5rem;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }

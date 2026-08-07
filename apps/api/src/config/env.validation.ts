@@ -9,6 +9,11 @@ const envSchema = z.object({
   CORS_ORIGINS: z.string().default("http://localhost:3000"),
 
   REDIS_URL: z.string().url(),
+  // Prepended to every Redis key, so a shared Redis server can hold more than
+  // one application. Empty by default — see RedisService for why that default
+  // has to stay empty. Include the trailing separator: "staybangla:", not
+  // "staybangla".
+  REDIS_KEY_PREFIX: z.string().default(""),
 
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
