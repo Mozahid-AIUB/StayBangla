@@ -5,6 +5,8 @@ import { BookingsController } from "./bookings.controller";
 import { PaymentsController } from "./payments.controller";
 import { BookingMaintenanceService } from "./booking-maintenance.service";
 import { BookingMaintenanceController } from "./booking-maintenance.controller";
+import { TravelerBookingsService } from "./traveler-bookings.service";
+import { TravelerBookingsController } from "./traveler-bookings.controller";
 
 /**
  * No BullMQ.
@@ -30,10 +32,20 @@ import { BookingMaintenanceController } from "./booking-maintenance.controller";
   imports: [PaymentsModule],
   controllers: [
     BookingsController,
+    // Owns `GET /bookings` and `GET /bookings/:id`. BookingsController owns the
+    // deeper paths under the same prefix (`bookings/:id/payment-status`,
+    // `bookings/:id/cancel`); those are distinct patterns and neither shadows
+    // the other, but they are worth keeping adjacent so the split stays
+    // visible.
+    TravelerBookingsController,
     PaymentsController,
     BookingMaintenanceController,
   ],
-  providers: [BookingsService, BookingMaintenanceService],
+  providers: [
+    BookingsService,
+    BookingMaintenanceService,
+    TravelerBookingsService,
+  ],
   exports: [BookingsService, BookingMaintenanceService],
 })
 export class BookingsModule {}
