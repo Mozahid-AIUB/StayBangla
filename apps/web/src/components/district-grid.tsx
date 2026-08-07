@@ -135,7 +135,7 @@ function DistrictCard({ district }: { district: District }) {
       <div className="relative flex h-full flex-col justify-end p-4 sm:p-6">
         <h3
           className={`font-display leading-tight font-light ${
-            large ? "text-3xl sm:text-5xl" : "text-lg sm:text-2xl"
+            large ? "text-2xl sm:text-4xl" : "text-lg sm:text-xl"
           }`}
         >
           {t(name, lang)}
@@ -175,7 +175,7 @@ export function DistrictGrid() {
       {/* Fixed row height on desktop so the two-row card has two rows to span;
           on mobile the cards size to their content instead, because a fixed row
           that fits the English line can clip the longer Bengali one. */}
-      <ul className="mt-8 grid grid-cols-2 gap-3 sm:mt-14 sm:auto-rows-[13rem] sm:grid-cols-4 sm:gap-4">
+      <ul className="mt-8 grid grid-cols-2 gap-3 sm:mt-14 sm:auto-rows-[11rem] sm:grid-cols-4 sm:gap-4">
         {FEATURED_DISTRICTS.map((district) => (
           <li key={district} className={SPAN[district] ?? ""}>
             <DistrictCard district={district} />

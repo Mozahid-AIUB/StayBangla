@@ -4,16 +4,12 @@ import { useEffect, useState } from "react";
 import { District } from "@staybangla/shared-types";
 import { COPY, t } from "@/lib/copy";
 import { localiseDigits, todayInDhaka } from "@/lib/dates";
-import {
-  ALL_DISTRICTS_IN_ORDER,
-  DISTRICTS,
-  FEATURED_DISTRICTS,
-} from "@/lib/districts";
+import { ALL_DISTRICTS_IN_ORDER, DISTRICTS } from "@/lib/districts";
 import { useLang } from "@/lib/lang-context";
 import type { Month } from "@/lib/season";
 
 /** How many districts the in-season line names before it stops being a line. */
-const SEASON_LINE_LIMIT = 4;
+const SEASON_LINE_LIMIT = 3;
 
 /**
  * Computed once at module load, not per render. `new Date()` inside a client
@@ -25,42 +21,6 @@ const YEAR = new Date().getFullYear();
 
 /** SSLCommerz carries these; the list is not aspirational. */
 const PAYMENTS = ["bKash", "Nagad", "Rocket", "Visa", "Mastercard"] as const;
-
-/**
- * An entry with somewhere to go. In-page anchors only for now, since those are
- * the destinations that exist.
- */
-function FooterLink({ href, children }: { href: string; children: string }) {
-  return (
-    <li>
-      <a
-        href={href}
-        className="text-white/65 transition-colors hover:text-white"
-      >
-        {children}
-      </a>
-    </li>
-  );
-}
-
-/**
- * An entry with nowhere to go yet.
- *
- * Rendered as plain text with a marker rather than a link. A footer padded out
- * with links that 404 is the oldest tell of an unfinished site, and it costs
- * more trust than the empty column it was hiding.
- */
-function FooterSoon({ children }: { children: string }) {
-  const { lang } = useLang();
-  return (
-    <li className="flex items-center gap-2">
-      <span className="text-white/35">{children}</span>
-      <span className="rounded-full border border-white/15 px-1.5 py-px text-[0.5625rem] tracking-wide text-white/35 uppercase">
-        {t(COPY.footer.soon, lang)}
-      </span>
-    </li>
-  );
-}
 
 /**
  * The districts whose season is actually running today.
@@ -93,12 +53,27 @@ function useDistrictsInSeason(): readonly District[] {
   return districts;
 }
 
+function FooterLink({ href, children }: { href: string; children: string }) {
+  return (
+    <li>
+      <a
+        href={href}
+        className="inline-block text-white/60 transition-colors hover:text-white"
+      >
+        {children}
+      </a>
+    </li>
+  );
+}
+
 function Column({
   title,
   children,
+  note,
 }: {
   title: string;
   children: React.ReactNode;
+  note?: string;
 }) {
   const { lang } = useLang();
   return (
@@ -118,7 +93,8 @@ function Column({
       >
         {title}
       </h2>
-      <ul className="space-y-2.5 text-sm">{children}</ul>
+      <ul className="space-y-3 text-sm">{children}</ul>
+      {note && <p className="mt-4 text-xs text-white/35">{note}</p>}
     </div>
   );
 }
@@ -129,11 +105,23 @@ function Column({
  * Dark, and deliberately the only dark band below the hero. The page opens on a
  * photograph and runs white through the middle; ending on white leaves it
  * looking like the browser ran out of content rather than the page finishing.
- * A deep band closes it.
  *
  * Darker than --primary rather than being it. At brand strength a full-width
  * block competes with the search button, which is the one thing on the page
  * that should be the loudest indigo.
+ *
+ * Rebuilt after the first version read as unfinished, and it was:
+ *
+ * - Five of nine links were "Soon" badges, and the whole partner column was
+ *   four of four. A footer padded out with what does not exist yet advertises
+ *   exactly that. Those become three plain entries and one quiet sentence
+ *   underneath — said once instead of four times.
+ * - The destinations column was five links that all went to `#districts`. Five
+ *   entries pointing at one anchor is not navigation, it is filler with the
+ *   shape of navigation. Gone; the section link says the same thing honestly.
+ * - It opened with a list of links, which is what a footer does when it has
+ *   nothing to say. It now opens with the season line the whole site is built
+ *   on, and one way back to the search.
  */
 export function SiteFooter() {
   const { lang } = useLang();
@@ -148,142 +136,134 @@ export function SiteFooter() {
         aria-hidden
         className="absolute inset-x-0 top-0 h-40 bg-[linear-gradient(to_bottom,rgb(255_255_255/0.07)_0%,transparent_100%)]"
       />
-      <div className="relative mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
-        <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+
+      <div className="relative mx-auto w-full max-w-6xl px-4 pt-12 sm:px-6 sm:pt-16">
+        {/* The closing statement. A footer that begins with a column of links
+            is a footer with nothing left to say; this finishes the argument the
+            page spent its whole length making. */}
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <p className="font-display max-w-lg text-xl leading-snug font-light sm:text-3xl">
+            {t(COPY.footer.closing, lang)}
+          </p>
+          <a
+            href="#districts"
+            className="group inline-flex shrink-0 items-center gap-2 border-b border-white/25 pb-1 text-sm text-white/85 transition-colors hover:border-white hover:text-white"
+          >
+            {t(COPY.footer.startPlanning, lang)}
+            <span
+              aria-hidden
+              className="transition-transform group-hover:translate-x-0.5"
+            >
+              →
+            </span>
+          </a>
+        </div>
+
+        <div className="mt-10 grid gap-10 border-t border-white/10 pt-10 sm:mt-12 sm:pt-12 lg:grid-cols-[1.6fr_1fr_1fr]">
           <div className="max-w-sm">
-            <p className="font-display text-2xl font-light tracking-[0.04em]">
+            <p className="font-display text-xl font-light tracking-[0.04em]">
               StayBangla
             </p>
-            <p className="mt-4 text-sm leading-relaxed text-white/60">
+            <p className="mt-4 text-sm leading-relaxed text-white/55">
               {t(COPY.footer.blurb, lang)}
             </p>
+
+            {/*
+              The season, live, in the block it belongs to rather than in a row
+              of its own. A visitor in August is told Sylhet and Barishal; the
+              same footer in December says Saint Martin and Sundarbans, and
+              nobody edits anything in between.
+
+              min-h holds the space so the line arriving after mount does not
+              shift what is under it.
+            */}
+            <div className="mt-6 flex min-h-10 flex-wrap items-center gap-x-3 gap-y-2">
+              {inSeason.length > 0 && (
+                <>
+                  <span className="text-xs text-white/40">
+                    {t(COPY.footer.bestNow, lang)}
+                  </span>
+                  {inSeason.map((district) => (
+                    <a
+                      key={district}
+                      href="#districts"
+                      // The marker again, and for the same reason it appears on
+                      // the season bars: these are the districts whose season is
+                      // running now. 6.8:1 against this footer.
+                      className="font-display border-b border-[color:var(--marker)]/40 pb-0.5 text-sm font-light text-[color:var(--marker)] transition-colors hover:border-[color:var(--marker)]"
+                    >
+                      {t(DISTRICTS[district].name, lang)}
+                    </a>
+                  ))}
+                </>
+              )}
+            </div>
           </div>
 
-          <Column title={t(COPY.footer.destinations, lang)}>
-            {/* The four people actually search for. The rest are one click
-                away rather than listed out — a column of sixteen is an index,
-                not a footer. */}
-            {FEATURED_DISTRICTS.slice(0, 4).map((district) => (
-              <FooterLink key={district} href="#districts">
-                {t(DISTRICTS[district].name, lang)}
-              </FooterLink>
-            ))}
-            <FooterLink href="#districts">
-              {t(COPY.footer.allDistricts, lang)}
-            </FooterLink>
-          </Column>
-
           <Column title={t(COPY.footer.explore, lang)}>
+            <FooterLink href="#districts">
+              {t(COPY.footer.destinations, lang)}
+            </FooterLink>
             <FooterLink href="#rides">
               {t(COPY.footer.links.staysAndRides, lang)}
             </FooterLink>
             <FooterLink href="#why">
               {t(COPY.footer.links.whyUs, lang)}
             </FooterLink>
-            <FooterSoon>{t(COPY.footer.links.help, lang)}</FooterSoon>
           </Column>
 
-          <Column title={t(COPY.footer.partners, lang)}>
-            <FooterSoon>{t(COPY.footer.links.listProperty, lang)}</FooterSoon>
-            <FooterSoon>{t(COPY.footer.links.addVehicle, lang)}</FooterSoon>
-            <FooterSoon>{t(COPY.footer.links.advertise, lang)}</FooterSoon>
-            <FooterSoon>{t(COPY.footer.links.partnerLogin, lang)}</FooterSoon>
+          {/* Real entries, listed plainly, with the caveat said once at the
+              bottom instead of stamped on each one. */}
+          <Column
+            title={t(COPY.footer.partners, lang)}
+            note={t(COPY.footer.partnersSoon, lang)}
+          >
+            <li className="text-white/40">
+              {t(COPY.footer.links.listProperty, lang)}
+            </li>
+            <li className="text-white/40">
+              {t(COPY.footer.links.addVehicle, lang)}
+            </li>
+            <li className="text-white/40">
+              {t(COPY.footer.links.advertise, lang)}
+            </li>
           </Column>
         </div>
 
-        {/*
-          The season, back one more time at the foot of the page.
-
-          It is the device the whole site is built on — every district card
-          carries its months — and repeating it here as a live sentence is what
-          turns it from a graphic into a claim the site keeps making. A visitor
-          in August is told Sylhet and Barishal; the same footer in December
-          says Saint Martin and Sundarbans, without anyone editing it.
-
-          min-h holds the row so the line arriving after mount does not shove
-          the rest of the footer down.
-        */}
-        <div className="mt-14 flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 border-t border-white/10 pt-8">
-          {inSeason.length > 0 && (
-            <>
-              <span className="text-xs text-white/45">
-                {t(COPY.footer.bestNow, lang)}
-              </span>
-              {inSeason.map((district) => (
-                <a
-                  key={district}
-                  href="#districts"
-                  // The marker again, and for the same reason it appears on the
-                  // season bars: these are the districts whose season is
-                  // running *now*. One warm value, one meaning, twice on the
-                  // page — 6.8:1 against this footer, comfortably past AA.
-                  className="font-display border-b border-[color:var(--marker)]/45 pb-0.5 text-sm font-light text-[color:var(--marker)] transition-colors hover:border-[color:var(--marker)]"
-                >
-                  {t(DISTRICTS[district].name, lang)}
-                </a>
-              ))}
-            </>
-          )}
-        </div>
-
-        <div className="mt-8 border-t border-white/10 pt-8">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <span className="text-xs text-white/45">
+        <div className="mt-10 flex flex-col gap-5 border-t border-white/10 pt-7 sm:mt-12 lg:flex-row lg:items-center lg:justify-between">
+          {/* Wordmarks set as text, not bordered chips. A row of outlined boxes
+              reads as tags; the names set plainly with room between them reads
+              as a statement about how you pay. */}
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+            <span className="text-xs text-white/35">
               {t(COPY.footer.payments, lang)}
             </span>
             {PAYMENTS.map((method) => (
-              // Wordmarks, not logos. A logo is the brand's property and needs
-              // their permission; naming a payment method you accept does not.
-              <span
-                key={method}
-                className="rounded-md border border-white/15 px-2.5 py-1 text-xs text-white/70"
-              >
+              <span key={method} className="text-sm text-white/70">
                 {method}
               </span>
             ))}
-            <span className="text-xs text-white/45">
-              {t(COPY.footer.paymentNote, lang)}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-white/35">
+            <span>{t(COPY.footer.links.terms, lang)}</span>
+            <span>{t(COPY.footer.links.privacy, lang)}</span>
+            <span>
+              © {localiseDigits(String(YEAR), lang)} StayBangla ·{" "}
+              {t(COPY.footer.madeIn, lang)}
             </span>
           </div>
         </div>
-
-        <div className="mt-8 flex flex-col gap-3 text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            © {localiseDigits(String(YEAR), lang)} StayBangla ·{" "}
-            {t(COPY.footer.rights, lang)}
-          </p>
-          <div className="flex items-center gap-4">
-            <span>{t(COPY.footer.links.terms, lang)}</span>
-            <span>{t(COPY.footer.links.privacy, lang)}</span>
-            <span className="text-white/30">{t(COPY.footer.madeIn, lang)}</span>
-          </div>
-        </div>
       </div>
 
-      {/*
-        The name, once, at the size a name is set on a building.
-
-        Decorative and aria-hidden — the wordmark is already in the footer as
-        real text above, and a screen reader reading "StayBangla" twice at the
-        end of the page is noise.
-
-        It is clipped by the footer's overflow rather than fitted inside it: a
-        word sized to fit its box is a heading, a word running past the edge is
-        a mark. clamp() ties it to the viewport so it holds that relationship
-        from a phone to a desktop instead of being tuned for one screen.
-
-        Very low contrast on purpose. At any strength it would compete with the
-        links above it, and the point is the impression of the name rather than
-        another thing to read.
-      */}
-      <div
-        aria-hidden
-        className="relative -mb-[0.14em] w-full overflow-hidden px-4 select-none sm:px-6"
-      >
-        <p className="font-display mx-auto max-w-6xl text-center text-[clamp(4rem,17vw,15rem)] leading-[0.8] font-light tracking-[-0.03em] text-white/[0.055] sm:text-left">
-          StayBangla
-        </p>
-      </div>
+      {/* Bottom padding instead of the oversized wordmark that used to sit
+          here. It was meant to read as a watermark at 5% white, but the
+          opacity was written as text-white/[0.05] — a form Tailwind does not
+          generate, so the class did nothing and the word rendered solid white
+          across the whole foot of the page. Removed rather than corrected: the
+          owner did not want it, and a footer does not need a second copy of a
+          name that is already in it twice. */}
+      <div className="h-8 sm:h-12" />
     </footer>
   );
 }

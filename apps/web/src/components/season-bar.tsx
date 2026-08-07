@@ -73,16 +73,24 @@ export function SeasonBar({ months }: { months: readonly Month[] }) {
           return (
             <span
               key={month}
-              className={`flex-1 rounded-[1.5px] transition-all duration-300 ${
-                current ? "h-3" : "h-1.5"
+              // Thinner and dimmer than the first pass. At 6px and 90% white
+              // the bar was the loudest thing on a card — a row of heavy blocks
+              // that read as a barcode and pulled the eye off the name it was
+              // supposed to annotate. It is a footnote to the district, so it
+              // is set like one.
+              //
+              // The current month keeps its full strength and its extra height:
+              // it is the one segment that has something to say.
+              className={`flex-1 rounded-[1px] transition-all duration-300 ${
+                current ? "h-2.5" : "h-1"
               } ${
                 current
                   ? lit
                     ? "bg-marker"
-                    : "bg-marker/40"
+                    : "bg-marker/45"
                   : lit
-                    ? "bg-white/90"
-                    : "bg-white/15"
+                    ? "bg-white/65"
+                    : "bg-white/12"
               }`}
             />
           );

@@ -35,7 +35,17 @@ export function Hero() {
     // like a smudge on the glass. The dissolve solves the hairline the same
     // way for free: its last stop is opaque white and the page beneath it is
     // white, so there is nothing for an alias to reveal.
-    <section className="relative isolate">
+    //
+    // overflow-x-clip, and the axis matters. The four backdrop layers below
+    // each bleed a pixel past both sides, which put the document's scroll width
+    // one pixel over the viewport and gave the whole page a horizontal
+    // scrollbar — on a landing page, of all things.
+    //
+    // Not overflow-hidden: hidden on one axis forces the other to become a
+    // scroll container, so it would clip the bottom bleed as well and bring
+    // back the hairline this section spent so long getting rid of. `clip` on x
+    // with `visible` on y is a legal pair and leaves the vertical alone.
+    <section className="relative isolate overflow-x-clip">
       {/*
         The same photograph the splash used, so the curtains part onto the
         scene the visitor was just looking at rather than cutting to something
@@ -95,12 +105,23 @@ export function Hero() {
         The dissolve. Last of the backdrop layers, so it sits over both scrims
         rather than under them.
 
-        Not a fade to white — a fade through mist. A dark photograph blended
-        straight into #ffffff passes through dead grey, and that grey is what
-        reads as a dirty band across the boundary. These stops carry the faintest
-        warmth instead, matching --surface rather than sitting a few degrees off
-        it, so the picture appears to recede into weather rather than being
-        erased.
+        A dark photograph blended into white passes through grey on the way,
+        and grey against white reads as fog on the lens rather than as weather.
+        That cannot be designed away — it is what the arithmetic does — so the
+        stops are shaped to spend as little distance in it as possible.
+
+        The curve is deliberately not linear. It eases in from transparent and
+        eases out into white, which is what keeps either end from showing an
+        edge, but it crosses the muddy middle — roughly 0.3 to 0.7 alpha — in
+        twenty pixels. A linear ramp over the same distance would smear that
+        band across four times as much of the picture.
+
+        Shortened from 172px for the same reason. A longer dissolve is not a
+        softer one; past a point it is just more of the grey.
+
+        The stops carry the faintest warmth rather than being pure white, so
+        they meet --surface where the page continues instead of sitting a few
+        degrees off it.
 
         Measured in pixels from the bottom rather than in percentages: the hero
         is a viewport-relative height, and a percentage-based dissolve would be
@@ -119,11 +140,11 @@ export function Hero() {
           backgroundImage: [
             "linear-gradient(to top",
             "#ffffff 0px",
-            "rgb(254 253 252 / 0.96) 24px",
-            "rgb(250 248 245 / 0.74) 60px",
-            "rgb(246 244 241 / 0.42) 98px",
-            "rgb(242 239 235 / 0.16) 134px",
-            "transparent 172px)",
+            "rgb(255 255 255 / 0.94) 18px",
+            "rgb(252 251 249 / 0.72) 36px",
+            "rgb(248 246 243 / 0.30) 56px",
+            "rgb(245 243 239 / 0.10) 78px",
+            "transparent 100px)",
           ].join(","),
         }}
       />

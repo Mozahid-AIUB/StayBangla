@@ -234,6 +234,28 @@ export const COPY = {
 
   footer: {
     tagline: { en: "See Bangladesh", bn: "বাংলাদেশ ঘুরে দেখুন" },
+    /**
+     * The footer opens with this rather than with a column of links.
+     *
+     * It is the season idea one last time — the thing every district card is
+     * built on — said as a parting line instead of drawn as a bar. A footer
+     * that starts by listing where else to click has nothing to say; this one
+     * finishes the argument the page was making.
+     */
+    closing: {
+      en: "Go while the season is right.",
+      bn: "ঋতু ঠিক থাকতে থাকতেই বেরিয়ে পড়ুন।",
+    },
+    startPlanning: { en: "Start planning", bn: "পরিকল্পনা শুরু করুন" },
+    /**
+     * One quiet sentence under the partner column, replacing a "Soon" badge
+     * beside every item. Four badges advertise what is missing; one line says
+     * the same thing once and stops.
+     */
+    partnersSoon: {
+      en: "Partner tools open soon.",
+      bn: "অংশীদারদের সুবিধা শীঘ্রই চালু হচ্ছে।",
+    },
     blurb: {
       en: "Stays and rides in sixteen districts, booked in taka, from the people who live on those roads.",
       bn: "ষোলো জেলার হোটেল আর গাড়ি — টাকায় বুক করুন, যারা ওই পথে থাকে তাদের কাছ থেকেই।",
