@@ -19,7 +19,7 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
-    "@casl/ability": "^6.7.2",
+    "@casl/ability": "^7.0.1",
     "@nest-lab/throttler-storage-redis": "^1.2.0",
     "@nestjs/bullmq": "^11.0.0",
     "@nestjs/common": "^11.0.0",
