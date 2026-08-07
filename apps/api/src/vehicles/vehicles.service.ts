@@ -5,10 +5,11 @@ import {
 } from "@nestjs/common";
 import { Prisma, Vehicle, District } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { assertOptionalAvailabilityRange } from "../common/date/calendar-date";
 import { UsersService } from "../users/users.service";
 
 export interface CreateVehicleInput {
-  category: "CNG" | "JEEP" | "BOAT";
+  category: "CAR" | "CNG" | "JEEP" | "BOAT";
   city: District;
   model?: string;
   capacity: number;
@@ -74,26 +75,47 @@ export class VehiclesService {
     });
   }
 
+  /**
+   * Vehicles in a district, and — when dates are given — only those free for
+   * them.
+   *
+   * Dates are optional so a visitor can look at a district before choosing
+   * when to travel. With no dates this is "what is here"; with dates it is
+   * "what is free", and the overlap clause is added rather than the whole
+   * query being written twice.
+   */
   async searchAvailable(
-    startDate: string,
-    endDate: string,
+    startDate?: string,
+    endDate?: string,
     city?: District,
   ): Promise<VehicleAvailability[]> {
+    const hasRange = assertOptionalAvailabilityRange(startDate, endDate);
+
     const cityFilter = city
-      ? Prisma.sql`AND v.city = ${city}::"District"`
+      ? // The cast is load-bearing: without it Postgres cannot compare a text
+        // parameter to the enum column, and the query fails at runtime rather
+        // than at build time.
+        Prisma.sql`AND v.city = ${city}::"District"`
       : Prisma.empty;
+
+    const rangeFilter = hasRange
+      ? Prisma.sql`
+        AND NOT EXISTS (
+          SELECT 1 FROM bookings b
+          WHERE b.vehicle_id = v.id
+            AND b.status IN ('HELD', 'CONFIRMED', 'CHECKED_IN', 'BLOCKED')
+            AND b.date_range && daterange(${startDate}::date, ${endDate}::date, '[)')
+        )`
+      : Prisma.empty;
+
     return this.prisma.$queryRaw<VehicleAvailability[]>(Prisma.sql`
       SELECT v.id, v.category, v.city, v.model, v.capacity,
              v.price_per_day_minor AS "pricePerDayMinor", v.currency
       FROM vehicles v
       WHERE v.is_active = true ${cityFilter}
         AND v.owner_id NOT IN (SELECT id FROM users WHERE suspended_at IS NOT NULL)
-        AND NOT EXISTS (
-          SELECT 1 FROM bookings b
-          WHERE b.vehicle_id = v.id
-            AND b.status IN ('HELD', 'CONFIRMED', 'CHECKED_IN', 'BLOCKED')
-            AND b.date_range && daterange(${startDate}::date, ${endDate}::date, '[)')
-        )
+        ${rangeFilter}
+      ORDER BY v.price_per_day_minor ASC
     `);
   }
 }

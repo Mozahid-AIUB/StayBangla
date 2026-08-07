@@ -122,12 +122,50 @@ describe("HotelsService", () => {
 
       const result = await service.findPublicDetailOrThrow("h1");
 
-      expect(prisma.hotel.findUnique).toHaveBeenCalledWith({
-        where: { id: "h1" },
-        include: { rooms: { include: { photos: true } }, photos: true },
-      });
       expect(result.rooms).toEqual([{ id: "r1", photos: [] }]);
       expect(result.photos).toEqual([{ id: "p1", isPrimary: true }]);
+    });
+
+    // This assertion used to require the opposite — the include carried no
+    // filter, so a deactivated room was returned and this test held that in
+    // place. A visitor shown a room they cannot book finds out only after
+    // choosing it.
+    it("asks the database for active rooms only", async () => {
+      prisma.hotel.findUnique.mockResolvedValue({
+        id: "h1",
+        isActive: true,
+        rooms: [],
+        photos: [],
+      });
+
+      await service.findPublicDetailOrThrow("h1");
+
+      expect(prisma.hotel.findUnique).toHaveBeenCalledWith({
+        where: { id: "h1" },
+        include: {
+          rooms: {
+            where: { isActive: true },
+            include: { photos: true },
+          },
+          photos: true,
+        },
+      });
+    });
+
+    // A hotel whose rooms are all deactivated is still a hotel. Returning 404
+    // would conflate "no rooms bookable right now" with "this place does not
+    // exist", and the two need different words on the page.
+    it("returns a hotel whose rooms are all deactivated, with an empty list", async () => {
+      prisma.hotel.findUnique.mockResolvedValue({
+        id: "h1",
+        isActive: true,
+        rooms: [],
+        photos: [],
+      });
+
+      const result = await service.findPublicDetailOrThrow("h1");
+
+      expect(result.rooms).toEqual([]);
     });
 
     it("throws NotFoundException when the hotel does not exist", async () => {
@@ -153,6 +191,8 @@ describe("HotelsService", () => {
           {
             id: "r1",
             hotelId: "h1",
+            hotelName: "Lakeshore Dhaka",
+            hotelCity: "DHAKA",
             roomType: "DOUBLE",
             pricePerNightMinor: 500000,
             currency: "BDT",
@@ -166,6 +206,22 @@ describe("HotelsService", () => {
       );
       expect(results).toHaveLength(1);
       expect(results[0]!.roomType).toBe("DOUBLE");
+      expect(results[0]!.hotelName).toBe("Lakeshore Dhaka");
+      expect(results[0]!.hotelCity).toBe("DHAKA");
+    });
+
+    it("selects the hotel's name and city alongside each room", async () => {
+      (prisma as unknown as { $queryRaw: jest.Mock }).$queryRaw = jest
+        .fn()
+        .mockResolvedValue([]);
+
+      await service.searchAvailableRooms("2026-09-01", "2026-09-03");
+
+      const [sqlObject] = (prisma as unknown as { $queryRaw: jest.Mock })
+        .$queryRaw.mock.calls[0];
+      const rendered = sqlObject.strings.join("");
+      expect(rendered).toContain('h.name AS "hotelName"');
+      expect(rendered).toContain('h.city AS "hotelCity"');
     });
 
     it("delegates to a raw query without a city filter when city is omitted", async () => {

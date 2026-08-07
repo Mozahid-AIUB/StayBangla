@@ -1,5 +1,6 @@
 import { INestApplication } from "@nestjs/common";
 import request from "supertest";
+import { District } from "@prisma/client";
 import { registerAndLogin } from "./test-users";
 import { testPrisma } from "./test-db";
 import { TokenService } from "../../src/auth/token.service";
@@ -26,14 +27,19 @@ export async function createVerifiedVendor(
 export async function createHotelWithRoom(
   app: INestApplication,
   vendorToken: string,
-  overrides: Partial<{ pricePerNightMinor: number; capacity: number }> = {},
+  overrides: Partial<{
+    pricePerNightMinor: number;
+    capacity: number;
+    name: string;
+    city: District;
+  }> = {},
 ): Promise<{ hotelId: string; roomId: string }> {
   const hotel = await request(app.getHttpServer())
     .post("/v1/hotels")
     .set("Authorization", `Bearer ${vendorToken}`)
     .send({
-      name: "Test Hotel",
-      city: "DHAKA",
+      name: overrides.name ?? "Test Hotel",
+      city: overrides.city ?? "DHAKA",
       address: "123 Test Road",
       checkInTime: "14:00",
       checkOutTime: "11:00",

@@ -1,0 +1,111 @@
+# How the API is deployed, as a file rather than as a screen full of clicks.
+#
+# Render can create the whole service from this — Blueprints → New Blueprint
+# Instance → pick this repository. The alternative is filling in a form and
+# pasting fifteen environment variables, which nobody can review, nobody can
+# diff, and nobody remembers doing six months later.
+#
+# Only the API lives here. The site itself is on Cloudflare Workers, and the
+# browser calls across from one to the other — which is why CORS_ORIGINS below
+# has to name the site's origin exactly.
+#
+# Everything else it depends on is already elsewhere: Postgres on Neon, Redis on
+# Upstash, media in R2.
+
+services:
+  - type: web
+    name: staybangla-api
+    runtime: docker
+
+    # Build context is the repository root, not apps/api. The Dockerfile copies
+    # pnpm-lock.yaml, pnpm-workspace.yaml and packages/ — all of which live
+    # above apps/api and are invisible from a context rooted there.
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+
+    plan: free
+    # Same region as Neon (ap-southeast-1) and Upstash. Every request the API
+    # makes to the database crosses this gap, and a booking makes several — put
+    # them on separate continents and a page that should take 200ms takes a
+    # second and a half.
+    region: singapore
+
+    # /health, not /. It is VERSION_NEUTRAL, so it has no /v1 prefix, and it
+    # answers without touching the database — a health check that queries
+    # Postgres reports the API as down whenever the database is briefly slow,
+    # and Render then restarts a process that was working.
+    healthCheckPath: /health
+
+    # Migrations run before the first request, not from inside the container's
+    # start command. A failed migration then fails the deploy and Render keeps
+    # the previous version serving, rather than starting a new one against a
+    # schema it does not match.
+    preDeployCommand: pnpm --filter @staybangla/api exec prisma migrate deploy
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Render injects PORT and health-checks that exact port. main.ts reads it
+      # ahead of API_PORT — it used to read only API_PORT, which would have
+      # started cleanly, answered nothing, and been killed as unhealthy with no
+      # error in its own logs.
+      - key: PORT
+        value: 8080
+
+      # The site's origin. Without it every request from the browser is blocked
+      # by CORS, and the console message names no cause anyone can act on.
+      - key: CORS_ORIGINS
+        value: https://staybangla.mozahidislam343.workers.dev
+
+      - key: FRONTEND_URL
+        value: https://staybangla.mozahidislam343.workers.dev
+
+      # Where SSLCommerz sends its server-to-server notification. Set after the
+      # first deploy, once Render has assigned the URL — it cannot be known
+      # before the service exists.
+      - key: API_BASE_URL
+        sync: false
+
+      # sync: false means Render asks for the value and stores it encrypted,
+      # rather than reading it from this file. None of these belongs in a
+      # repository.
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: REDIS_KEY_PREFIX
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: OTP_PEPPER
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+
+      # Payments. Placeholders for now — env.validation.ts requires both, and
+      # the provider only reads them when someone actually pays, so everything
+      # except the payment step runs without a merchant account.
+      - key: SSLCOMMERZ_STORE_ID
+        sync: false
+      - key: SSLCOMMERZ_STORE_PASSWORD
+        sync: false
+      - key: SSLCOMMERZ_SANDBOX
+        value: "true"
+
+      # Vendor photograph uploads, in R2. The names say MINIO because that is
+      # the client the storage service uses, not the destination.
+      - key: MINIO_ENDPOINT
+        sync: false
+      - key: MINIO_PORT
+        value: "443"
+      - key: MINIO_USE_SSL
+        value: "true"
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: MINIO_BUCKET
+        value: staybangla-uploads

@@ -6,5 +6,23 @@ coverage/
 *.log
 .env
 .env.*
+# Templates carry no values, only the names and where to get them. `.env.*`
+# above swallows them too, which quietly kept .env.production.example out of
+# the repository — a deployment checklist that exists on one laptop is not a
+# checklist. Anything ending .example is safe to track by construction.
 !.env.example
+!.env.*.example
 .DS_Store
+
+# wrangler's local state — a simulated R2/KV/D1 it keeps beside the project so
+# `wrangler dev` can run without touching the real bucket. Machine-local
+# scratch, and it is also why `r2 object get` without --remote reports that a
+# key which plainly exists does not.
+.wrangler/
+
+# Media originals, staged for conversion and upload to R2. Kept outside
+# apps/web/public/ so that being ignored here is not the only thing standing
+# between a 16 MB source photograph and the public site — see
+# media-source/README.md.
+media-source/*
+!media-source/README.md
