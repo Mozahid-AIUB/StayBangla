@@ -13,3 +13,9 @@ coverage/
 !.env.example
 !.env.*.example
 .DS_Store
+
+# wrangler's local state — a simulated R2/KV/D1 it keeps beside the project so
+# `wrangler dev` can run without touching the real bucket. Machine-local
+# scratch, and it is also why `r2 object get` without --remote reports that a
+# key which plainly exists does not.
+.wrangler/

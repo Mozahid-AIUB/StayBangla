@@ -281,7 +281,10 @@ export function districtPhotoPath(district: District): string {
  * Cards not listed keep their painted tone, which is a finished state and not
  * a placeholder.
  */
-export const DISTRICTS_WITH_PHOTO: readonly District[] = [];
+export const DISTRICTS_WITH_PHOTO: readonly District[] = [
+  District.COXS_BAZAR,
+  District.SAINT_MARTIN,
+];
 
 /**
  * Everything else, derived rather than listed.

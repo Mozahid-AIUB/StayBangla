@@ -86,7 +86,23 @@ function DistrictCard({ district }: { district: District }) {
     // is worse than one that plainly waits. It becomes a <Link> in the step
     // that wires the search form, since both need the same route.
     <article
-      className="relative h-full min-h-[11rem] overflow-hidden rounded-2xl text-white ring-1 ring-black/5 sm:min-h-0"
+      className={`relative h-full overflow-hidden rounded-2xl text-white ring-1 ring-black/5 sm:min-h-0 ${
+        // Photographed cards are taller on phones, where the grid gives every
+        // card one column and the height is ours to choose.
+        //
+        // 11rem was set when every card was a painted tone: the type needed
+        // room and nothing else did. A photograph changes both halves of that.
+        // The type block runs about 105px, which in a 176px card starts around
+        // 40% down — high enough to sit on the bright sky and horizon, where
+        // the wash has barely begun. Measured there, the name came out at
+        // 1.7:1 against white.
+        //
+        // It is also the wrong shape for a picture. A 176px letterbox crops a
+        // landscape photograph to a strip of its middle, which is exactly the
+        // band this one is palest in. The extra height buys a readable base
+        // for the words and a photograph you can see at the same time.
+        photo ? "min-h-[17rem]" : "min-h-[11rem]"
+      }`}
       style={{ backgroundImage: TERRAIN_TONE[terrain] }}
     >
       {/* The photograph, once there is one. It sits over the tone rather than
@@ -113,10 +129,26 @@ function DistrictCard({ district }: { district: District }) {
       )}
       {/* Carries the type, which all sits low. Deeper and taller than a card
           with text at the top would need, because the name is now over the part
-          of the gradient that is lightest. */}
+          of the gradient that is lightest.
+
+          Two strengths, because the two backgrounds are not comparable. The
+          painted tones are dark by construction — every one of them starts near
+          black — so a light wash is enough. A photograph brings its own light
+          and cannot be relied on for any of it: Cox's Bazar is pale dry sand
+          across its whole lower half, and under the painted card's wash the
+          white name measured 2.8:1 against it, below the 3:1 that WCAG asks
+          for even at 36px, with its lightest patches down at 1.5:1.
+
+          The deeper wash is confined to the bottom half. The picture is the
+          reason to look at the card, so the part of it above the type is left
+          alone — this darkens the sand the words sit on, not the view. */}
       <div
         aria-hidden
-        className="absolute inset-0 bg-[linear-gradient(to_top,rgb(6_9_20/0.62)_0%,rgb(6_9_20/0.26)_40%,transparent_72%)]"
+        className={
+          photo
+            ? "absolute inset-0 bg-[linear-gradient(to_top,rgb(6_9_20/0.88)_0%,rgb(6_9_20/0.72)_30%,rgb(6_9_20/0.46)_52%,rgb(6_9_20/0.12)_72%,transparent_88%)]"
+            : "absolute inset-0 bg-[linear-gradient(to_top,rgb(6_9_20/0.62)_0%,rgb(6_9_20/0.26)_40%,transparent_72%)]"
+        }
       />
       {/*
         Everything sits at the foot of the card, and the space above it is the
@@ -175,7 +207,13 @@ export function DistrictGrid() {
       {/* Fixed row height on desktop so the two-row card has two rows to span;
           on mobile the cards size to their content instead, because a fixed row
           that fits the English line can clip the longer Bengali one. */}
-      <ul className="mt-8 grid grid-cols-2 gap-3 sm:mt-14 sm:auto-rows-[11rem] sm:grid-cols-4 sm:gap-4">
+      {/* 13rem rows, not 11rem. A single-cell card is 264x176 at 11rem, and its
+          type — name, two or three lines of blurb, the season bar and its
+          caption — fills about 120px of that. The words therefore start around
+          a third of the way down, high enough to sit where a photograph is
+          still at full strength. The extra 32px moves them into the part of
+          the card the wash actually covers. */}
+      <ul className="mt-8 grid grid-cols-2 gap-3 sm:mt-14 sm:auto-rows-[13rem] sm:grid-cols-4 sm:gap-4">
         {FEATURED_DISTRICTS.map((district) => (
           <li key={district} className={SPAN[district] ?? ""}>
             <DistrictCard district={district} />

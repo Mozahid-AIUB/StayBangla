@@ -1,0 +1,29 @@
+# Photographs dropped in here are working files, never commits.
+#
+# The district folders beside this one are a staging area: put the originals
+# in, whatever their size or format, and they get converted and uploaded to
+# the R2 bucket. The site reads them from there, not from here — see
+# src/lib/assets.ts.
+#
+# Without this rule a 3 MB original lands in git the first time someone runs
+# `git add .`, and git keeps every version of a binary forever. That is
+# already true of ~8 MB of hero video, which is exactly the mistake this
+# folder should not repeat.
+*.jpg
+*.jpeg
+# .jfif is what Windows saves a JPEG as when it comes out of a browser's
+# right-click menu. It slipped past a jpg/jpeg rule on the first try.
+*.jfif
+*.png
+*.webp
+*.heic
+*.heif
+*.avif
+*.tif
+*.tiff
+*.bmp
+
+# The map stays: README.md explains where the files actually go, and .gitkeep
+# is what makes git carry the empty folders at all.
+!README.md
+!.gitkeep
